@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
+
+	"graphql-engineering-api/graph"
 )
 
 // JSONBValidator handles validation of JSONB properties against field definitions
@@ -16,28 +19,13 @@ func NewJSONBValidator() *JSONBValidator {
 	return &JSONBValidator{}
 }
 
-// FieldType represents the type of a field
-type FieldType string
-
-const (
-	FieldTypeString    FieldType = "string"
-	FieldTypeInteger   FieldType = "integer"
-	FieldTypeFloat     FieldType = "float"
-	FieldTypeBoolean   FieldType = "boolean"
-	FieldTypeTimestamp FieldType = "timestamp"
-	FieldTypeJSON      FieldType = "json"
-	FieldTypeFileRef   FieldType = "file_reference"
-	FieldTypeGeometry  FieldType = "geometry"
-	FieldTypeTimeseries FieldType = "timeseries"
-)
-
 // FieldDefinition represents a field definition for validation
 type FieldDefinition struct {
-	Type        FieldType `json:"type"`
-	Required    bool      `json:"required"`
-	Description string    `json:"description,omitempty"`
-	Default     any       `json:"default,omitempty"`
-	Validation  any       `json:"validation,omitempty"`
+	Type        graph.FieldType `json:"type"`
+	Required    bool            `json:"required"`
+	Description string          `json:"description,omitempty"`
+	Default     any             `json:"default,omitempty"`
+	Validation  any             `json:"validation,omitempty"`
 }
 
 // ValidationError represents a validation error
@@ -62,15 +50,15 @@ func (jv *JSONBValidator) ValidateProperties(properties map[string]any, fieldDef
 		Warnings: []ValidationError{},
 	}
 
-	// Check required fields
 	for fieldName, fieldDef := range fieldDefinitions {
 		value, exists := properties[fieldName]
 
+		// Required field missing
 		if fieldDef.Required && (!exists || value == nil) {
 			result.IsValid = false
 			result.Errors = append(result.Errors, ValidationError{
 				Field:   fieldName,
-				Message: fmt.Sprintf("Required field '%s' is missing", fieldName),
+				Message: fmt.Sprintf("required field '%s' is missing", fieldName),
 			})
 			continue
 		}
@@ -105,9 +93,11 @@ func (jv *JSONBValidator) ValidateProperties(properties map[string]any, fieldDef
 	// Check for extra properties not defined in schema
 	for propertyName := range properties {
 		if _, exists := fieldDefinitions[propertyName]; !exists {
-			result.Warnings = append(result.Warnings, ValidationError{
+			result.IsValid = false
+			result.Errors = append(result.Errors, ValidationError{
 				Field:   propertyName,
-				Message: fmt.Sprintf("Property '%s' is not defined in schema", propertyName),
+				Message: fmt.Sprintf("property '%s' is not defined in schema", propertyName),
+				Value:   properties[propertyName],
 			})
 		}
 	}
@@ -115,50 +105,53 @@ func (jv *JSONBValidator) ValidateProperties(properties map[string]any, fieldDef
 	return result
 }
 
+// normalizeFieldType ensures consistent uppercase enum comparison
+func normalizeFieldType(ft graph.FieldType) graph.FieldType {
+	return graph.FieldType(strings.ToUpper(string(ft)))
+}
+
 // validateFieldType validates the type of a field value
-func (jv *JSONBValidator) validateFieldType(fieldName string, value any, expectedType FieldType) error {
+func (jv *JSONBValidator) validateFieldType(fieldName string, value any, expectedType graph.FieldType) error {
+	expectedType = normalizeFieldType(expectedType)
+
 	switch expectedType {
-	case FieldTypeString:
+	case graph.FieldTypeString:
 		if _, ok := value.(string); !ok {
 			return fmt.Errorf("field '%s' must be a string, got %T", fieldName, value)
 		}
-	case FieldTypeInteger:
+	case graph.FieldTypeInteger:
 		if !jv.isInteger(value) {
 			return fmt.Errorf("field '%s' must be an integer, got %T", fieldName, value)
 		}
-	case FieldTypeFloat:
+	case graph.FieldTypeFloat:
 		if !jv.isFloat(value) {
 			return fmt.Errorf("field '%s' must be a float, got %T", fieldName, value)
 		}
-	case FieldTypeBoolean:
+	case graph.FieldTypeBoolean:
 		if _, ok := value.(bool); !ok {
 			return fmt.Errorf("field '%s' must be a boolean, got %T", fieldName, value)
 		}
-	case FieldTypeTimestamp:
+	case graph.FieldTypeTimestamp:
 		if strVal, ok := value.(string); ok {
 			if _, err := time.Parse(time.RFC3339, strVal); err != nil {
-				return fmt.Errorf("field '%s' must be a valid timestamp (RFC3339), got: %v", fieldName, err)
+				return fmt.Errorf("field '%s' must be a valid timestamp (RFC3339): %v", fieldName, err)
 			}
 		} else {
 			return fmt.Errorf("field '%s' must be a timestamp string, got %T", fieldName, value)
 		}
-	case FieldTypeJSON:
-		// JSON type can be any valid JSON value
+	case graph.FieldTypeJSON:
 		if _, err := json.Marshal(value); err != nil {
 			return fmt.Errorf("field '%s' contains invalid JSON: %v", fieldName, err)
 		}
-	case FieldTypeFileRef:
-		// File reference should be a string (path or ID)
+	case graph.FieldTypeFileReference:
 		if _, ok := value.(string); !ok {
 			return fmt.Errorf("field '%s' must be a file reference string, got %T", fieldName, value)
 		}
-	case FieldTypeGeometry:
-		// Geometry can be a string (WKT) or an object
+	case graph.FieldTypeGeometry:
 		if !jv.isGeometry(value) {
 			return fmt.Errorf("field '%s' must be a valid geometry, got %T", fieldName, value)
 		}
-	case FieldTypeTimeseries:
-		// Timeseries should be an array of objects with timestamp and value
+	case graph.FieldTypeTimeseries:
 		if !jv.isTimeseries(value) {
 			return fmt.Errorf("field '%s' must be a valid timeseries, got %T", fieldName, value)
 		}
@@ -169,29 +162,25 @@ func (jv *JSONBValidator) validateFieldType(fieldName string, value any, expecte
 	return nil
 }
 
-// validateCustomRules validates custom validation rules
+// validateCustomRules validates optional field rules
 func (jv *JSONBValidator) validateCustomRules(fieldName string, value any, rules any) error {
-	// Convert rules to map for processing
 	rulesMap, ok := rules.(map[string]any)
 	if !ok {
 		return fmt.Errorf("validation rules must be a map")
 	}
 
-	// Check minimum value for numeric fields
 	if minVal, exists := rulesMap["min"]; exists {
 		if !jv.isGreaterThanOrEqual(value, minVal) {
 			return fmt.Errorf("field '%s' value %v is less than minimum %v", fieldName, value, minVal)
 		}
 	}
 
-	// Check maximum value for numeric fields
 	if maxVal, exists := rulesMap["max"]; exists {
 		if !jv.isLessThanOrEqual(value, maxVal) {
 			return fmt.Errorf("field '%s' value %v is greater than maximum %v", fieldName, value, maxVal)
 		}
 	}
 
-	// Check minimum length for string fields
 	if minLen, exists := rulesMap["min_length"]; exists {
 		if strVal, ok := value.(string); ok {
 			if len(strVal) < int(minLen.(float64)) {
@@ -200,7 +189,6 @@ func (jv *JSONBValidator) validateCustomRules(fieldName string, value any, rules
 		}
 	}
 
-	// Check maximum length for string fields
 	if maxLen, exists := rulesMap["max_length"]; exists {
 		if strVal, ok := value.(string); ok {
 			if len(strVal) > int(maxLen.(float64)) {
@@ -209,11 +197,9 @@ func (jv *JSONBValidator) validateCustomRules(fieldName string, value any, rules
 		}
 	}
 
-	// Check pattern matching for string fields
 	if pattern, exists := rulesMap["pattern"]; exists {
 		if strVal, ok := value.(string); ok {
-			// Simple pattern matching (in production, use regexp)
-			if !jv.matchesPattern(strVal, pattern.(string)) {
+			if !strings.Contains(strings.ToLower(strVal), strings.ToLower(pattern.(string))) {
 				return fmt.Errorf("field '%s' value '%s' does not match pattern '%s'", fieldName, strVal, pattern)
 			}
 		}
@@ -223,7 +209,6 @@ func (jv *JSONBValidator) validateCustomRules(fieldName string, value any, rules
 }
 
 // Helper methods for type checking
-
 func (jv *JSONBValidator) isInteger(value any) bool {
 	switch v := value.(type) {
 	case int, int8, int16, int32, int64:
@@ -257,29 +242,23 @@ func (jv *JSONBValidator) isFloat(value any) bool {
 }
 
 func (jv *JSONBValidator) isGeometry(value any) bool {
-	// Check if it's a string (WKT format)
 	if _, ok := value.(string); ok {
 		return true
 	}
-	
-	// Check if it's a map with geometry properties
 	if geomMap, ok := value.(map[string]any); ok {
 		if _, hasType := geomMap["type"]; hasType {
 			return true
 		}
 	}
-	
 	return false
 }
 
 func (jv *JSONBValidator) isTimeseries(value any) bool {
-	// Check if it's an array
 	valueSlice := reflect.ValueOf(value)
 	if valueSlice.Kind() != reflect.Slice {
 		return false
 	}
-	
-	// Check if array elements have timestamp and value
+
 	for i := 0; i < valueSlice.Len(); i++ {
 		elem := valueSlice.Index(i).Interface()
 		if elemMap, ok := elem.(map[string]any); ok {
@@ -293,7 +272,6 @@ func (jv *JSONBValidator) isTimeseries(value any) bool {
 			return false
 		}
 	}
-	
 	return true
 }
 
@@ -323,61 +301,4 @@ func (jv *JSONBValidator) isLessThanOrEqual(value, max any) bool {
 		}
 	}
 	return false
-}
-
-func (jv *JSONBValidator) matchesPattern(str, pattern string) bool {
-	// Simple wildcard pattern matching
-	// In production, use proper regexp
-	if pattern == "*" {
-		return true
-	}
-	
-	// Check if string contains the pattern
-	return contains(str, pattern)
-}
-
-// contains checks if a string contains a substring (case-insensitive)
-func contains(s, substr string) bool {
-	if len(substr) == 0 {
-		return true
-	}
-	if len(s) == 0 {
-		return false
-	}
-	
-	// Simple case-insensitive search
-	sLower := toLowerCase(s)
-	substrLower := toLowerCase(substr)
-	
-	return indexOf(sLower, substrLower) >= 0
-}
-
-// toLowerCase converts a string to lowercase
-func toLowerCase(s string) string {
-	result := make([]byte, len(s))
-	for i, b := range []byte(s) {
-		if b >= 'A' && b <= 'Z' {
-			result[i] = b + 32
-		} else {
-			result[i] = b
-		}
-	}
-	return string(result)
-}
-
-// indexOf finds the index of a substring in a string
-func indexOf(s, substr string) int {
-	if len(substr) == 0 {
-		return 0
-	}
-	if len(substr) > len(s) {
-		return -1
-	}
-	
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return i
-		}
-	}
-	return -1
 }

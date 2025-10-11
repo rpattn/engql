@@ -4,10 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"graphql-engineering-api/graph"
 	"graphql-engineering-api/internal/domain"
+	"graphql-engineering-api/pkg/validator"
+
 	"github.com/google/uuid"
 )
 
@@ -17,9 +20,9 @@ func (r *Resolver) CreateOrganization(ctx context.Context, input graph.CreateOrg
 	if input.Description != nil {
 		description = *input.Description
 	}
-	
+
 	org := domain.NewOrganization(input.Name, description)
-	
+
 	createdOrg, err := r.orgRepo.Create(ctx, org)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create organization: %w", err)
@@ -105,22 +108,22 @@ func (r *Resolver) CreateEntitySchema(ctx context.Context, input graph.CreateEnt
 		if fieldInput.Description != nil {
 			fieldDesc = *fieldInput.Description
 		}
-		
+
 		required := false
 		if fieldInput.Required != nil {
 			required = *fieldInput.Required
 		}
-		
+
 		defaultValue := ""
 		if fieldInput.Default != nil {
 			defaultValue = *fieldInput.Default
 		}
-		
+
 		validation := ""
 		if fieldInput.Validation != nil {
 			validation = *fieldInput.Validation
 		}
-		
+
 		fields = append(fields, domain.FieldDefinition{
 			Name:        fieldInput.Name,
 			Type:        domain.FieldType(fieldInput.Type),
@@ -132,7 +135,7 @@ func (r *Resolver) CreateEntitySchema(ctx context.Context, input graph.CreateEnt
 	}
 
 	schema := domain.NewEntitySchema(orgID, input.Name, description, fields)
-	
+
 	createdSchema, err := r.entitySchemaRepo.Create(ctx, schema)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create entity schema: %w", err)
@@ -191,22 +194,22 @@ func (r *Resolver) UpdateEntitySchema(ctx context.Context, input graph.UpdateEnt
 			if fieldInput.Description != nil {
 				fieldDesc = *fieldInput.Description
 			}
-			
+
 			required := false
 			if fieldInput.Required != nil {
 				required = *fieldInput.Required
 			}
-			
+
 			defaultValue := ""
 			if fieldInput.Default != nil {
 				defaultValue = *fieldInput.Default
 			}
-			
+
 			validation := ""
 			if fieldInput.Validation != nil {
 				validation = *fieldInput.Validation
 			}
-			
+
 			newFields = append(newFields, domain.FieldDefinition{
 				Name:        fieldInput.Name,
 				Type:        domain.FieldType(fieldInput.Type),
@@ -283,22 +286,22 @@ func (r *Resolver) AddFieldToSchema(ctx context.Context, schemaID string, field 
 	if field.Description != nil {
 		fieldDesc = *field.Description
 	}
-	
+
 	required := false
 	if field.Required != nil {
 		required = *field.Required
 	}
-	
+
 	defaultValue := ""
 	if field.Default != nil {
 		defaultValue = *field.Default
 	}
-	
+
 	validation := ""
 	if field.Validation != nil {
 		validation = *field.Validation
 	}
-	
+
 	fieldDef := domain.FieldDefinition{
 		Name:        field.Name,
 		Type:        domain.FieldType(field.Type),
@@ -307,7 +310,7 @@ func (r *Resolver) AddFieldToSchema(ctx context.Context, schemaID string, field 
 		Default:     defaultValue,
 		Validation:  validation,
 	}
-	
+
 	updatedSchema := existingSchema.WithField(fieldDef)
 
 	// Save updated schema
@@ -404,8 +407,31 @@ func (r *Resolver) CreateEntity(ctx context.Context, input graph.CreateEntityInp
 		path = *input.Path
 	}
 
+	fieldDefinitions, err := r.entitySchemaRepo.GetByName(ctx, orgID, input.EntityType)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load schema for entity type %s: %w", input.EntityType, err)
+	}
+
+	// Convert schema fields slice -> map[string]FieldDefinition
+	fieldDefsMap := make(map[string]validator.FieldDefinition)
+	for _, f := range fieldDefinitions.Fields {
+		fieldDefsMap[f.Name] = validator.FieldDefinition{
+			Type:        graph.FieldType(strings.ToUpper(string(f.Type))),
+			Required:    f.Required,
+			Description: f.Description,
+			Default:     f.Default,
+			Validation:  f.Validation,
+		}
+	}
+
+	validator := validator.NewJSONBValidator()
+	result := validator.ValidateProperties(properties, fieldDefsMap)
+	if !result.IsValid {
+		return nil, fmt.Errorf("validation failed: %s", result.Errors)
+	}
+
 	entity := domain.NewEntity(orgID, input.EntityType, path, properties)
-	
+
 	createdEntity, err := r.entityRepo.Create(ctx, entity)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create entity: %w", err)
