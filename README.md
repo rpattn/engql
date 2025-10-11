@@ -107,6 +107,23 @@ graphql-engineering-api/
 5. **Access GraphQL playground**:
    Open http://localhost:8080 in your browser
 
+## Dev
+
+To generate graphql stuff
+```bash
+go get github.com/99designs/gqlgen@v0.17.81
+go run github.com/99designs/gqlgen generate
+```
+
+To generate sqlc
+`sqlc generate`
+
+To test
+`go test ./...`
+
+To run
+`go run cmd/server/main.go`
+
 ## Example Usage
 
 ### 1. Create an Organization

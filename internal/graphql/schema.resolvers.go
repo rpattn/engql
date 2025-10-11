@@ -6,6 +6,7 @@ package graphql
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"graphql-engineering-api/graph"
 )
@@ -17,12 +18,19 @@ func (r *mutationResolver) CreateOrganization(ctx context.Context, input graph.C
 
 // UpdateOrganization is the resolver for the updateOrganization field.
 func (r *mutationResolver) UpdateOrganization(ctx context.Context, input graph.UpdateOrganizationInput) (*graph.Organization, error) {
-	panic(fmt.Errorf("not implemented: UpdateOrganization - updateOrganization"))
+	return r.Resolver.UpdateOrganization(ctx, input)
 }
 
-// DeleteOrganization is the resolver for the deleteOrganization field.
+// DeleteOrganization deletes an organization
 func (r *mutationResolver) DeleteOrganization(ctx context.Context, id string) (bool, error) {
-	panic(fmt.Errorf("not implemented: DeleteOrganization - deleteOrganization"))
+	res, err := r.Resolver.DeleteOrganization(ctx, id)
+	if err != nil {
+		return false, err
+	}
+	if res == nil {
+		return false, nil
+	}
+	return *res, nil
 }
 
 // CreateEntitySchema is the resolver for the createEntitySchema field.
@@ -32,22 +40,29 @@ func (r *mutationResolver) CreateEntitySchema(ctx context.Context, input graph.C
 
 // UpdateEntitySchema is the resolver for the updateEntitySchema field.
 func (r *mutationResolver) UpdateEntitySchema(ctx context.Context, input graph.UpdateEntitySchemaInput) (*graph.EntitySchema, error) {
-	panic(fmt.Errorf("not implemented: UpdateEntitySchema - updateEntitySchema"))
+	return r.Resolver.UpdateEntitySchema(ctx, input)
 }
 
 // DeleteEntitySchema is the resolver for the deleteEntitySchema field.
 func (r *mutationResolver) DeleteEntitySchema(ctx context.Context, id string) (bool, error) {
-	panic(fmt.Errorf("not implemented: DeleteEntitySchema - deleteEntitySchema"))
+	res, err := r.Resolver.DeleteEntitySchema(ctx, id)
+	if err != nil {
+		return false, err
+	}
+	if res == nil {
+		return false, nil
+	}
+	return *res, nil
 }
 
 // AddFieldToSchema is the resolver for the addFieldToSchema field.
 func (r *mutationResolver) AddFieldToSchema(ctx context.Context, schemaID string, field graph.FieldDefinitionInput) (*graph.EntitySchema, error) {
-	panic(fmt.Errorf("not implemented: AddFieldToSchema - addFieldToSchema"))
+	return r.Resolver.AddFieldToSchema(ctx, schemaID, field)
 }
 
 // RemoveFieldFromSchema is the resolver for the removeFieldFromSchema field.
 func (r *mutationResolver) RemoveFieldFromSchema(ctx context.Context, schemaID string, fieldName string) (*graph.EntitySchema, error) {
-	panic(fmt.Errorf("not implemented: RemoveFieldFromSchema - removeFieldFromSchema"))
+	return r.Resolver.RemoveFieldFromSchema(ctx, schemaID, fieldName)
 }
 
 // CreateEntity is the resolver for the createEntity field.
@@ -57,12 +72,19 @@ func (r *mutationResolver) CreateEntity(ctx context.Context, input graph.CreateE
 
 // UpdateEntity is the resolver for the updateEntity field.
 func (r *mutationResolver) UpdateEntity(ctx context.Context, input graph.UpdateEntityInput) (*graph.Entity, error) {
-	panic(fmt.Errorf("not implemented: UpdateEntity - updateEntity"))
+	return r.Resolver.UpdateEntity(ctx, input)
 }
 
 // DeleteEntity is the resolver for the deleteEntity field.
 func (r *mutationResolver) DeleteEntity(ctx context.Context, id string) (bool, error) {
-	panic(fmt.Errorf("not implemented: DeleteEntity - deleteEntity"))
+	res, err := r.Resolver.DeleteEntity(ctx, id)
+	if err != nil {
+		return false, err
+	}
+	if res == nil {
+		return false, nil
+	}
+	return *res, nil
 }
 
 // Organizations is the resolver for the organizations field.
@@ -72,27 +94,27 @@ func (r *queryResolver) Organizations(ctx context.Context) ([]*graph.Organizatio
 
 // Organization is the resolver for the organization field.
 func (r *queryResolver) Organization(ctx context.Context, id string) (*graph.Organization, error) {
-	panic(fmt.Errorf("not implemented: Organization - organization"))
+	return r.Resolver.Organization(ctx, id)
 }
 
 // OrganizationByName is the resolver for the organizationByName field.
 func (r *queryResolver) OrganizationByName(ctx context.Context, name string) (*graph.Organization, error) {
-	panic(fmt.Errorf("not implemented: OrganizationByName - organizationByName"))
+	return r.Resolver.OrganizationByName(ctx, name)
 }
 
 // EntitySchemas is the resolver for the entitySchemas field.
 func (r *queryResolver) EntitySchemas(ctx context.Context, organizationID string) ([]*graph.EntitySchema, error) {
-	panic(fmt.Errorf("not implemented: EntitySchemas - entitySchemas"))
+	return r.Resolver.EntitySchemas(ctx, organizationID)
 }
 
 // EntitySchema is the resolver for the entitySchema field.
 func (r *queryResolver) EntitySchema(ctx context.Context, id string) (*graph.EntitySchema, error) {
-	panic(fmt.Errorf("not implemented: EntitySchema - entitySchema"))
+	return r.Resolver.EntitySchema(ctx, id)
 }
 
 // EntitySchemaByName is the resolver for the entitySchemaByName field.
 func (r *queryResolver) EntitySchemaByName(ctx context.Context, organizationID string, name string) (*graph.EntitySchema, error) {
-	panic(fmt.Errorf("not implemented: EntitySchemaByName - entitySchemaByName"))
+	return r.Resolver.EntitySchemaByName(ctx, organizationID, name)
 }
 
 // Entities is the resolver for the entities field.
@@ -103,37 +125,37 @@ func (r *queryResolver) Entities(ctx context.Context, organizationID string, fil
 
 // Entity is the resolver for the entity field.
 func (r *queryResolver) Entity(ctx context.Context, id string) (*graph.Entity, error) {
-	panic(fmt.Errorf("not implemented: Entity - entity"))
+	return r.Resolver.Entity(ctx, id)
 }
 
 // EntitiesByType is the resolver for the entitiesByType field.
 func (r *queryResolver) EntitiesByType(ctx context.Context, organizationID string, entityType string) ([]*graph.Entity, error) {
-	panic(fmt.Errorf("not implemented: EntitiesByType - entitiesByType"))
+	return r.Resolver.EntitiesByType(ctx, organizationID, entityType)
 }
 
 // GetEntityAncestors is the resolver for the getEntityAncestors field.
 func (r *queryResolver) GetEntityAncestors(ctx context.Context, entityID string) ([]*graph.Entity, error) {
-	panic(fmt.Errorf("not implemented: GetEntityAncestors - getEntityAncestors"))
+	return r.Resolver.GetEntityAncestors(ctx, entityID)
 }
 
 // GetEntityDescendants is the resolver for the getEntityDescendants field.
 func (r *queryResolver) GetEntityDescendants(ctx context.Context, entityID string) ([]*graph.Entity, error) {
-	panic(fmt.Errorf("not implemented: GetEntityDescendants - getEntityDescendants"))
+	return r.Resolver.GetEntityDescendants(ctx, entityID)
 }
 
 // GetEntityChildren is the resolver for the getEntityChildren field.
 func (r *queryResolver) GetEntityChildren(ctx context.Context, entityID string) ([]*graph.Entity, error) {
-	panic(fmt.Errorf("not implemented: GetEntityChildren - getEntityChildren"))
+	return r.Resolver.GetEntityChildren(ctx, entityID)
 }
 
 // GetEntitySiblings is the resolver for the getEntitySiblings field.
 func (r *queryResolver) GetEntitySiblings(ctx context.Context, entityID string) ([]*graph.Entity, error) {
-	panic(fmt.Errorf("not implemented: GetEntitySiblings - getEntitySiblings"))
+	return r.Resolver.GetEntitySiblings(ctx, entityID)
 }
 
 // GetEntityHierarchy is the resolver for the getEntityHierarchy field.
 func (r *queryResolver) GetEntityHierarchy(ctx context.Context, entityID string) (*graph.EntityHierarchy, error) {
-	panic(fmt.Errorf("not implemented: GetEntityHierarchy - getEntityHierarchy"))
+	return r.Resolver.GetEntityHierarchy(ctx, entityID)
 }
 
 // SearchEntitiesByProperty is the resolver for the searchEntitiesByProperty field.
@@ -144,27 +166,32 @@ func (r *queryResolver) SearchEntitiesByProperty(ctx context.Context, organizati
 
 // SearchEntitiesByMultipleProperties is the resolver for the searchEntitiesByMultipleProperties field.
 func (r *queryResolver) SearchEntitiesByMultipleProperties(ctx context.Context, organizationID string, filters string) ([]*graph.Entity, error) {
-	panic(fmt.Errorf("not implemented: SearchEntitiesByMultipleProperties - searchEntitiesByMultipleProperties"))
+	var filterMap map[string]any
+	if err := json.Unmarshal([]byte(filters), &filterMap); err != nil {
+		return nil, fmt.Errorf("invalid filters JSON: %w", err)
+	}
+
+	return r.Resolver.SearchEntitiesByMultipleProperties(ctx, organizationID, filterMap)
 }
 
 // SearchEntitiesByPropertyRange is the resolver for the searchEntitiesByPropertyRange field.
 func (r *queryResolver) SearchEntitiesByPropertyRange(ctx context.Context, organizationID string, propertyKey string, minValue *float64, maxValue *float64) ([]*graph.Entity, error) {
-	panic(fmt.Errorf("not implemented: SearchEntitiesByPropertyRange - searchEntitiesByPropertyRange"))
+	return r.Resolver.SearchEntitiesByPropertyRange(ctx, organizationID, propertyKey, minValue, maxValue)
 }
 
 // SearchEntitiesByPropertyExists is the resolver for the searchEntitiesByPropertyExists field.
 func (r *queryResolver) SearchEntitiesByPropertyExists(ctx context.Context, organizationID string, propertyKey string) ([]*graph.Entity, error) {
-	panic(fmt.Errorf("not implemented: SearchEntitiesByPropertyExists - searchEntitiesByPropertyExists"))
+	return r.Resolver.SearchEntitiesByPropertyExists(ctx, organizationID, propertyKey)
 }
 
 // SearchEntitiesByPropertyContains is the resolver for the searchEntitiesByPropertyContains field.
 func (r *queryResolver) SearchEntitiesByPropertyContains(ctx context.Context, organizationID string, propertyKey string, searchTerm string) ([]*graph.Entity, error) {
-	panic(fmt.Errorf("not implemented: SearchEntitiesByPropertyContains - searchEntitiesByPropertyContains"))
+	return r.Resolver.SearchEntitiesByPropertyContains(ctx, organizationID, propertyKey, searchTerm)
 }
 
 // ValidateEntityAgainstSchema is the resolver for the validateEntityAgainstSchema field.
 func (r *queryResolver) ValidateEntityAgainstSchema(ctx context.Context, entityID string) (*graph.ValidationResult, error) {
-	panic(fmt.Errorf("not implemented: ValidateEntityAgainstSchema - validateEntityAgainstSchema"))
+	return r.Resolver.ValidateEntityAgainstSchema(ctx, entityID)
 }
 
 // Mutation returns graph.MutationResolver implementation.
