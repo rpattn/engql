@@ -33,7 +33,10 @@ WHERE id = $1;
 -- name: GetEntityAncestors :many
 SELECT id, organization_id, entity_type, path, properties, created_at, updated_at
 FROM entities
-WHERE organization_id = $1 AND path <@ $2::ltree;
+WHERE organization_id = $1
+  AND path @> $2::ltree
+  AND path <> $2::ltree
+ORDER BY nlevel(path);
 
 -- name: GetEntityDescendants :many
 SELECT id, organization_id, entity_type, path, properties, created_at, updated_at

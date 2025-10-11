@@ -120,7 +120,10 @@ func (q *Queries) GetEntity(ctx context.Context, id uuid.UUID) (Entity, error) {
 const GetEntityAncestors = `-- name: GetEntityAncestors :many
 SELECT id, organization_id, entity_type, path, properties, created_at, updated_at
 FROM entities
-WHERE organization_id = $1 AND path <@ $2::ltree
+WHERE organization_id = $1
+  AND path @> $2::ltree
+  AND path <> $2::ltree
+ORDER BY nlevel(path)
 `
 
 type GetEntityAncestorsParams struct {
