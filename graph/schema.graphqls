@@ -1,0 +1,209 @@
+# Organization types
+type Organization {
+  id: String!
+  name: String!
+  description: String
+  createdAt: String!
+  updatedAt: String!
+}
+
+input CreateOrganizationInput {
+  name: String!
+  description: String
+}
+
+input UpdateOrganizationInput {
+  id: String!
+  name: String
+  description: String
+}
+
+# Entity Schema types
+type FieldDefinition {
+  type: FieldType!
+  required: Boolean!
+  description: String
+  default: String
+  validation: String
+}
+
+enum FieldType {
+  STRING
+  INTEGER
+  FLOAT
+  BOOLEAN
+  TIMESTAMP
+  JSON
+  FILE_REFERENCE
+  GEOMETRY
+  TIMESERIES
+}
+
+type EntitySchema {
+  id: String!
+  organizationId: String!
+  name: String!
+  description: String
+  fields: [FieldDefinition!]!
+  createdAt: String!
+  updatedAt: String!
+}
+
+input CreateEntitySchemaInput {
+  organizationId: String!
+  name: String!
+  description: String
+  fields: [FieldDefinitionInput!]!
+}
+
+input FieldDefinitionInput {
+  name: String!
+  type: FieldType!
+  required: Boolean = false
+  description: String
+  default: String
+  validation: String
+}
+
+input UpdateEntitySchemaInput {
+  id: String!
+  name: String
+  description: String
+  fields: [FieldDefinitionInput!]
+}
+
+# Entity types
+type Entity {
+  id: String!
+  organizationId: String!
+  entityType: String!
+  path: String!
+  properties: String!
+  createdAt: String!
+  updatedAt: String!
+}
+
+input CreateEntityInput {
+  organizationId: String!
+  entityType: String!
+  path: String
+  properties: String!
+}
+
+input UpdateEntityInput {
+  id: String!
+  entityType: String
+  path: String
+  properties: String
+}
+
+# Filter types
+input EntityFilter {
+  entityType: String
+  propertyFilters: [PropertyFilter!]
+  textSearch: String
+  pathFilter: PathFilter
+}
+
+input PropertyFilter {
+  key: String!
+  value: String
+  exists: Boolean
+  inArray: [String!]
+}
+
+input PathFilter {
+  ancestorsOf: String
+  descendantsOf: String
+  childrenOf: String
+  siblingsOf: String
+}
+
+# Pagination
+input PaginationInput {
+  limit: Int = 10
+  offset: Int = 0
+}
+
+type PageInfo {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  totalCount: Int!
+}
+
+# Queries
+type Query {
+  # Organization queries
+  organizations: [Organization!]!
+  organization(id: String!): Organization
+  organizationByName(name: String!): Organization
+
+  # Entity schema queries
+  entitySchemas(organizationId: String!): [EntitySchema!]!
+  entitySchema(id: String!): EntitySchema
+  entitySchemaByName(organizationId: String!, name: String!): EntitySchema
+
+  # Entity queries
+  entities(
+    organizationId: String!
+    filter: EntityFilter
+    pagination: PaginationInput
+  ): EntityConnection!
+  entity(id: String!): Entity
+  entitiesByType(organizationId: String!, entityType: String!): [Entity!]!
+  
+  # Hierarchical queries
+  getEntityAncestors(entityId: String!): [Entity!]!
+  getEntityDescendants(entityId: String!): [Entity!]!
+  getEntityChildren(entityId: String!): [Entity!]!
+  getEntitySiblings(entityId: String!): [Entity!]!
+  getEntityHierarchy(entityId: String!): EntityHierarchy!
+  
+  # JSONB property queries
+  searchEntitiesByProperty(organizationId: String!, propertyKey: String!, propertyValue: String!): [Entity!]!
+  searchEntitiesByMultipleProperties(organizationId: String!, filters: String!): [Entity!]!
+  searchEntitiesByPropertyRange(organizationId: String!, propertyKey: String!, minValue: Float, maxValue: Float): [Entity!]!
+  searchEntitiesByPropertyExists(organizationId: String!, propertyKey: String!): [Entity!]!
+  searchEntitiesByPropertyContains(organizationId: String!, propertyKey: String!, searchTerm: String!): [Entity!]!
+  validateEntityAgainstSchema(entityId: String!): ValidationResult!
+}
+
+type EntityConnection {
+  entities: [Entity!]!
+  pageInfo: PageInfo!
+}
+
+# Hierarchical data types
+type EntityHierarchy {
+  current: Entity!
+  ancestors: [Entity!]!
+  children: [Entity!]!
+  siblings: [Entity!]!
+}
+
+# JSONB query types
+type ValidationResult {
+  isValid: Boolean!
+  errors: [String!]!
+  warnings: [String!]!
+}
+
+# Mutations
+type Mutation {
+  # Organization mutations
+  createOrganization(input: CreateOrganizationInput!): Organization!
+  updateOrganization(input: UpdateOrganizationInput!): Organization!
+  deleteOrganization(id: String!): Boolean!
+
+  # Entity schema mutations
+  createEntitySchema(input: CreateEntitySchemaInput!): EntitySchema!
+  updateEntitySchema(input: UpdateEntitySchemaInput!): EntitySchema!
+  deleteEntitySchema(id: String!): Boolean!
+  addFieldToSchema(schemaId: String!, field: FieldDefinitionInput!): EntitySchema!
+  removeFieldFromSchema(schemaId: String!, fieldName: String!): EntitySchema!
+
+  # Entity mutations
+  createEntity(input: CreateEntityInput!): Entity!
+  updateEntity(input: UpdateEntityInput!): Entity!
+  deleteEntity(id: String!): Boolean!
+}

@@ -1,0 +1,52 @@
+package repository
+
+import (
+	"context"
+
+	"graphql-engineering-api/internal/domain"
+	"github.com/google/uuid"
+)
+
+// OrganizationRepository defines the interface for organization operations
+type OrganizationRepository interface {
+	Create(ctx context.Context, org domain.Organization) (domain.Organization, error)
+	GetByID(ctx context.Context, id uuid.UUID) (domain.Organization, error)
+	GetByName(ctx context.Context, name string) (domain.Organization, error)
+	List(ctx context.Context) ([]domain.Organization, error)
+	Update(ctx context.Context, org domain.Organization) (domain.Organization, error)
+	Delete(ctx context.Context, id uuid.UUID) error
+}
+
+// EntitySchemaRepository defines the interface for entity schema operations
+type EntitySchemaRepository interface {
+	Create(ctx context.Context, schema domain.EntitySchema) (domain.EntitySchema, error)
+	GetByID(ctx context.Context, id uuid.UUID) (domain.EntitySchema, error)
+	GetByName(ctx context.Context, organizationID uuid.UUID, name string) (domain.EntitySchema, error)
+	List(ctx context.Context, organizationID uuid.UUID) ([]domain.EntitySchema, error)
+	Update(ctx context.Context, schema domain.EntitySchema) (domain.EntitySchema, error)
+	Delete(ctx context.Context, id uuid.UUID) error
+	Exists(ctx context.Context, organizationID uuid.UUID, name string) (bool, error)
+}
+
+// EntityRepository defines the interface for entity operations
+type EntityRepository interface {
+	Create(ctx context.Context, entity domain.Entity) (domain.Entity, error)
+	GetByID(ctx context.Context, id uuid.UUID) (domain.Entity, error)
+	List(ctx context.Context, organizationID uuid.UUID) ([]domain.Entity, error)
+	ListByType(ctx context.Context, organizationID uuid.UUID, entityType string) ([]domain.Entity, error)
+	Update(ctx context.Context, entity domain.Entity) (domain.Entity, error)
+	Delete(ctx context.Context, id uuid.UUID) error
+	
+	// Hierarchical operations
+	GetAncestors(ctx context.Context, organizationID uuid.UUID, path string) ([]domain.Entity, error)
+	GetDescendants(ctx context.Context, organizationID uuid.UUID, path string) ([]domain.Entity, error)
+	GetChildren(ctx context.Context, organizationID uuid.UUID, path string) ([]domain.Entity, error)
+	GetSiblings(ctx context.Context, organizationID uuid.UUID, path string) ([]domain.Entity, error)
+	
+	// JSONB filtering operations
+	FilterByProperty(ctx context.Context, organizationID uuid.UUID, filter map[string]any) ([]domain.Entity, error)
+	
+	// Count operations
+	Count(ctx context.Context, organizationID uuid.UUID) (int64, error)
+	CountByType(ctx context.Context, organizationID uuid.UUID, entityType string) (int64, error)
+}
