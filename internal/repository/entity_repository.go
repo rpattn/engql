@@ -7,6 +7,7 @@ import (
 
 	"graphql-engineering-api/internal/db"
 	"graphql-engineering-api/internal/domain"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -80,13 +81,35 @@ func (r *entityRepository) GetByID(ctx context.Context, id uuid.UUID) (domain.En
 }
 
 // List retrieves all entities for an organization
-func (r *entityRepository) List(ctx context.Context, organizationID uuid.UUID) ([]domain.Entity, error) {
-	rows, err := r.queries.ListEntities(ctx, organizationID)
+func (r *entityRepository) List(
+	ctx context.Context,
+	organizationID uuid.UUID,
+	limit int,
+	offset int,
+) ([]domain.Entity, int, error) {
+	// Fetch paginated rows
+	params := db.ListEntitiesParams{
+		OrganizationID: organizationID,
+		Limit:          int32(limit),
+		Offset:         int32(offset),
+	}
+	rows, err := r.queries.ListEntities(ctx, params)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list entities: %w", err)
+		return nil, 0, fmt.Errorf("failed to list entities: %w", err)
 	}
 
-	return r.rowsToEntities(rows)
+	entities, err := r.dbRowsToEntities(rows)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to convert rows to entities: %w", err)
+	}
+
+	// Fetch total count
+	totalCount := 0
+	if len(rows) > 0 {
+		totalCount = int(rows[0].TotalCount)
+	}
+
+	return entities, int(totalCount), nil
 }
 
 // ListByType retrieves all entities of a specific type for an organization
@@ -213,7 +236,6 @@ func (r *entityRepository) FilterByProperty(ctx context.Context, organizationID 
 	return r.rowsToEntities(rows)
 }
 
-
 // Count returns the total count of entities for an organization
 func (r *entityRepository) Count(ctx context.Context, organizationID uuid.UUID) (int64, error) {
 	count, err := r.queries.GetEntityCount(ctx, organizationID)
@@ -237,6 +259,29 @@ func (r *entityRepository) CountByType(ctx context.Context, organizationID uuid.
 
 // rowsToEntities converts database rows to domain entities
 func (r *entityRepository) rowsToEntities(rows []db.Entity) ([]domain.Entity, error) {
+	entities := make([]domain.Entity, len(rows))
+	for i, row := range rows {
+		properties, err := domain.FromJSONBProperties(row.Properties)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal properties for entity %s: %w", row.ID, err)
+		}
+
+		entities[i] = domain.Entity{
+			ID:             row.ID,
+			OrganizationID: row.OrganizationID,
+			EntityType:     row.EntityType,
+			Path:           row.Path,
+			Properties:     properties,
+			CreatedAt:      row.CreatedAt,
+			UpdatedAt:      row.UpdatedAt,
+		}
+	}
+
+	return entities, nil
+}
+
+// rowsToEntities converts database rows to domain entities
+func (r *entityRepository) dbRowsToEntities(rows []db.ListEntitiesRow) ([]domain.Entity, error) {
 	entities := make([]domain.Entity, len(rows))
 	for i, row := range rows {
 		properties, err := domain.FromJSONBProperties(row.Properties)

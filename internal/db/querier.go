@@ -29,7 +29,7 @@ type Querier interface {
 	GetEntitySiblings(ctx context.Context, arg GetEntitySiblingsParams) ([]Entity, error)
 	GetOrganization(ctx context.Context, id uuid.UUID) (Organization, error)
 	GetOrganizationByName(ctx context.Context, name string) (Organization, error)
-	ListEntities(ctx context.Context, organizationID uuid.UUID) ([]Entity, error)
+	ListEntities(ctx context.Context, arg ListEntitiesParams) ([]ListEntitiesRow, error)
 	ListEntitiesByType(ctx context.Context, arg ListEntitiesByTypeParams) ([]Entity, error)
 	ListEntitySchemas(ctx context.Context, organizationID uuid.UUID) ([]EntitySchema, error)
 	ListOrganizations(ctx context.Context) ([]Organization, error)

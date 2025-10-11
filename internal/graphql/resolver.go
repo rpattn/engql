@@ -6,16 +6,16 @@ import (
 	"time"
 
 	"graphql-engineering-api/graph"
-	"graphql-engineering-api/internal/domain"
 	"graphql-engineering-api/internal/repository"
+
 	"github.com/google/uuid"
 )
 
 // Resolver handles GraphQL queries and mutations
 type Resolver struct {
-	orgRepo        repository.OrganizationRepository
+	orgRepo          repository.OrganizationRepository
 	entitySchemaRepo repository.EntitySchemaRepository
-	entityRepo     repository.EntityRepository
+	entityRepo       repository.EntityRepository
 }
 
 // NewResolver creates a new GraphQL resolver
@@ -25,9 +25,9 @@ func NewResolver(
 	entityRepo repository.EntityRepository,
 ) *Resolver {
 	return &Resolver{
-		orgRepo:        orgRepo,
+		orgRepo:          orgRepo,
 		entitySchemaRepo: entitySchemaRepo,
-		entityRepo:     entityRepo,
+		entityRepo:       entityRepo,
 	}
 }
 
@@ -208,13 +208,7 @@ func (r *Resolver) Entities(ctx context.Context, organizationID string, filter *
 		return nil, fmt.Errorf("invalid organization ID: %w", err)
 	}
 
-	// For now, implement basic listing without complex filtering
-	entities, err := r.entityRepo.List(ctx, orgID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list entities: %w", err)
-	}
-
-	// Simple pagination
+	// Default pagination
 	limit := 10
 	offset := 0
 	if pagination != nil {
@@ -226,20 +220,15 @@ func (r *Resolver) Entities(ctx context.Context, organizationID string, filter *
 		}
 	}
 
-	totalCount := len(entities)
-	start := offset
-	end := offset + limit
-	if end > totalCount {
-		end = totalCount
+	// Fetch only the requested page from the repository
+	entities, totalCount, err := r.entityRepo.List(ctx, orgID, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list entities: %w", err)
 	}
 
-	var pagedEntities []domain.Entity
-	if start < totalCount {
-		pagedEntities = entities[start:end]
-	}
-
-	result := make([]*graph.Entity, len(pagedEntities))
-	for i, entity := range pagedEntities {
+	// Convert to GraphQL type
+	result := make([]*graph.Entity, len(entities))
+	for i, entity := range entities {
 		propertiesJSON, err := entity.GetPropertiesAsJSONB()
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal properties: %w", err)
@@ -256,7 +245,7 @@ func (r *Resolver) Entities(ctx context.Context, organizationID string, filter *
 		}
 	}
 
-	hasNextPage := end < totalCount
+	hasNextPage := offset+limit < totalCount
 	hasPreviousPage := offset > 0
 
 	return &graph.EntityConnection{
@@ -264,7 +253,7 @@ func (r *Resolver) Entities(ctx context.Context, organizationID string, filter *
 		PageInfo: &graph.PageInfo{
 			HasNextPage:     hasNextPage,
 			HasPreviousPage: hasPreviousPage,
-			TotalCount:      int(totalCount),
+			TotalCount:      totalCount,
 		},
 	}, nil
 }

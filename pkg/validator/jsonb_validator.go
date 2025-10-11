@@ -226,7 +226,7 @@ func (jv *JSONBValidator) isInteger(value any) bool {
 }
 
 func (jv *JSONBValidator) isFloat(value any) bool {
-	switch value.(type) {
+	switch v := value.(type) {
 	case float32, float64:
 		return true
 	case int, int8, int16, int32, int64:
@@ -234,7 +234,7 @@ func (jv *JSONBValidator) isFloat(value any) bool {
 	case uint, uint8, uint16, uint32, uint64:
 		return true
 	case string:
-		_, err := strconv.ParseFloat(value.(string), 64)
+		_, err := strconv.ParseFloat(v, 64) // use v directly
 		return err == nil
 	default:
 		return false

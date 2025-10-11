@@ -8,6 +8,7 @@ package db
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -308,21 +309,40 @@ func (q *Queries) GetEntitySiblings(ctx context.Context, arg GetEntitySiblingsPa
 }
 
 const ListEntities = `-- name: ListEntities :many
-SELECT id, organization_id, entity_type, path, properties, created_at, updated_at
+SELECT id, organization_id, entity_type, path, properties, created_at, updated_at,
+       COUNT(*) OVER() AS total_count
 FROM entities
 WHERE organization_id = $1
 ORDER BY created_at DESC
+LIMIT $2 OFFSET $3
 `
 
-func (q *Queries) ListEntities(ctx context.Context, organizationID uuid.UUID) ([]Entity, error) {
-	rows, err := q.db.Query(ctx, ListEntities, organizationID)
+type ListEntitiesParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	Limit          int32     `json:"limit"`
+	Offset         int32     `json:"offset"`
+}
+
+type ListEntitiesRow struct {
+	ID             uuid.UUID       `json:"id"`
+	OrganizationID uuid.UUID       `json:"organization_id"`
+	EntityType     string          `json:"entity_type"`
+	Path           string          `json:"path"`
+	Properties     json.RawMessage `json:"properties"`
+	CreatedAt      time.Time       `json:"created_at"`
+	UpdatedAt      time.Time       `json:"updated_at"`
+	TotalCount     int64           `json:"total_count"`
+}
+
+func (q *Queries) ListEntities(ctx context.Context, arg ListEntitiesParams) ([]ListEntitiesRow, error) {
+	rows, err := q.db.Query(ctx, ListEntities, arg.OrganizationID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Entity{}
+	items := []ListEntitiesRow{}
 	for rows.Next() {
-		var i Entity
+		var i ListEntitiesRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.OrganizationID,
@@ -331,6 +351,7 @@ func (q *Queries) ListEntities(ctx context.Context, organizationID uuid.UUID) ([
 			&i.Properties,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.TotalCount,
 		); err != nil {
 			return nil, err
 		}

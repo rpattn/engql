@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"graphql-engineering-api/internal/domain"
+
 	"github.com/google/uuid"
 )
 
@@ -32,20 +33,20 @@ type EntitySchemaRepository interface {
 type EntityRepository interface {
 	Create(ctx context.Context, entity domain.Entity) (domain.Entity, error)
 	GetByID(ctx context.Context, id uuid.UUID) (domain.Entity, error)
-	List(ctx context.Context, organizationID uuid.UUID) ([]domain.Entity, error)
+	List(ctx context.Context, organizationID uuid.UUID, limit int, offset int) ([]domain.Entity, int, error)
 	ListByType(ctx context.Context, organizationID uuid.UUID, entityType string) ([]domain.Entity, error)
 	Update(ctx context.Context, entity domain.Entity) (domain.Entity, error)
 	Delete(ctx context.Context, id uuid.UUID) error
-	
+
 	// Hierarchical operations
 	GetAncestors(ctx context.Context, organizationID uuid.UUID, path string) ([]domain.Entity, error)
 	GetDescendants(ctx context.Context, organizationID uuid.UUID, path string) ([]domain.Entity, error)
 	GetChildren(ctx context.Context, organizationID uuid.UUID, path string) ([]domain.Entity, error)
 	GetSiblings(ctx context.Context, organizationID uuid.UUID, path string) ([]domain.Entity, error)
-	
+
 	// JSONB filtering operations
 	FilterByProperty(ctx context.Context, organizationID uuid.UUID, filter map[string]any) ([]domain.Entity, error)
-	
+
 	// Count operations
 	Count(ctx context.Context, organizationID uuid.UUID) (int64, error)
 	CountByType(ctx context.Context, organizationID uuid.UUID, entityType string) (int64, error)

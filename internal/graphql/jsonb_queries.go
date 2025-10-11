@@ -8,6 +8,7 @@ import (
 
 	"graphql-engineering-api/graph"
 	"graphql-engineering-api/internal/domain"
+
 	"github.com/google/uuid"
 )
 
@@ -91,8 +92,8 @@ func (r *Resolver) SearchEntitiesByPropertyRange(ctx context.Context, organizati
 		return nil, fmt.Errorf("invalid organization ID: %w", err)
 	}
 
-	// Get all entities for the organization first (since we don't have range queries in our basic implementation)
-	entities, err := r.entityRepo.List(ctx, orgID)
+	// TODO: Implement pagination correctly
+	entities, _, err := r.entityRepo.List(ctx, orgID, 10, 0)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list entities: %w", err)
 	}
@@ -146,8 +147,9 @@ func (r *Resolver) SearchEntitiesByPropertyExists(ctx context.Context, organizat
 		return nil, fmt.Errorf("invalid organization ID: %w", err)
 	}
 
-	// Get all entities for the organization first
-	entities, err := r.entityRepo.List(ctx, orgID)
+	// Get 10 entities for the organization first
+	// TODO: Implement pagination correctly
+	entities, _, err := r.entityRepo.List(ctx, orgID, 10, 0)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list entities: %w", err)
 	}
@@ -189,8 +191,8 @@ func (r *Resolver) SearchEntitiesByPropertyContains(ctx context.Context, organiz
 		return nil, fmt.Errorf("invalid organization ID: %w", err)
 	}
 
-	// Get all entities for the organization first
-	entities, err := r.entityRepo.List(ctx, orgID)
+	// TODO: Implement pagination correctly
+	entities, _, err := r.entityRepo.List(ctx, orgID, 10, 0)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list entities: %w", err)
 	}
@@ -327,8 +329,8 @@ func (r *Resolver) ValidateEntityAgainstSchema(ctx context.Context, entityID str
 	}
 
 	return &graph.ValidationResult{
-		IsValid: len(errors) == 0,
-		Errors:  errors,
+		IsValid:  len(errors) == 0,
+		Errors:   errors,
 		Warnings: warnings,
 	}, nil
 }
@@ -341,11 +343,11 @@ func contains(s, substr string) bool {
 	if len(s) == 0 {
 		return false
 	}
-	
+
 	// Simple case-insensitive search
 	sLower := toLowerCase(s)
 	substrLower := toLowerCase(substr)
-	
+
 	return indexOf(sLower, substrLower) >= 0
 }
 
@@ -370,7 +372,7 @@ func indexOf(s, substr string) int {
 	if len(substr) > len(s) {
 		return -1
 	}
-	
+
 	for i := 0; i <= len(s)-len(substr); i++ {
 		if s[i:i+len(substr)] == substr {
 			return i

@@ -9,10 +9,12 @@ FROM entities
 WHERE id = $1;
 
 -- name: ListEntities :many
-SELECT id, organization_id, entity_type, path, properties, created_at, updated_at
+SELECT id, organization_id, entity_type, path, properties, created_at, updated_at,
+       COUNT(*) OVER() AS total_count
 FROM entities
 WHERE organization_id = $1
-ORDER BY created_at DESC;
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3;
 
 -- name: ListEntitiesByType :many
 SELECT id, organization_id, entity_type, path, properties, created_at, updated_at
