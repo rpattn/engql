@@ -51,6 +51,9 @@ func main() {
 	// Create GraphQL server
 	srv := handler.NewDefaultServer(graph.NewExecutableSchema(graph.Config{Resolvers: resolver}))
 
+	// Add the resolver logging extension
+	srv.Use(&middleware.ResolverLoggerExtension{})
+
 	// Setup HTTP server
 	http.Handle("/query", middleware.LoggingMiddleware(srv))
 	http.Handle("/", middleware.LoggingMiddleware(playground.Handler("GraphQL playground", "/query")))

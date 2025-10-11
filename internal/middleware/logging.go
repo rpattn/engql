@@ -37,9 +37,9 @@ func (r *ResolverLoggerExtension) Validate(schema graphql.ExecutableSchema) erro
 func (r *ResolverLoggerExtension) InterceptField(ctx context.Context, next graphql.Resolver) (res interface{}, err error) {
 	start := time.Now()
 	res, err = next(ctx)
-	duration := time.Since(start)
+	duration := time.Since(start).Seconds() * 1000 //convert to ms
 	fc := graphql.GetFieldContext(ctx)
-	log.Printf("[GRAPHQL] %s.%s took %s, error: %v", fc.Object, fc.Field.Name, duration, err)
+	log.Printf("[GRAPHQL] %s.%s took %.3fms, error: %v", fc.Object, fc.Field.Name, duration, err)
 	return res, err
 }
 
