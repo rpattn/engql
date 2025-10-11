@@ -1,0 +1,3 @@
+{
+  "query": "mutation { createOrganization(input: { name: \"ACME Engineering\", description: \"Engineering team for ACME Corp\" }) { id name description createdAt } }"
+}

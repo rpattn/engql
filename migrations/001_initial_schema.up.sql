@@ -3,7 +3,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "ltree";
 
 -- Organizations table
-CREATE TABLE organizations (
+CREATE TABLE IF NOT EXISTS organizations (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(255) NOT NULL,
     description TEXT,
@@ -12,7 +12,7 @@ CREATE TABLE organizations (
 );
 
 -- Entity schemas table - stores field definitions for entity types
-CREATE TABLE entity_schemas (
+CREATE TABLE IF NOT EXISTS entity_schemas (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
@@ -25,7 +25,7 @@ CREATE TABLE entity_schemas (
 );
 
 -- Entities table - stores all dynamic data with JSONB properties
-CREATE TABLE entities (
+CREATE TABLE IF NOT EXISTS entities (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     entity_type VARCHAR(255) NOT NULL, -- References entity_schemas.name
@@ -38,12 +38,12 @@ CREATE TABLE entities (
 );
 
 -- Indexes for performance
-CREATE INDEX idx_organizations_name ON organizations(name);
-CREATE INDEX idx_entity_schemas_org_name ON entity_schemas(organization_id, name);
-CREATE INDEX idx_entities_org_type ON entities(organization_id, entity_type);
-CREATE INDEX idx_entities_path ON entities USING GIST(path);
-CREATE INDEX idx_entities_properties ON entities USING GIN(properties);
-CREATE INDEX idx_entities_created_at ON entities(created_at);
+CREATE INDEX IF NOT EXISTS idx_organizations_name ON organizations(name);
+CREATE INDEX IF NOT EXISTS idx_entity_schemas_org_name ON entity_schemas(organization_id, name);
+CREATE INDEX IF NOT EXISTS idx_entities_org_type ON entities(organization_id, entity_type);
+CREATE INDEX IF NOT EXISTS idx_entities_path ON entities USING GIST(path);
+CREATE INDEX IF NOT EXISTS idx_entities_properties ON entities USING GIN(properties);
+CREATE INDEX IF NOT EXISTS idx_entities_created_at ON entities(created_at);
 
 -- Function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -55,12 +55,15 @@ END;
 $$ language 'plpgsql';
 
 -- Triggers for updated_at
+DROP TRIGGER IF EXISTS update_organizations_updated_at ON organizations;
 CREATE TRIGGER update_organizations_updated_at BEFORE UPDATE ON organizations
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_entity_schemas_updated_at ON entity_schemas;
 CREATE TRIGGER update_entity_schemas_updated_at BEFORE UPDATE ON entity_schemas
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_entities_updated_at ON entities;
 CREATE TRIGGER update_entities_updated_at BEFORE UPDATE ON entities
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
@@ -103,6 +106,7 @@ END;
 $$ language 'plpgsql';
 
 -- Trigger to validate entity properties
+DROP TRIGGER IF EXISTS validate_entity_properties_trigger ON entities;
 CREATE TRIGGER validate_entity_properties_trigger 
     BEFORE INSERT OR UPDATE ON entities
     FOR EACH ROW EXECUTE FUNCTION validate_entity_properties();

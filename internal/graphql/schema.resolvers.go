@@ -7,12 +7,33 @@ package graphql
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"graphql-engineering-api/graph"
+	"graphql-engineering-api/internal/domain"
 )
 
 // CreateOrganization is the resolver for the createOrganization field.
 func (r *mutationResolver) CreateOrganization(ctx context.Context, input graph.CreateOrganizationInput) (*graph.Organization, error) {
-	panic(fmt.Errorf("not implemented: CreateOrganization - createOrganization"))
+	description := ""
+	if input.Description != nil {
+		description = *input.Description
+	}
+	
+	org := domain.NewOrganization(input.Name, description)
+	
+	createdOrg, err := r.orgRepo.Create(ctx, org)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create organization: %w", err)
+	}
+
+	return &graph.Organization{
+		ID:          createdOrg.ID.String(),
+		Name:        createdOrg.Name,
+		Description: &createdOrg.Description,
+		CreatedAt:   createdOrg.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:   createdOrg.UpdatedAt.Format(time.RFC3339),
+	}, nil
 }
 
 // UpdateOrganization is the resolver for the updateOrganization field.
@@ -67,7 +88,23 @@ func (r *mutationResolver) DeleteEntity(ctx context.Context, id string) (bool, e
 
 // Organizations is the resolver for the organizations field.
 func (r *queryResolver) Organizations(ctx context.Context) ([]*graph.Organization, error) {
-	panic(fmt.Errorf("not implemented: Organizations - organizations"))
+	orgs, err := r.orgRepo.List(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list organizations: %w", err)
+	}
+
+	result := make([]*graph.Organization, len(orgs))
+	for i, org := range orgs {
+		result[i] = &graph.Organization{
+			ID:          org.ID.String(),
+			Name:        org.Name,
+			Description: &org.Description,
+			CreatedAt:   org.CreatedAt.Format(time.RFC3339),
+			UpdatedAt:   org.UpdatedAt.Format(time.RFC3339),
+		}
+	}
+
+	return result, nil
 }
 
 // Organization is the resolver for the organization field.
