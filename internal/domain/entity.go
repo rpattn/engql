@@ -103,8 +103,10 @@ func (e Entity) WithProperties(properties map[string]any) Entity {
 	}
 }
 
-// GetPropertiesAsJSONB returns the properties as JSONB for database storage
-func (e Entity) GetPropertiesAsJSONB() (json.RawMessage, error) {
+func (e *Entity) GetPropertiesAsJSONB() (json.RawMessage, error) {
+	if e.Properties == nil {
+		e.Properties = make(map[string]any)
+	}
 	return json.Marshal(e.Properties)
 }
 

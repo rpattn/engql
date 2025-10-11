@@ -8,33 +8,11 @@ import (
 	"context"
 	"fmt"
 	"graphql-engineering-api/graph"
-	"graphql-engineering-api/internal/domain"
-	"time"
-
-	"github.com/google/uuid"
 )
 
 // CreateOrganization is the resolver for the createOrganization field.
 func (r *mutationResolver) CreateOrganization(ctx context.Context, input graph.CreateOrganizationInput) (*graph.Organization, error) {
-	description := ""
-	if input.Description != nil {
-		description = *input.Description
-	}
-
-	org := domain.NewOrganization(input.Name, description)
-
-	createdOrg, err := r.orgRepo.Create(ctx, org)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create organization: %w", err)
-	}
-
-	return &graph.Organization{
-		ID:          createdOrg.ID.String(),
-		Name:        createdOrg.Name,
-		Description: &createdOrg.Description,
-		CreatedAt:   createdOrg.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:   createdOrg.UpdatedAt.Format(time.RFC3339),
-	}, nil
+	return r.Resolver.CreateOrganization(ctx, input)
 }
 
 // UpdateOrganization is the resolver for the updateOrganization field.
@@ -49,53 +27,7 @@ func (r *mutationResolver) DeleteOrganization(ctx context.Context, id string) (b
 
 // CreateEntitySchema is the resolver for the createEntitySchema field.
 func (r *mutationResolver) CreateEntitySchema(ctx context.Context, input graph.CreateEntitySchemaInput) (*graph.EntitySchema, error) {
-	orgID, err := uuid.Parse(input.OrganizationID)
-	if err != nil {
-		return nil, fmt.Errorf("invalid organization ID: %w", err)
-	}
-
-	// Convert GraphQL input fields to domain field definitions
-	fields := make([]domain.FieldDefinition, len(input.Fields))
-	for i, f := range input.Fields {
-		required := false
-		if f.Required != nil {
-			required = *f.Required
-		}
-
-		fields[i] = domain.FieldDefinition{
-			Name:        f.Name,
-			Type:        domain.FieldType(f.Type),
-			Required:    required,
-			Description: stringOrEmpty(f.Description),
-			Default:     stringOrEmpty(f.Default),
-			Validation:  stringOrEmpty(f.Validation),
-		}
-	}
-
-	// Create new domain entity schema
-	entitySchema := domain.NewEntitySchema(
-		orgID,
-		input.Name,
-		stringOrEmpty(input.Description),
-		fields,
-	)
-
-	// Persist using repository (your implementation)
-	createdSchema, err := r.entitySchemaRepo.Create(ctx, entitySchema)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create entity schema: %w", err)
-	}
-
-	// Map domain -> GraphQL
-	return &graph.EntitySchema{
-		ID:             createdSchema.ID.String(),
-		Name:           createdSchema.Name,
-		Description:    &createdSchema.Description,
-		OrganizationID: createdSchema.OrganizationID.String(),
-		Fields:         convertDomainFieldsToGraph(createdSchema.Fields),
-		CreatedAt:      createdSchema.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:      createdSchema.UpdatedAt.Format(time.RFC3339),
-	}, nil
+	return r.Resolver.CreateEntitySchema(ctx, input)
 }
 
 // UpdateEntitySchema is the resolver for the updateEntitySchema field.
@@ -120,7 +52,7 @@ func (r *mutationResolver) RemoveFieldFromSchema(ctx context.Context, schemaID s
 
 // CreateEntity is the resolver for the createEntity field.
 func (r *mutationResolver) CreateEntity(ctx context.Context, input graph.CreateEntityInput) (*graph.Entity, error) {
-	panic(fmt.Errorf("not implemented: CreateEntity - createEntity"))
+	return r.Resolver.CreateEntity(ctx, input)
 }
 
 // UpdateEntity is the resolver for the updateEntity field.
@@ -135,23 +67,7 @@ func (r *mutationResolver) DeleteEntity(ctx context.Context, id string) (bool, e
 
 // Organizations is the resolver for the organizations field.
 func (r *queryResolver) Organizations(ctx context.Context) ([]*graph.Organization, error) {
-	orgs, err := r.orgRepo.List(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list organizations: %w", err)
-	}
-
-	result := make([]*graph.Organization, len(orgs))
-	for i, org := range orgs {
-		result[i] = &graph.Organization{
-			ID:          org.ID.String(),
-			Name:        org.Name,
-			Description: &org.Description,
-			CreatedAt:   org.CreatedAt.Format(time.RFC3339),
-			UpdatedAt:   org.UpdatedAt.Format(time.RFC3339),
-		}
-	}
-
-	return result, nil
+	return r.Resolver.Organizations(ctx)
 }
 
 // Organization is the resolver for the organization field.
@@ -181,7 +97,8 @@ func (r *queryResolver) EntitySchemaByName(ctx context.Context, organizationID s
 
 // Entities is the resolver for the entities field.
 func (r *queryResolver) Entities(ctx context.Context, organizationID string, filter *graph.EntityFilter, pagination *graph.PaginationInput) (*graph.EntityConnection, error) {
-	panic(fmt.Errorf("not implemented: Entities - entities"))
+	// Delegate to the Resolver-level function
+	return r.Resolver.Entities(ctx, organizationID, filter, pagination)
 }
 
 // Entity is the resolver for the entity field.
@@ -221,7 +138,8 @@ func (r *queryResolver) GetEntityHierarchy(ctx context.Context, entityID string)
 
 // SearchEntitiesByProperty is the resolver for the searchEntitiesByProperty field.
 func (r *queryResolver) SearchEntitiesByProperty(ctx context.Context, organizationID string, propertyKey string, propertyValue string) ([]*graph.Entity, error) {
-	panic(fmt.Errorf("not implemented: SearchEntitiesByProperty - searchEntitiesByProperty"))
+	// Call the Resolver-level function that contains the actual logic
+	return r.Resolver.SearchEntitiesByProperty(ctx, organizationID, propertyKey, propertyValue)
 }
 
 // SearchEntitiesByMultipleProperties is the resolver for the searchEntitiesByMultipleProperties field.

@@ -72,38 +72,41 @@ CREATE OR REPLACE FUNCTION validate_entity_properties()
 RETURNS TRIGGER AS $$
 DECLARE
     schema_fields JSONB;
-    field_name TEXT;
     field_def JSONB;
     field_value JSONB;
+    i INT;
+    field_name TEXT;
 BEGIN
     -- Get the schema for this entity type
-    SELECT fields INTO schema_fields 
-    FROM entity_schemas 
-    WHERE organization_id = NEW.organization_id 
-    AND name = NEW.entity_type;
-    
+    SELECT fields INTO schema_fields
+    FROM entity_schemas
+    WHERE organization_id = NEW.organization_id
+      AND name = NEW.entity_type;
+
     -- If no schema found, allow empty properties
     IF schema_fields IS NULL THEN
         RETURN NEW;
     END IF;
-    
-    -- Validate each field in the schema
-    FOR field_name IN SELECT jsonb_object_keys(schema_fields)
+
+    -- Loop over array elements
+    FOR i IN 0 .. jsonb_array_length(schema_fields) - 1
     LOOP
-        field_def := schema_fields->field_name;
+        field_def := schema_fields->i;
+        field_name := field_def->>'name';
         field_value := NEW.properties->field_name;
-        
+
         -- Check required fields
         IF (field_def->>'required')::boolean AND (field_value IS NULL OR field_value = 'null') THEN
             RAISE EXCEPTION 'Required field % is missing or null', field_name;
         END IF;
-        
+
         -- TODO: Add type validation here (string, integer, float, boolean, etc.)
     END LOOP;
-    
+
     RETURN NEW;
 END;
-$$ language 'plpgsql';
+$$ LANGUAGE plpgsql;
+
 
 -- Trigger to validate entity properties
 DROP TRIGGER IF EXISTS validate_entity_properties_trigger ON entities;
