@@ -11,8 +11,9 @@ import (
 
 	"graphql-engineering-api/graph"
 	"graphql-engineering-api/internal/db"
-	"graphql-engineering-api/internal/repository"
 	"graphql-engineering-api/internal/graphql"
+	"graphql-engineering-api/internal/middleware"
+	"graphql-engineering-api/internal/repository"
 
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/playground"
@@ -51,8 +52,8 @@ func main() {
 	srv := handler.NewDefaultServer(graph.NewExecutableSchema(graph.Config{Resolvers: resolver}))
 
 	// Setup HTTP server
-	http.Handle("/", playground.Handler("GraphQL playground", "/query"))
-	http.Handle("/query", srv)
+	http.Handle("/query", middleware.LoggingMiddleware(srv))
+	http.Handle("/", middleware.LoggingMiddleware(playground.Handler("GraphQL playground", "/query")))
 
 	// Create HTTP server
 	server := &http.Server{
@@ -67,7 +68,7 @@ func main() {
 		log.Println("Starting GraphQL server on :8080")
 		log.Println("GraphQL playground available at http://localhost:8080")
 		log.Println("GraphQL endpoint available at http://localhost:8080/query")
-		
+
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Failed to start server: %v", err)
 		}
