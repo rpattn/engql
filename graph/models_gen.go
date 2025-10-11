@@ -68,6 +68,7 @@ type EntitySchema struct {
 }
 
 type FieldDefinition struct {
+	Name        string    `json:"name"`
 	Type        FieldType `json:"type"`
 	Required    bool      `json:"required"`
 	Description *string   `json:"description,omitempty"`

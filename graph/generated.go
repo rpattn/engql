@@ -81,6 +81,7 @@ type ComplexityRoot struct {
 	FieldDefinition struct {
 		Default     func(childComplexity int) int
 		Description func(childComplexity int) int
+		Name        func(childComplexity int) int
 		Required    func(childComplexity int) int
 		Type        func(childComplexity int) int
 		Validation  func(childComplexity int) int
@@ -335,6 +336,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.FieldDefinition.Description(childComplexity), true
+	case "FieldDefinition.name":
+		if e.complexity.FieldDefinition.Name == nil {
+			break
+		}
+
+		return e.complexity.FieldDefinition.Name(childComplexity), true
 	case "FieldDefinition.required":
 		if e.complexity.FieldDefinition.Required == nil {
 			break
@@ -1969,6 +1976,8 @@ func (ec *executionContext) fieldContext_EntitySchema_fields(_ context.Context, 
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
+			case "name":
+				return ec.fieldContext_FieldDefinition_name(ctx, field)
 			case "type":
 				return ec.fieldContext_FieldDefinition_type(ctx, field)
 			case "required":
@@ -2034,6 +2043,35 @@ func (ec *executionContext) _EntitySchema_updatedAt(ctx context.Context, field g
 func (ec *executionContext) fieldContext_EntitySchema_updatedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "EntitySchema",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _FieldDefinition_name(ctx context.Context, field graphql.CollectedField, obj *FieldDefinition) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_FieldDefinition_name,
+		func(ctx context.Context) (any, error) {
+			return obj.Name, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_FieldDefinition_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "FieldDefinition",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
@@ -6495,6 +6533,11 @@ func (ec *executionContext) _FieldDefinition(ctx context.Context, sel ast.Select
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("FieldDefinition")
+		case "name":
+			out.Values[i] = ec._FieldDefinition_name(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		case "type":
 			out.Values[i] = ec._FieldDefinition_type(ctx, field, obj)
 			if out.Values[i] == graphql.Null {

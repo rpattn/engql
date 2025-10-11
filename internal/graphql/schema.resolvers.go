@@ -7,10 +7,11 @@ package graphql
 import (
 	"context"
 	"fmt"
-	"time"
-
 	"graphql-engineering-api/graph"
 	"graphql-engineering-api/internal/domain"
+	"time"
+
+	"github.com/google/uuid"
 )
 
 // CreateOrganization is the resolver for the createOrganization field.
@@ -19,9 +20,9 @@ func (r *mutationResolver) CreateOrganization(ctx context.Context, input graph.C
 	if input.Description != nil {
 		description = *input.Description
 	}
-	
+
 	org := domain.NewOrganization(input.Name, description)
-	
+
 	createdOrg, err := r.orgRepo.Create(ctx, org)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create organization: %w", err)
@@ -48,7 +49,53 @@ func (r *mutationResolver) DeleteOrganization(ctx context.Context, id string) (b
 
 // CreateEntitySchema is the resolver for the createEntitySchema field.
 func (r *mutationResolver) CreateEntitySchema(ctx context.Context, input graph.CreateEntitySchemaInput) (*graph.EntitySchema, error) {
-	panic(fmt.Errorf("not implemented: CreateEntitySchema - createEntitySchema"))
+	orgID, err := uuid.Parse(input.OrganizationID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid organization ID: %w", err)
+	}
+
+	// Convert GraphQL input fields to domain field definitions
+	fields := make([]domain.FieldDefinition, len(input.Fields))
+	for i, f := range input.Fields {
+		required := false
+		if f.Required != nil {
+			required = *f.Required
+		}
+
+		fields[i] = domain.FieldDefinition{
+			Name:        f.Name,
+			Type:        domain.FieldType(f.Type),
+			Required:    required,
+			Description: stringOrEmpty(f.Description),
+			Default:     stringOrEmpty(f.Default),
+			Validation:  stringOrEmpty(f.Validation),
+		}
+	}
+
+	// Create new domain entity schema
+	entitySchema := domain.NewEntitySchema(
+		orgID,
+		input.Name,
+		stringOrEmpty(input.Description),
+		fields,
+	)
+
+	// Persist using repository (your implementation)
+	createdSchema, err := r.entitySchemaRepo.Create(ctx, entitySchema)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create entity schema: %w", err)
+	}
+
+	// Map domain -> GraphQL
+	return &graph.EntitySchema{
+		ID:             createdSchema.ID.String(),
+		Name:           createdSchema.Name,
+		Description:    &createdSchema.Description,
+		OrganizationID: createdSchema.OrganizationID.String(),
+		Fields:         convertDomainFieldsToGraph(createdSchema.Fields),
+		CreatedAt:      createdSchema.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:      createdSchema.UpdatedAt.Format(time.RFC3339),
+	}, nil
 }
 
 // UpdateEntitySchema is the resolver for the updateEntitySchema field.

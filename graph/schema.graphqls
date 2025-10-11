@@ -20,6 +20,7 @@ input UpdateOrganizationInput {
 
 # Entity Schema types
 type FieldDefinition {
+  name: String!
   type: FieldType!
   required: Boolean!
   description: String
