@@ -44,6 +44,9 @@ CREATE INDEX IF NOT EXISTS idx_entities_org_type ON entities(organization_id, en
 CREATE INDEX IF NOT EXISTS idx_entities_path ON entities USING GIST(path);
 CREATE INDEX IF NOT EXISTS idx_entities_properties ON entities USING GIN(properties);
 CREATE INDEX IF NOT EXISTS idx_entities_created_at ON entities(created_at);
+CREATE INDEX IF NOT EXISTS entities_id_idx ON entities (id);
+CREATE INDEX IF NOT EXISTS entity_schemas_id_idx ON entity_schemas (id);
+CREATE INDEX IF NOT EXISTS organizations_id_idx ON organizations (id);
 
 -- Function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()

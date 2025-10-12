@@ -29,13 +29,14 @@ type CreateOrganizationInput struct {
 }
 
 type Entity struct {
-	ID             string `json:"id"`
-	OrganizationID string `json:"organizationId"`
-	EntityType     string `json:"entityType"`
-	Path           string `json:"path"`
-	Properties     string `json:"properties"`
-	CreatedAt      string `json:"createdAt"`
-	UpdatedAt      string `json:"updatedAt"`
+	ID             string    `json:"id"`
+	OrganizationID string    `json:"organizationId"`
+	EntityType     string    `json:"entityType"`
+	Path           string    `json:"path"`
+	Properties     string    `json:"properties"`
+	CreatedAt      string    `json:"createdAt"`
+	UpdatedAt      string    `json:"updatedAt"`
+	LinkedEntities []*Entity `json:"linkedEntities"`
 }
 
 type EntityConnection struct {
@@ -68,21 +69,23 @@ type EntitySchema struct {
 }
 
 type FieldDefinition struct {
-	Name        string    `json:"name"`
-	Type        FieldType `json:"type"`
-	Required    bool      `json:"required"`
-	Description *string   `json:"description,omitempty"`
-	Default     *string   `json:"default,omitempty"`
-	Validation  *string   `json:"validation,omitempty"`
+	Name                string    `json:"name"`
+	Type                FieldType `json:"type"`
+	Required            bool      `json:"required"`
+	Description         *string   `json:"description,omitempty"`
+	Default             *string   `json:"default,omitempty"`
+	Validation          *string   `json:"validation,omitempty"`
+	ReferenceEntityType *string   `json:"referenceEntityType,omitempty"`
 }
 
 type FieldDefinitionInput struct {
-	Name        string    `json:"name"`
-	Type        FieldType `json:"type"`
-	Required    *bool     `json:"required,omitempty"`
-	Description *string   `json:"description,omitempty"`
-	Default     *string   `json:"default,omitempty"`
-	Validation  *string   `json:"validation,omitempty"`
+	Name                string    `json:"name"`
+	Type                FieldType `json:"type"`
+	Required            *bool     `json:"required,omitempty"`
+	Description         *string   `json:"description,omitempty"`
+	Default             *string   `json:"default,omitempty"`
+	Validation          *string   `json:"validation,omitempty"`
+	ReferenceEntityType *string   `json:"referenceEntityType,omitempty"`
 }
 
 type Mutation struct {
@@ -153,15 +156,17 @@ type ValidationResult struct {
 type FieldType string
 
 const (
-	FieldTypeString        FieldType = "STRING"
-	FieldTypeInteger       FieldType = "INTEGER"
-	FieldTypeFloat         FieldType = "FLOAT"
-	FieldTypeBoolean       FieldType = "BOOLEAN"
-	FieldTypeTimestamp     FieldType = "TIMESTAMP"
-	FieldTypeJSON          FieldType = "JSON"
-	FieldTypeFileReference FieldType = "FILE_REFERENCE"
-	FieldTypeGeometry      FieldType = "GEOMETRY"
-	FieldTypeTimeseries    FieldType = "TIMESERIES"
+	FieldTypeString               FieldType = "STRING"
+	FieldTypeInteger              FieldType = "INTEGER"
+	FieldTypeFloat                FieldType = "FLOAT"
+	FieldTypeBoolean              FieldType = "BOOLEAN"
+	FieldTypeTimestamp            FieldType = "TIMESTAMP"
+	FieldTypeJSON                 FieldType = "JSON"
+	FieldTypeFileReference        FieldType = "FILE_REFERENCE"
+	FieldTypeGeometry             FieldType = "GEOMETRY"
+	FieldTypeTimeseries           FieldType = "TIMESERIES"
+	FieldTypeEntityReference      FieldType = "ENTITY_REFERENCE"
+	FieldTypeEntityReferenceArray FieldType = "ENTITY_REFERENCE_ARRAY"
 )
 
 var AllFieldType = []FieldType{
@@ -174,11 +179,13 @@ var AllFieldType = []FieldType{
 	FieldTypeFileReference,
 	FieldTypeGeometry,
 	FieldTypeTimeseries,
+	FieldTypeEntityReference,
+	FieldTypeEntityReferenceArray,
 }
 
 func (e FieldType) IsValid() bool {
 	switch e {
-	case FieldTypeString, FieldTypeInteger, FieldTypeFloat, FieldTypeBoolean, FieldTypeTimestamp, FieldTypeJSON, FieldTypeFileReference, FieldTypeGeometry, FieldTypeTimeseries:
+	case FieldTypeString, FieldTypeInteger, FieldTypeFloat, FieldTypeBoolean, FieldTypeTimestamp, FieldTypeJSON, FieldTypeFileReference, FieldTypeGeometry, FieldTypeTimeseries, FieldTypeEntityReference, FieldTypeEntityReferenceArray:
 		return true
 	}
 	return false

@@ -50,6 +50,7 @@ type ComplexityRoot struct {
 		CreatedAt      func(childComplexity int) int
 		EntityType     func(childComplexity int) int
 		ID             func(childComplexity int) int
+		LinkedEntities func(childComplexity int) int
 		OrganizationID func(childComplexity int) int
 		Path           func(childComplexity int) int
 		Properties     func(childComplexity int) int
@@ -79,12 +80,13 @@ type ComplexityRoot struct {
 	}
 
 	FieldDefinition struct {
-		Default     func(childComplexity int) int
-		Description func(childComplexity int) int
-		Name        func(childComplexity int) int
-		Required    func(childComplexity int) int
-		Type        func(childComplexity int) int
-		Validation  func(childComplexity int) int
+		Default             func(childComplexity int) int
+		Description         func(childComplexity int) int
+		Name                func(childComplexity int) int
+		ReferenceEntityType func(childComplexity int) int
+		Required            func(childComplexity int) int
+		Type                func(childComplexity int) int
+		Validation          func(childComplexity int) int
 	}
 
 	Mutation struct {
@@ -218,6 +220,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Entity.ID(childComplexity), true
+	case "Entity.linkedEntities":
+		if e.complexity.Entity.LinkedEntities == nil {
+			break
+		}
+
+		return e.complexity.Entity.LinkedEntities(childComplexity), true
 	case "Entity.organizationId":
 		if e.complexity.Entity.OrganizationID == nil {
 			break
@@ -342,6 +350,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.FieldDefinition.Name(childComplexity), true
+	case "FieldDefinition.referenceEntityType":
+		if e.complexity.FieldDefinition.ReferenceEntityType == nil {
+			break
+		}
+
+		return e.complexity.FieldDefinition.ReferenceEntityType(childComplexity), true
 	case "FieldDefinition.required":
 		if e.complexity.FieldDefinition.Required == nil {
 			break
@@ -1574,6 +1588,53 @@ func (ec *executionContext) fieldContext_Entity_updatedAt(_ context.Context, fie
 	return fc, nil
 }
 
+func (ec *executionContext) _Entity_linkedEntities(ctx context.Context, field graphql.CollectedField, obj *Entity) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Entity_linkedEntities,
+		func(ctx context.Context) (any, error) {
+			return obj.LinkedEntities, nil
+		},
+		nil,
+		ec.marshalNEntity2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Entity_linkedEntities(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Entity",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Entity_id(ctx, field)
+			case "organizationId":
+				return ec.fieldContext_Entity_organizationId(ctx, field)
+			case "entityType":
+				return ec.fieldContext_Entity_entityType(ctx, field)
+			case "path":
+				return ec.fieldContext_Entity_path(ctx, field)
+			case "properties":
+				return ec.fieldContext_Entity_properties(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_Entity_createdAt(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_Entity_updatedAt(ctx, field)
+			case "linkedEntities":
+				return ec.fieldContext_Entity_linkedEntities(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Entity", field.Name)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _EntityConnection_entities(ctx context.Context, field graphql.CollectedField, obj *EntityConnection) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -1612,6 +1673,8 @@ func (ec *executionContext) fieldContext_EntityConnection_entities(_ context.Con
 				return ec.fieldContext_Entity_createdAt(ctx, field)
 			case "updatedAt":
 				return ec.fieldContext_Entity_updatedAt(ctx, field)
+			case "linkedEntities":
+				return ec.fieldContext_Entity_linkedEntities(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Entity", field.Name)
 		},
@@ -1694,6 +1757,8 @@ func (ec *executionContext) fieldContext_EntityHierarchy_current(_ context.Conte
 				return ec.fieldContext_Entity_createdAt(ctx, field)
 			case "updatedAt":
 				return ec.fieldContext_Entity_updatedAt(ctx, field)
+			case "linkedEntities":
+				return ec.fieldContext_Entity_linkedEntities(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Entity", field.Name)
 		},
@@ -1739,6 +1804,8 @@ func (ec *executionContext) fieldContext_EntityHierarchy_ancestors(_ context.Con
 				return ec.fieldContext_Entity_createdAt(ctx, field)
 			case "updatedAt":
 				return ec.fieldContext_Entity_updatedAt(ctx, field)
+			case "linkedEntities":
+				return ec.fieldContext_Entity_linkedEntities(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Entity", field.Name)
 		},
@@ -1784,6 +1851,8 @@ func (ec *executionContext) fieldContext_EntityHierarchy_children(_ context.Cont
 				return ec.fieldContext_Entity_createdAt(ctx, field)
 			case "updatedAt":
 				return ec.fieldContext_Entity_updatedAt(ctx, field)
+			case "linkedEntities":
+				return ec.fieldContext_Entity_linkedEntities(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Entity", field.Name)
 		},
@@ -1829,6 +1898,8 @@ func (ec *executionContext) fieldContext_EntityHierarchy_siblings(_ context.Cont
 				return ec.fieldContext_Entity_createdAt(ctx, field)
 			case "updatedAt":
 				return ec.fieldContext_Entity_updatedAt(ctx, field)
+			case "linkedEntities":
+				return ec.fieldContext_Entity_linkedEntities(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Entity", field.Name)
 		},
@@ -1988,6 +2059,8 @@ func (ec *executionContext) fieldContext_EntitySchema_fields(_ context.Context, 
 				return ec.fieldContext_FieldDefinition_default(ctx, field)
 			case "validation":
 				return ec.fieldContext_FieldDefinition_validation(ctx, field)
+			case "referenceEntityType":
+				return ec.fieldContext_FieldDefinition_referenceEntityType(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type FieldDefinition", field.Name)
 		},
@@ -2215,6 +2288,35 @@ func (ec *executionContext) _FieldDefinition_validation(ctx context.Context, fie
 }
 
 func (ec *executionContext) fieldContext_FieldDefinition_validation(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "FieldDefinition",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _FieldDefinition_referenceEntityType(ctx context.Context, field graphql.CollectedField, obj *FieldDefinition) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_FieldDefinition_referenceEntityType,
+		func(ctx context.Context) (any, error) {
+			return obj.ReferenceEntityType, nil
+		},
+		nil,
+		ec.marshalOString2ᚖstring,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_FieldDefinition_referenceEntityType(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "FieldDefinition",
 		Field:      field,
@@ -2682,6 +2784,8 @@ func (ec *executionContext) fieldContext_Mutation_createEntity(ctx context.Conte
 				return ec.fieldContext_Entity_createdAt(ctx, field)
 			case "updatedAt":
 				return ec.fieldContext_Entity_updatedAt(ctx, field)
+			case "linkedEntities":
+				return ec.fieldContext_Entity_linkedEntities(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Entity", field.Name)
 		},
@@ -2739,6 +2843,8 @@ func (ec *executionContext) fieldContext_Mutation_updateEntity(ctx context.Conte
 				return ec.fieldContext_Entity_createdAt(ctx, field)
 			case "updatedAt":
 				return ec.fieldContext_Entity_updatedAt(ctx, field)
+			case "linkedEntities":
+				return ec.fieldContext_Entity_linkedEntities(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Entity", field.Name)
 		},
@@ -3434,6 +3540,8 @@ func (ec *executionContext) fieldContext_Query_entity(ctx context.Context, field
 				return ec.fieldContext_Entity_createdAt(ctx, field)
 			case "updatedAt":
 				return ec.fieldContext_Entity_updatedAt(ctx, field)
+			case "linkedEntities":
+				return ec.fieldContext_Entity_linkedEntities(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Entity", field.Name)
 		},
@@ -3491,6 +3599,8 @@ func (ec *executionContext) fieldContext_Query_entitiesByType(ctx context.Contex
 				return ec.fieldContext_Entity_createdAt(ctx, field)
 			case "updatedAt":
 				return ec.fieldContext_Entity_updatedAt(ctx, field)
+			case "linkedEntities":
+				return ec.fieldContext_Entity_linkedEntities(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Entity", field.Name)
 		},
@@ -3548,6 +3658,8 @@ func (ec *executionContext) fieldContext_Query_getEntityAncestors(ctx context.Co
 				return ec.fieldContext_Entity_createdAt(ctx, field)
 			case "updatedAt":
 				return ec.fieldContext_Entity_updatedAt(ctx, field)
+			case "linkedEntities":
+				return ec.fieldContext_Entity_linkedEntities(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Entity", field.Name)
 		},
@@ -3605,6 +3717,8 @@ func (ec *executionContext) fieldContext_Query_getEntityDescendants(ctx context.
 				return ec.fieldContext_Entity_createdAt(ctx, field)
 			case "updatedAt":
 				return ec.fieldContext_Entity_updatedAt(ctx, field)
+			case "linkedEntities":
+				return ec.fieldContext_Entity_linkedEntities(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Entity", field.Name)
 		},
@@ -3662,6 +3776,8 @@ func (ec *executionContext) fieldContext_Query_getEntityChildren(ctx context.Con
 				return ec.fieldContext_Entity_createdAt(ctx, field)
 			case "updatedAt":
 				return ec.fieldContext_Entity_updatedAt(ctx, field)
+			case "linkedEntities":
+				return ec.fieldContext_Entity_linkedEntities(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Entity", field.Name)
 		},
@@ -3719,6 +3835,8 @@ func (ec *executionContext) fieldContext_Query_getEntitySiblings(ctx context.Con
 				return ec.fieldContext_Entity_createdAt(ctx, field)
 			case "updatedAt":
 				return ec.fieldContext_Entity_updatedAt(ctx, field)
+			case "linkedEntities":
+				return ec.fieldContext_Entity_linkedEntities(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Entity", field.Name)
 		},
@@ -3827,6 +3945,8 @@ func (ec *executionContext) fieldContext_Query_searchEntitiesByProperty(ctx cont
 				return ec.fieldContext_Entity_createdAt(ctx, field)
 			case "updatedAt":
 				return ec.fieldContext_Entity_updatedAt(ctx, field)
+			case "linkedEntities":
+				return ec.fieldContext_Entity_linkedEntities(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Entity", field.Name)
 		},
@@ -3884,6 +4004,8 @@ func (ec *executionContext) fieldContext_Query_searchEntitiesByMultiplePropertie
 				return ec.fieldContext_Entity_createdAt(ctx, field)
 			case "updatedAt":
 				return ec.fieldContext_Entity_updatedAt(ctx, field)
+			case "linkedEntities":
+				return ec.fieldContext_Entity_linkedEntities(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Entity", field.Name)
 		},
@@ -3941,6 +4063,8 @@ func (ec *executionContext) fieldContext_Query_searchEntitiesByPropertyRange(ctx
 				return ec.fieldContext_Entity_createdAt(ctx, field)
 			case "updatedAt":
 				return ec.fieldContext_Entity_updatedAt(ctx, field)
+			case "linkedEntities":
+				return ec.fieldContext_Entity_linkedEntities(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Entity", field.Name)
 		},
@@ -3998,6 +4122,8 @@ func (ec *executionContext) fieldContext_Query_searchEntitiesByPropertyExists(ct
 				return ec.fieldContext_Entity_createdAt(ctx, field)
 			case "updatedAt":
 				return ec.fieldContext_Entity_updatedAt(ctx, field)
+			case "linkedEntities":
+				return ec.fieldContext_Entity_linkedEntities(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Entity", field.Name)
 		},
@@ -4055,6 +4181,8 @@ func (ec *executionContext) fieldContext_Query_searchEntitiesByPropertyContains(
 				return ec.fieldContext_Entity_createdAt(ctx, field)
 			case "updatedAt":
 				return ec.fieldContext_Entity_updatedAt(ctx, field)
+			case "linkedEntities":
+				return ec.fieldContext_Entity_linkedEntities(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Entity", field.Name)
 		},
@@ -5952,7 +6080,7 @@ func (ec *executionContext) unmarshalInputFieldDefinitionInput(ctx context.Conte
 		asMap["required"] = false
 	}
 
-	fieldsInOrder := [...]string{"name", "type", "required", "description", "default", "validation"}
+	fieldsInOrder := [...]string{"name", "type", "required", "description", "default", "validation", "referenceEntityType"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -6001,6 +6129,13 @@ func (ec *executionContext) unmarshalInputFieldDefinitionInput(ctx context.Conte
 				return it, err
 			}
 			it.Validation = data
+		case "referenceEntityType":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("referenceEntityType"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ReferenceEntityType = data
 		}
 	}
 
@@ -6335,6 +6470,11 @@ func (ec *executionContext) _Entity(ctx context.Context, sel ast.SelectionSet, o
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "linkedEntities":
+			out.Values[i] = ec._Entity_linkedEntities(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -6554,6 +6694,8 @@ func (ec *executionContext) _FieldDefinition(ctx context.Context, sel ast.Select
 			out.Values[i] = ec._FieldDefinition_default(ctx, field, obj)
 		case "validation":
 			out.Values[i] = ec._FieldDefinition_validation(ctx, field, obj)
+		case "referenceEntityType":
+			out.Values[i] = ec._FieldDefinition_referenceEntityType(ctx, field, obj)
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
