@@ -7,7 +7,10 @@ import (
 
 	"graphql-engineering-api/graph"
 	"graphql-engineering-api/internal/domain"
+	"graphql-engineering-api/internal/middleware"
+
 	"github.com/google/uuid"
+	"github.com/graph-gophers/dataloader"
 )
 
 // GetEntityAncestors retrieves all ancestor entities of the given entity
@@ -23,28 +26,57 @@ func (r *Resolver) GetEntityAncestors(ctx context.Context, entityID string) ([]*
 		return nil, fmt.Errorf("failed to get entity: %w", err)
 	}
 
-	// Get ancestors using the entity's path
+	// Get ancestor IDs
 	ancestors, err := r.entityRepo.GetAncestors(ctx, entity.OrganizationID, entity.Path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get entity ancestors: %w", err)
 	}
 
-	// Convert to GraphQL format
-	result := make([]*graph.Entity, len(ancestors))
-	for i, ancestor := range ancestors {
-		propertiesJSON, err := ancestor.GetPropertiesAsJSONB()
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal properties: %w", err)
+	// Use dataloader if available to batch-load ancestor entities
+	loadedAncestors := make(map[string]domain.Entity)
+	if loader := middleware.EntityLoaderFromContext(ctx); loader != nil && len(ancestors) > 0 {
+		keys := make(dataloader.Keys, len(ancestors))
+		for i, a := range ancestors {
+			keys[i] = dataloader.StringKey(a.ID.String())
 		}
 
+		thunk := loader.LoadMany(ctx, keys)
+		results, errs := thunk()
+		if len(errs) > 0 {
+			// Log partial errors but continue
+			for _, e := range errs {
+				fmt.Printf("⚠️ dataloader error: %v\n", e)
+			}
+		}
+
+		for i, r := range results {
+			if r != nil {
+				if e, ok := r.(domain.Entity); ok {
+					loadedAncestors[ancestors[i].ID.String()] = e
+				}
+			}
+		}
+	}
+
+	// Convert to GraphQL entities
+	result := make([]*graph.Entity, len(ancestors))
+	for i, ancestor := range ancestors {
+		var e domain.Entity
+		if loaded, ok := loadedAncestors[ancestor.ID.String()]; ok {
+			e = loaded
+		} else {
+			e = ancestor
+		}
+
+		propsJSON, _ := e.GetPropertiesAsJSONB()
 		result[i] = &graph.Entity{
-			ID:             ancestor.ID.String(),
-			OrganizationID: ancestor.OrganizationID.String(),
-			EntityType:     ancestor.EntityType,
-			Path:           ancestor.Path,
-			Properties:     string(propertiesJSON),
-			CreatedAt:      ancestor.CreatedAt.Format(time.RFC3339),
-			UpdatedAt:      ancestor.UpdatedAt.Format(time.RFC3339),
+			ID:             e.ID.String(),
+			OrganizationID: e.OrganizationID.String(),
+			EntityType:     e.EntityType,
+			Path:           e.Path,
+			Properties:     string(propsJSON),
+			CreatedAt:      e.CreatedAt.Format(time.RFC3339),
+			UpdatedAt:      e.UpdatedAt.Format(time.RFC3339),
 		}
 	}
 
@@ -70,22 +102,50 @@ func (r *Resolver) GetEntityDescendants(ctx context.Context, entityID string) ([
 		return nil, fmt.Errorf("failed to get entity descendants: %w", err)
 	}
 
-	// Convert to GraphQL format
-	result := make([]*graph.Entity, len(descendants))
-	for i, descendant := range descendants {
-		propertiesJSON, err := descendant.GetPropertiesAsJSONB()
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal properties: %w", err)
+	// Use dataloader if available to batch-load descendant entities
+	loadedDescendants := make(map[string]domain.Entity)
+	if loader := middleware.EntityLoaderFromContext(ctx); loader != nil && len(descendants) > 0 {
+		keys := make(dataloader.Keys, len(descendants))
+		for i, d := range descendants {
+			keys[i] = dataloader.StringKey(d.ID.String())
 		}
 
+		thunk := loader.LoadMany(ctx, keys)
+		results, errs := thunk()
+		if len(errs) > 0 {
+			for _, e := range errs {
+				fmt.Printf("⚠️ dataloader error: %v\n", e)
+			}
+		}
+
+		for i, r := range results {
+			if r != nil {
+				if e, ok := r.(domain.Entity); ok {
+					loadedDescendants[descendants[i].ID.String()] = e
+				}
+			}
+		}
+	}
+
+	// Convert to GraphQL format
+	result := make([]*graph.Entity, len(descendants))
+	for i, d := range descendants {
+		var e domain.Entity
+		if loaded, ok := loadedDescendants[d.ID.String()]; ok {
+			e = loaded
+		} else {
+			e = d
+		}
+
+		propsJSON, _ := e.GetPropertiesAsJSONB()
 		result[i] = &graph.Entity{
-			ID:             descendant.ID.String(),
-			OrganizationID: descendant.OrganizationID.String(),
-			EntityType:     descendant.EntityType,
-			Path:           descendant.Path,
-			Properties:     string(propertiesJSON),
-			CreatedAt:      descendant.CreatedAt.Format(time.RFC3339),
-			UpdatedAt:      descendant.UpdatedAt.Format(time.RFC3339),
+			ID:             e.ID.String(),
+			OrganizationID: e.OrganizationID.String(),
+			EntityType:     e.EntityType,
+			Path:           e.Path,
+			Properties:     string(propsJSON),
+			CreatedAt:      e.CreatedAt.Format(time.RFC3339),
+			UpdatedAt:      e.UpdatedAt.Format(time.RFC3339),
 		}
 	}
 
@@ -111,22 +171,50 @@ func (r *Resolver) GetEntityChildren(ctx context.Context, entityID string) ([]*g
 		return nil, fmt.Errorf("failed to get entity children: %w", err)
 	}
 
-	// Convert to GraphQL format
-	result := make([]*graph.Entity, len(children))
-	for i, child := range children {
-		propertiesJSON, err := child.GetPropertiesAsJSONB()
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal properties: %w", err)
+	// Use dataloader if available to batch-load child entities
+	loadedChildren := make(map[string]domain.Entity)
+	if loader := middleware.EntityLoaderFromContext(ctx); loader != nil && len(children) > 0 {
+		keys := make(dataloader.Keys, len(children))
+		for i, c := range children {
+			keys[i] = dataloader.StringKey(c.ID.String())
 		}
 
+		thunk := loader.LoadMany(ctx, keys)
+		results, errs := thunk()
+		if len(errs) > 0 {
+			for _, e := range errs {
+				fmt.Printf("⚠️ dataloader error: %v\n", e)
+			}
+		}
+
+		for i, r := range results {
+			if r != nil {
+				if e, ok := r.(domain.Entity); ok {
+					loadedChildren[children[i].ID.String()] = e
+				}
+			}
+		}
+	}
+
+	// Convert to GraphQL entities
+	result := make([]*graph.Entity, len(children))
+	for i, child := range children {
+		var e domain.Entity
+		if loaded, ok := loadedChildren[child.ID.String()]; ok {
+			e = loaded
+		} else {
+			e = child
+		}
+
+		propsJSON, _ := e.GetPropertiesAsJSONB()
 		result[i] = &graph.Entity{
-			ID:             child.ID.String(),
-			OrganizationID: child.OrganizationID.String(),
-			EntityType:     child.EntityType,
-			Path:           child.Path,
-			Properties:     string(propertiesJSON),
-			CreatedAt:      child.CreatedAt.Format(time.RFC3339),
-			UpdatedAt:      child.UpdatedAt.Format(time.RFC3339),
+			ID:             e.ID.String(),
+			OrganizationID: e.OrganizationID.String(),
+			EntityType:     e.EntityType,
+			Path:           e.Path,
+			Properties:     string(propsJSON),
+			CreatedAt:      e.CreatedAt.Format(time.RFC3339),
+			UpdatedAt:      e.UpdatedAt.Format(time.RFC3339),
 		}
 	}
 
@@ -152,22 +240,50 @@ func (r *Resolver) GetEntitySiblings(ctx context.Context, entityID string) ([]*g
 		return nil, fmt.Errorf("failed to get entity siblings: %w", err)
 	}
 
-	// Convert to GraphQL format
-	result := make([]*graph.Entity, len(siblings))
-	for i, sibling := range siblings {
-		propertiesJSON, err := sibling.GetPropertiesAsJSONB()
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal properties: %w", err)
+	// Use dataloader if available to batch-load sibling entities
+	loadedSiblings := make(map[string]domain.Entity)
+	if loader := middleware.EntityLoaderFromContext(ctx); loader != nil && len(siblings) > 0 {
+		keys := make(dataloader.Keys, len(siblings))
+		for i, s := range siblings {
+			keys[i] = dataloader.StringKey(s.ID.String())
 		}
 
+		thunk := loader.LoadMany(ctx, keys)
+		results, errs := thunk()
+		if len(errs) > 0 {
+			for _, e := range errs {
+				fmt.Printf("⚠️ dataloader error: %v\n", e)
+			}
+		}
+
+		for i, r := range results {
+			if r != nil {
+				if e, ok := r.(domain.Entity); ok {
+					loadedSiblings[siblings[i].ID.String()] = e
+				}
+			}
+		}
+	}
+
+	// Convert to GraphQL format
+	result := make([]*graph.Entity, len(siblings))
+	for i, s := range siblings {
+		var e domain.Entity
+		if loaded, ok := loadedSiblings[s.ID.String()]; ok {
+			e = loaded
+		} else {
+			e = s
+		}
+
+		propsJSON, _ := e.GetPropertiesAsJSONB()
 		result[i] = &graph.Entity{
-			ID:             sibling.ID.String(),
-			OrganizationID: sibling.OrganizationID.String(),
-			EntityType:     sibling.EntityType,
-			Path:           sibling.Path,
-			Properties:     string(propertiesJSON),
-			CreatedAt:      sibling.CreatedAt.Format(time.RFC3339),
-			UpdatedAt:      sibling.UpdatedAt.Format(time.RFC3339),
+			ID:             e.ID.String(),
+			OrganizationID: e.OrganizationID.String(),
+			EntityType:     e.EntityType,
+			Path:           e.Path,
+			Properties:     string(propsJSON),
+			CreatedAt:      e.CreatedAt.Format(time.RFC3339),
+			UpdatedAt:      e.UpdatedAt.Format(time.RFC3339),
 		}
 	}
 
@@ -181,129 +297,110 @@ func (r *Resolver) GetEntityHierarchy(ctx context.Context, entityID string) (*gr
 		return nil, fmt.Errorf("invalid entity ID: %w", err)
 	}
 
-	// Get the entity first
-	entity, err := r.entityRepo.GetByID(ctx, entityUUID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get entity: %w", err)
-	}
-
-	// Get ancestors, children, and siblings in parallel
-	ancestorsChan := make(chan []domain.Entity, 1)
-	childrenChan := make(chan []domain.Entity, 1)
-	siblingsChan := make(chan []domain.Entity, 1)
-	errorChan := make(chan error, 3)
-
-	go func() {
-		ancestors, err := r.entityRepo.GetAncestors(ctx, entity.OrganizationID, entity.Path)
+	// Get the entity itself via dataloader if available
+	var entity domain.Entity
+	if loader := middleware.EntityLoaderFromContext(ctx); loader != nil {
+		thunk := loader.Load(ctx, dataloader.StringKey(entityID))
+		result, err := thunk()
 		if err != nil {
-			errorChan <- err
-			return
+			return nil, fmt.Errorf("failed to load entity via dataloader: %w", err)
 		}
-		ancestorsChan <- ancestors
-	}()
-
-	go func() {
-		children, err := r.entityRepo.GetChildren(ctx, entity.OrganizationID, entity.Path)
+		if result == nil {
+			return nil, fmt.Errorf("entity not found")
+		}
+		e, ok := result.(domain.Entity)
+		if !ok {
+			return nil, fmt.Errorf("unexpected type for entity")
+		}
+		entity = e
+	} else {
+		// fallback to repo
+		entity, err = r.entityRepo.GetByID(ctx, entityUUID)
 		if err != nil {
-			errorChan <- err
-			return
+			return nil, fmt.Errorf("failed to get entity: %w", err)
 		}
-		childrenChan <- children
-	}()
+	}
 
-	go func() {
-		siblings, err := r.entityRepo.GetSiblings(ctx, entity.OrganizationID, entity.Path)
-		if err != nil {
-			errorChan <- err
-			return
+	// Collect IDs for ancestors, children, siblings
+	ancestors, _ := r.entityRepo.GetAncestors(ctx, entity.OrganizationID, entity.Path)
+	children, _ := r.entityRepo.GetChildren(ctx, entity.OrganizationID, entity.Path)
+	siblings, _ := r.entityRepo.GetSiblings(ctx, entity.OrganizationID, entity.Path)
+
+	// Combine all IDs to load via dataloader in one batch
+	allEntities := append(append(ancestors, children...), siblings...)
+	idsToLoad := make([]string, len(allEntities))
+	for i, e := range allEntities {
+		idsToLoad[i] = e.ID.String()
+	}
+
+	// Use dataloader to fetch all entities in one batch
+	var loadedEntities map[string]domain.Entity
+	if loader := middleware.EntityLoaderFromContext(ctx); loader != nil && len(idsToLoad) > 0 {
+		keys := make(dataloader.Keys, len(idsToLoad))
+		for i, id := range idsToLoad {
+			keys[i] = dataloader.StringKey(id)
 		}
-		siblingsChan <- siblings
-	}()
-
-	// Wait for all results
-	ancestors := <-ancestorsChan
-	children := <-childrenChan
-	siblings := <-siblingsChan
-
-	// Check for errors
-	select {
-	case err := <-errorChan:
-		return nil, fmt.Errorf("failed to get hierarchy data: %w", err)
-	default:
+		thunk := loader.LoadMany(ctx, keys)
+		results, errs := thunk()
+		if len(errs) > 0 {
+			// optionally propagate partial errors
+			for _, e := range errs {
+				fmt.Printf("⚠️ dataloader error: %v\n", e)
+			}
+		}
+		loadedEntities = make(map[string]domain.Entity)
+		for i, r := range results {
+			if r != nil {
+				if e, ok := r.(domain.Entity); ok {
+					loadedEntities[idsToLoad[i]] = e
+				}
+			}
+		}
 	}
 
-	// Convert current entity to GraphQL format
-	propertiesJSON, err := entity.GetPropertiesAsJSONB()
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal entity properties: %w", err)
+	// Helper to convert domain.Entity -> GraphQL entity
+	toGraph := func(e domain.Entity) *graph.Entity {
+		propsJSON, _ := e.GetPropertiesAsJSONB()
+		return &graph.Entity{
+			ID:             e.ID.String(),
+			OrganizationID: e.OrganizationID.String(),
+			EntityType:     e.EntityType,
+			Path:           e.Path,
+			Properties:     string(propsJSON),
+			CreatedAt:      e.CreatedAt.Format(time.RFC3339),
+			UpdatedAt:      e.UpdatedAt.Format(time.RFC3339),
+		}
 	}
 
-	currentEntity := &graph.Entity{
-		ID:             entity.ID.String(),
-		OrganizationID: entity.OrganizationID.String(),
-		EntityType:     entity.EntityType,
-		Path:           entity.Path,
-		Properties:     string(propertiesJSON),
-		CreatedAt:      entity.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:      entity.UpdatedAt.Format(time.RFC3339),
-	}
-
-	// Convert ancestors to GraphQL format
+	// Build hierarchy
 	gqlAncestors := make([]*graph.Entity, len(ancestors))
-	for i, ancestor := range ancestors {
-		propertiesJSON, err := ancestor.GetPropertiesAsJSONB()
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal ancestor properties: %w", err)
-		}
-
-		gqlAncestors[i] = &graph.Entity{
-			ID:             ancestor.ID.String(),
-			OrganizationID: ancestor.OrganizationID.String(),
-			EntityType:     ancestor.EntityType,
-			Path:           ancestor.Path,
-			Properties:     string(propertiesJSON),
-			CreatedAt:      ancestor.CreatedAt.Format(time.RFC3339),
-			UpdatedAt:      ancestor.UpdatedAt.Format(time.RFC3339),
+	for i, a := range ancestors {
+		if loaded, ok := loadedEntities[a.ID.String()]; ok {
+			gqlAncestors[i] = toGraph(loaded)
+		} else {
+			gqlAncestors[i] = toGraph(a)
 		}
 	}
 
-	// Convert children to GraphQL format
 	gqlChildren := make([]*graph.Entity, len(children))
-	for i, child := range children {
-		propertiesJSON, err := child.GetPropertiesAsJSONB()
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal child properties: %w", err)
-		}
-
-		gqlChildren[i] = &graph.Entity{
-			ID:             child.ID.String(),
-			OrganizationID: child.OrganizationID.String(),
-			EntityType:     child.EntityType,
-			Path:           child.Path,
-			Properties:     string(propertiesJSON),
-			CreatedAt:      child.CreatedAt.Format(time.RFC3339),
-			UpdatedAt:      child.UpdatedAt.Format(time.RFC3339),
+	for i, c := range children {
+		if loaded, ok := loadedEntities[c.ID.String()]; ok {
+			gqlChildren[i] = toGraph(loaded)
+		} else {
+			gqlChildren[i] = toGraph(c)
 		}
 	}
 
-	// Convert siblings to GraphQL format
 	gqlSiblings := make([]*graph.Entity, len(siblings))
-	for i, sibling := range siblings {
-		propertiesJSON, err := sibling.GetPropertiesAsJSONB()
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal sibling properties: %w", err)
-		}
-
-		gqlSiblings[i] = &graph.Entity{
-			ID:             sibling.ID.String(),
-			OrganizationID: sibling.OrganizationID.String(),
-			EntityType:     sibling.EntityType,
-			Path:           sibling.Path,
-			Properties:     string(propertiesJSON),
-			CreatedAt:      sibling.CreatedAt.Format(time.RFC3339),
-			UpdatedAt:      sibling.UpdatedAt.Format(time.RFC3339),
+	for i, s := range siblings {
+		if loaded, ok := loadedEntities[s.ID.String()]; ok {
+			gqlSiblings[i] = toGraph(loaded)
+		} else {
+			gqlSiblings[i] = toGraph(s)
 		}
 	}
+
+	currentEntity := toGraph(entity)
 
 	return &graph.EntityHierarchy{
 		Current:   currentEntity,
