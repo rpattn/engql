@@ -37,6 +37,7 @@ type EntitiesByTypeResponse = {
     linkedEntities: Array<{
       id: string
       entityType: string
+      properties: string
     }>
   }>
 }
@@ -70,6 +71,7 @@ const ENTITIES_BY_TYPE_QUERY = `
       linkedEntities {
         id
         entityType
+        properties
       }
     }
   }
@@ -556,14 +558,40 @@ function App() {
                     </div>
                     {entity.linkedEntities.length ? (
                       <ul className="mt-1 space-y-1 text-xs text-slate-400">
-                        {entity.linkedEntities.map((link) => (
-                          <li key={link.id}>
-                            <span className="text-slate-200">
-                              {link.entityType}
-                            </span>{' '}
-                            – {link.id}
-                          </li>
-                        ))}
+                        {entity.linkedEntities.map((link) => {
+                          const linkedProps = safeParseProperties(link.properties)
+                          let name: string | undefined
+                          if (
+                            linkedProps &&
+                            typeof linkedProps === 'object' &&
+                            'name' in linkedProps
+                          ) {
+                            const maybeString = linkedProps['name']
+                            if (typeof maybeString === 'string') {
+                              name = maybeString
+                            }
+                          }
+
+                          return (
+                            <li key={link.id} className="space-y-1">
+                              <div>
+                                <span className="text-slate-200">
+                                  {link.entityType}
+                                </span>{' '}
+                                – {link.id}
+                                {name ? (
+                                  <span className="text-slate-400">
+                                    {' '}
+                                    ({name})
+                                  </span>
+                                ) : null}
+                              </div>
+                              <pre className="max-h-32 overflow-auto rounded-md bg-slate-950/70 p-2 text-[11px] text-slate-200">
+                                {JSON.stringify(linkedProps, null, 2)}
+                              </pre>
+                            </li>
+                          )
+                        })}
                       </ul>
                     ) : (
                       <p className="mt-1 text-xs text-slate-500">
