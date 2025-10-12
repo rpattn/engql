@@ -101,6 +101,16 @@ func ensureLinkedEntityProperties(properties map[string]any, fieldName string, f
 	return nil
 }
 
+func mergeLinkedIDsIntoProperties(properties map[string]any, linkedIDs []string) {
+	if properties == nil {
+		return
+	}
+
+	existing := normalizeLinkedIDValues(properties["linked_ids"])
+	existing = append(existing, linkedIDs...)
+	properties["linked_ids"] = uniqueOrderedStrings(existing)
+}
+
 func normalizeLinkedIDValues(value any) []string {
 	switch v := value.(type) {
 	case nil:
@@ -549,13 +559,12 @@ func (r *Resolver) CreateEntity(ctx context.Context, input graph.CreateEntityInp
 
 	requestedLinkedIDs := gatherRequestedLinkedIDs(input)
 	if len(requestedLinkedIDs) > 0 {
-		fieldName, fieldType, found := findLinkedFieldDefinition(fieldDefinitions.Fields)
-		if !found {
-			return nil, fmt.Errorf("entity schema %s does not define a linked entity field", input.EntityType)
+		if fieldName, fieldType, found := findLinkedFieldDefinition(fieldDefinitions.Fields); found {
+			if err := ensureLinkedEntityProperties(properties, fieldName, fieldType, requestedLinkedIDs); err != nil {
+				return nil, err
+			}
 		}
-		if err := ensureLinkedEntityProperties(properties, fieldName, fieldType, requestedLinkedIDs); err != nil {
-			return nil, err
-		}
+		mergeLinkedIDsIntoProperties(properties, requestedLinkedIDs)
 	}
 
 	// Convert schema fields slice -> map[string]FieldDefinition
@@ -574,6 +583,15 @@ func (r *Resolver) CreateEntity(ctx context.Context, input graph.CreateEntityInp
 			Default:             f.Default,
 			Validation:          f.Validation,
 			ReferenceEntityType: refType,
+		}
+	}
+
+	if _, exists := properties["linked_ids"]; exists {
+		if _, ok := fieldDefsMap["linked_ids"]; !ok {
+			fieldDefsMap["linked_ids"] = validator.FieldDefinition{
+				Type:     graph.FieldTypeEntityReferenceArray,
+				Required: false,
+			}
 		}
 	}
 
