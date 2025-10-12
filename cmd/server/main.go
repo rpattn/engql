@@ -17,6 +17,7 @@ import (
 
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/playground"
+	"github.com/rs/cors"
 )
 
 func main() {
@@ -54,13 +55,20 @@ func main() {
 	// Add the resolver logging extension
 	srv.Use(&middleware.ResolverLoggerExtension{})
 
-	// Setup HTTP server
-	http.Handle("/query",
-		middleware.LoggingMiddleware(
-			middleware.DataLoaderMiddleware(entityRepo)(srv),
-		),
+	// Setup CORS
+	corsHandler := cors.New(cors.Options{
+		AllowedOrigins:   []string{"http://localhost:3000"},
+		AllowCredentials: true,
+		AllowedMethods:   []string{"GET", "POST", "OPTIONS"},
+		AllowedHeaders:   []string{"*"},
+	})
+
+	graphqlHandler := middleware.LoggingMiddleware(
+		middleware.DataLoaderMiddleware(entityRepo)(srv),
 	)
-	http.Handle("/", middleware.LoggingMiddleware(playground.Handler("GraphQL playground", "/query")))
+
+	http.Handle("/query", corsHandler.Handler(graphqlHandler))
+	http.Handle("/", corsHandler.Handler(middleware.LoggingMiddleware(playground.Handler("GraphQL playground", "/query"))))
 
 	// Create HTTP server
 	server := &http.Server{
