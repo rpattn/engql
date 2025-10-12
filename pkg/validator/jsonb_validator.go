@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"graphql-engineering-api/graph"
+
+	"github.com/google/uuid"
 )
 
 // JSONBValidator handles validation of JSONB properties against field definitions
@@ -21,11 +23,12 @@ func NewJSONBValidator() *JSONBValidator {
 
 // FieldDefinition represents a field definition for validation
 type FieldDefinition struct {
-	Type        graph.FieldType `json:"type"`
-	Required    bool            `json:"required"`
-	Description string          `json:"description,omitempty"`
-	Default     any             `json:"default,omitempty"`
-	Validation  any             `json:"validation,omitempty"`
+	Type                graph.FieldType `json:"type"`
+	Required            bool            `json:"required"`
+	Description         string          `json:"description,omitempty"`
+	Default             any             `json:"default,omitempty"`
+	Validation          any             `json:"validation,omitempty"`
+	ReferenceEntityType *string         `json:"referenceEntityType,omitempty"`
 }
 
 // ValidationError represents a validation error
@@ -154,6 +157,35 @@ func (jv *JSONBValidator) validateFieldType(fieldName string, value any, expecte
 	case graph.FieldTypeTimeseries:
 		if !jv.isTimeseries(value) {
 			return fmt.Errorf("field '%s' must be a valid timeseries, got %T", fieldName, value)
+		}
+	case graph.FieldTypeEntityReference:
+		strVal, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("field '%s' must be a string reference, got %T", fieldName, value)
+		}
+		if _, err := uuid.Parse(strings.TrimSpace(strVal)); err != nil {
+			return fmt.Errorf("field '%s' must be a valid UUID string: %v", fieldName, err)
+		}
+	case graph.FieldTypeEntityReferenceArray:
+		values, ok := value.([]interface{})
+		if !ok {
+			if strSlice, ok := value.([]string); ok {
+				values = make([]interface{}, len(strSlice))
+				for i, v := range strSlice {
+					values[i] = v
+				}
+			} else {
+				return fmt.Errorf("field '%s' must be an array of string references, got %T", fieldName, value)
+			}
+		}
+		for _, item := range values {
+			str, ok := item.(string)
+			if !ok {
+				return fmt.Errorf("field '%s' reference values must be strings, got %T", fieldName, item)
+			}
+			if _, err := uuid.Parse(strings.TrimSpace(str)); err != nil {
+				return fmt.Errorf("field '%s' contains invalid UUID '%s': %v", fieldName, str, err)
+			}
 		}
 	default:
 		return fmt.Errorf("unknown field type: %s", expectedType)

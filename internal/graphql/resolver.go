@@ -145,14 +145,7 @@ func (r *Resolver) EntitySchema(ctx context.Context, id string) (*graph.EntitySc
 
 	fields := make([]*graph.FieldDefinition, 0, len(schema.Fields))
 	for _, field := range schema.Fields {
-		fieldType := graph.FieldType(field.Type)
-		fields = append(fields, &graph.FieldDefinition{
-			Type:        fieldType,
-			Required:    field.Required,
-			Description: &field.Description,
-			Default:     &field.Default,
-			Validation:  &field.Validation,
-		})
+		fields = append(fields, toGraphFieldDefinition(field))
 	}
 
 	return &graph.EntitySchema{
@@ -180,14 +173,7 @@ func (r *Resolver) EntitySchemaByName(ctx context.Context, organizationID, name 
 
 	fields := make([]*graph.FieldDefinition, 0, len(schema.Fields))
 	for _, field := range schema.Fields {
-		fieldType := graph.FieldType(field.Type)
-		fields = append(fields, &graph.FieldDefinition{
-			Type:        fieldType,
-			Required:    field.Required,
-			Description: &field.Description,
-			Default:     &field.Default,
-			Validation:  &field.Validation,
-		})
+		fields = append(fields, toGraphFieldDefinition(field))
 	}
 
 	return &graph.EntitySchema{
@@ -258,8 +244,8 @@ func (r *Resolver) Entities(ctx context.Context, organizationID string, filter *
 	}, nil
 }
 
-// Entity returns a specific entity by ID
-func (r *Resolver) Entity(ctx context.Context, id string) (*graph.Entity, error) {
+// GetEntity returns a specific entity by ID
+func (r *Resolver) GetEntity(ctx context.Context, id string) (*graph.Entity, error) {
 	entityID, err := uuid.Parse(id)
 	if err != nil {
 		return nil, fmt.Errorf("invalid entity ID: %w", err)
@@ -298,22 +284,29 @@ func (r *Resolver) EntitiesByType(ctx context.Context, organizationID, entityTyp
 		return nil, fmt.Errorf("failed to list entities by type: %w", err)
 	}
 
-	result := make([]*graph.Entity, len(entities))
-	for i, entity := range entities {
-		propertiesJSON, err := entity.GetPropertiesAsJSONB()
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal properties: %w", err)
-		}
+	ctxWithCache, cache := ensureEntityCache(ctx)
 
-		result[i] = &graph.Entity{
-			ID:             entity.ID.String(),
-			OrganizationID: entity.OrganizationID.String(),
-			EntityType:     entity.EntityType,
-			Path:           entity.Path,
-			Properties:     string(propertiesJSON),
-			CreatedAt:      entity.CreatedAt.Format(time.RFC3339),
-			UpdatedAt:      entity.UpdatedAt.Format(time.RFC3339),
+	result := make([]*graph.Entity, 0, len(entities))
+	var errs []error
+
+	for _, entity := range entities {
+		gqlEntity, err := mapDomainEntity(entity)
+		if err != nil {
+			errs = append(errs, err)
+			continue
 		}
+		result = append(result, gqlEntity)
+		if gqlEntity.ID != "" {
+			cache[gqlEntity.ID] = gqlEntity
+		}
+	}
+
+	if err := r.hydrateLinkedEntities(ctxWithCache, result); err != nil {
+		errs = append(errs, err)
+	}
+
+	if err := combineErrors(errs); err != nil {
+		return result, err
 	}
 
 	return result, nil

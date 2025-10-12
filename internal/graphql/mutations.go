@@ -14,6 +14,134 @@ import (
 	"github.com/google/uuid"
 )
 
+func toGraphFieldDefinition(field domain.FieldDefinition) *graph.FieldDefinition {
+	desc := field.Description
+	description := &desc
+
+	def := field.Default
+	defaultValue := &def
+
+	val := field.Validation
+	validation := &val
+
+	var referenceType *string
+	if field.ReferenceEntityType != "" {
+		ref := field.ReferenceEntityType
+		referenceType = &ref
+	}
+
+	return &graph.FieldDefinition{
+		Name:                field.Name,
+		Type:                graph.FieldType(field.Type),
+		Required:            field.Required,
+		Description:         description,
+		Default:             defaultValue,
+		Validation:          validation,
+		ReferenceEntityType: referenceType,
+	}
+}
+
+var linkedFieldCandidates = []string{
+	"linked_ids",
+	"linkedIds",
+	"linked_entities",
+	"linkedEntities",
+	"linked_entity_id",
+	"linkedEntityId",
+}
+
+func findLinkedFieldDefinition(fields []domain.FieldDefinition) (string, domain.FieldType, bool) {
+	for _, candidate := range linkedFieldCandidates {
+		for i := range fields {
+			if strings.EqualFold(fields[i].Name, candidate) {
+				return fields[i].Name, fields[i].Type, true
+			}
+		}
+	}
+	return "", "", false
+}
+
+func isLinkedFieldName(name string) bool {
+	for _, candidate := range linkedFieldCandidates {
+		if strings.EqualFold(candidate, name) {
+			return true
+		}
+	}
+	return false
+}
+
+func ensureLinkedEntityProperty(properties map[string]any, fieldName string, fieldType domain.FieldType, linkedID string) {
+	if properties == nil {
+		return
+	}
+
+	linkedID = strings.TrimSpace(linkedID)
+	if linkedID == "" {
+		return
+	}
+
+	switch fieldType {
+	case domain.FieldTypeEntityReference:
+		properties[fieldName] = linkedID
+	default:
+		current := normalizeLinkedIDValues(properties[fieldName])
+		alreadyPresent := false
+		for _, existing := range current {
+			if existing == linkedID {
+				alreadyPresent = true
+				break
+			}
+		}
+		if !alreadyPresent {
+			current = append(current, linkedID)
+		}
+		properties[fieldName] = current
+	}
+}
+
+func normalizeLinkedIDValues(value any) []string {
+	switch v := value.(type) {
+	case nil:
+		return []string{}
+	case string:
+		id := strings.TrimSpace(v)
+		if id == "" {
+			return []string{}
+		}
+		return []string{id}
+	case []string:
+		return uniqueOrderedStrings(v)
+	case []any:
+		var collected []string
+		for _, item := range v {
+			if s, ok := item.(string); ok {
+				if trimmed := strings.TrimSpace(s); trimmed != "" {
+					collected = append(collected, trimmed)
+				}
+			}
+		}
+		return uniqueOrderedStrings(collected)
+	default:
+		return []string{}
+	}
+}
+
+func uniqueOrderedStrings(values []string) []string {
+	seen := make(map[string]struct{}, len(values))
+	var result []string
+	for _, val := range values {
+		if val == "" {
+			continue
+		}
+		if _, ok := seen[val]; ok {
+			continue
+		}
+		seen[val] = struct{}{}
+		result = append(result, val)
+	}
+	return result
+}
+
 // CreateOrganization creates a new organization
 func (r *Resolver) CreateOrganization(ctx context.Context, input graph.CreateOrganizationInput) (*graph.Organization, error) {
 	description := ""
@@ -124,13 +252,19 @@ func (r *Resolver) CreateEntitySchema(ctx context.Context, input graph.CreateEnt
 			validation = *fieldInput.Validation
 		}
 
+		refEntityType := ""
+		if fieldInput.ReferenceEntityType != nil {
+			refEntityType = *fieldInput.ReferenceEntityType
+		}
+
 		fields = append(fields, domain.FieldDefinition{
-			Name:        fieldInput.Name,
-			Type:        domain.FieldType(fieldInput.Type),
-			Required:    required,
-			Description: fieldDesc,
-			Default:     defaultValue,
-			Validation:  validation,
+			Name:                fieldInput.Name,
+			Type:                domain.FieldType(fieldInput.Type),
+			Required:            required,
+			Description:         fieldDesc,
+			Default:             defaultValue,
+			Validation:          validation,
+			ReferenceEntityType: refEntityType,
 		})
 	}
 
@@ -144,14 +278,7 @@ func (r *Resolver) CreateEntitySchema(ctx context.Context, input graph.CreateEnt
 	// Convert back to GraphQL format
 	gqlFields := make([]*graph.FieldDefinition, 0, len(createdSchema.Fields))
 	for _, field := range createdSchema.Fields {
-		fieldType := graph.FieldType(field.Type)
-		gqlFields = append(gqlFields, &graph.FieldDefinition{
-			Type:        fieldType,
-			Required:    field.Required,
-			Description: &field.Description,
-			Default:     &field.Default,
-			Validation:  &field.Validation,
-		})
+		gqlFields = append(gqlFields, toGraphFieldDefinition(field))
 	}
 
 	return &graph.EntitySchema{
@@ -210,13 +337,19 @@ func (r *Resolver) UpdateEntitySchema(ctx context.Context, input graph.UpdateEnt
 				validation = *fieldInput.Validation
 			}
 
+			refEntityType := ""
+			if fieldInput.ReferenceEntityType != nil {
+				refEntityType = *fieldInput.ReferenceEntityType
+			}
+
 			newFields = append(newFields, domain.FieldDefinition{
-				Name:        fieldInput.Name,
-				Type:        domain.FieldType(fieldInput.Type),
-				Required:    required,
-				Description: fieldDesc,
-				Default:     defaultValue,
-				Validation:  validation,
+				Name:                fieldInput.Name,
+				Type:                domain.FieldType(fieldInput.Type),
+				Required:            required,
+				Description:         fieldDesc,
+				Default:             defaultValue,
+				Validation:          validation,
+				ReferenceEntityType: refEntityType,
 			})
 		}
 		updatedSchema = domain.NewEntitySchema(updatedSchema.OrganizationID, updatedSchema.Name, updatedSchema.Description, newFields)
@@ -232,14 +365,7 @@ func (r *Resolver) UpdateEntitySchema(ctx context.Context, input graph.UpdateEnt
 	// Convert back to GraphQL format
 	gqlFields := make([]*graph.FieldDefinition, 0, len(savedSchema.Fields))
 	for _, field := range savedSchema.Fields {
-		fieldType := graph.FieldType(field.Type)
-		gqlFields = append(gqlFields, &graph.FieldDefinition{
-			Type:        fieldType,
-			Required:    field.Required,
-			Description: &field.Description,
-			Default:     &field.Default,
-			Validation:  &field.Validation,
-		})
+		gqlFields = append(gqlFields, toGraphFieldDefinition(field))
 	}
 
 	return &graph.EntitySchema{
@@ -322,14 +448,7 @@ func (r *Resolver) AddFieldToSchema(ctx context.Context, schemaID string, field 
 	// Convert back to GraphQL format
 	gqlFields := make([]*graph.FieldDefinition, 0, len(savedSchema.Fields))
 	for _, field := range savedSchema.Fields {
-		fieldType := graph.FieldType(field.Type)
-		gqlFields = append(gqlFields, &graph.FieldDefinition{
-			Type:        fieldType,
-			Required:    field.Required,
-			Description: &field.Description,
-			Default:     &field.Default,
-			Validation:  &field.Validation,
-		})
+		gqlFields = append(gqlFields, toGraphFieldDefinition(field))
 	}
 
 	return &graph.EntitySchema{
@@ -368,14 +487,7 @@ func (r *Resolver) RemoveFieldFromSchema(ctx context.Context, schemaID, fieldNam
 	// Convert back to GraphQL format
 	gqlFields := make([]*graph.FieldDefinition, 0, len(savedSchema.Fields))
 	for _, field := range savedSchema.Fields {
-		fieldType := graph.FieldType(field.Type)
-		gqlFields = append(gqlFields, &graph.FieldDefinition{
-			Type:        fieldType,
-			Required:    field.Required,
-			Description: &field.Description,
-			Default:     &field.Default,
-			Validation:  &field.Validation,
-		})
+		gqlFields = append(gqlFields, toGraphFieldDefinition(field))
 	}
 
 	return &graph.EntitySchema{
@@ -401,6 +513,9 @@ func (r *Resolver) CreateEntity(ctx context.Context, input graph.CreateEntityInp
 	if err := json.Unmarshal([]byte(input.Properties), &properties); err != nil {
 		return nil, fmt.Errorf("invalid properties JSON: %w", err)
 	}
+	if properties == nil {
+		properties = make(map[string]any)
+	}
 
 	path := ""
 	if input.Path != nil {
@@ -412,15 +527,33 @@ func (r *Resolver) CreateEntity(ctx context.Context, input graph.CreateEntityInp
 		return nil, fmt.Errorf("failed to load schema for entity type %s: %w", input.EntityType, err)
 	}
 
+	if input.LinkedEntityID != nil {
+		linkedID := strings.TrimSpace(*input.LinkedEntityID)
+		if linkedID != "" {
+			fieldName, fieldType, found := findLinkedFieldDefinition(fieldDefinitions.Fields)
+			if !found {
+				return nil, fmt.Errorf("entity schema %s does not define a linked entity field", input.EntityType)
+			}
+			ensureLinkedEntityProperty(properties, fieldName, fieldType, linkedID)
+		}
+	}
+
 	// Convert schema fields slice -> map[string]FieldDefinition
 	fieldDefsMap := make(map[string]validator.FieldDefinition)
 	for _, f := range fieldDefinitions.Fields {
+		var refType *string
+		if f.ReferenceEntityType != "" {
+			ref := f.ReferenceEntityType
+			refType = &ref
+		}
+
 		fieldDefsMap[f.Name] = validator.FieldDefinition{
-			Type:        graph.FieldType(strings.ToUpper(string(f.Type))),
-			Required:    f.Required,
-			Description: f.Description,
-			Default:     f.Default,
-			Validation:  f.Validation,
+			Type:                graph.FieldType(strings.ToUpper(string(f.Type))),
+			Required:            f.Required,
+			Description:         f.Description,
+			Default:             f.Default,
+			Validation:          f.Validation,
+			ReferenceEntityType: refType,
 		}
 	}
 

@@ -26,12 +26,13 @@ const (
 
 // FieldDefinition represents a field definition in a schema
 type FieldDefinition struct {
-	Name        string    `json:"name"`
-	Type        FieldType `json:"type"`
-	Required    bool      `json:"required"`
-	Description string    `json:"description,omitempty"`
-	Default     string    `json:"default,omitempty"`
-	Validation  string    `json:"validation,omitempty"` // Custom validation rules
+	Name                string    `json:"name"`
+	Type                FieldType `json:"type"`
+	Required            bool      `json:"required"`
+	Description         string    `json:"description,omitempty"`
+	Default             string    `json:"default,omitempty"`
+	Validation          string    `json:"validation,omitempty"` // Custom validation rules
+	ReferenceEntityType string    `json:"referenceEntityType,omitempty"`
 }
 
 // EntitySchema represents a schema definition for entity types

@@ -14,6 +14,7 @@ type CreateEntityInput struct {
 	EntityType     string  `json:"entityType"`
 	Path           *string `json:"path,omitempty"`
 	Properties     string  `json:"properties"`
+	LinkedEntityID *string `json:"linkedEntityId,omitempty"`
 }
 
 type CreateEntitySchemaInput struct {

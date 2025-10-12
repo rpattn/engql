@@ -7,6 +7,8 @@ type Organization {
   updatedAt: String!
 }
 
+directive @goField(forceResolver: Boolean, name: String) on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+
 input CreateOrganizationInput {
   name: String!
   description: String
@@ -87,7 +89,7 @@ type Entity {
   createdAt: String!
   updatedAt: String!
 
-  linkedEntities: [Entity!]!
+  linkedEntities: [Entity!]! @goField(forceResolver: true)
 }
 
 input CreateEntityInput {
@@ -95,6 +97,7 @@ input CreateEntityInput {
   entityType: String!
   path: String
   properties: String!
+  linkedEntityId: String
 }
 
 input UpdateEntityInput {

@@ -11,6 +11,11 @@ import (
 	"graphql-engineering-api/graph"
 )
 
+// LinkedEntities is the resolver for the linkedEntities field.
+func (r *entityResolver) LinkedEntities(ctx context.Context, obj *graph.Entity) ([]*graph.Entity, error) {
+	return r.Resolver.LinkedEntities(ctx, obj)
+}
+
 // CreateOrganization is the resolver for the createOrganization field.
 func (r *mutationResolver) CreateOrganization(ctx context.Context, input graph.CreateOrganizationInput) (*graph.Organization, error) {
 	return r.Resolver.CreateOrganization(ctx, input)
@@ -125,7 +130,7 @@ func (r *queryResolver) Entities(ctx context.Context, organizationID string, fil
 
 // Entity is the resolver for the entity field.
 func (r *queryResolver) Entity(ctx context.Context, id string) (*graph.Entity, error) {
-	return r.Resolver.Entity(ctx, id)
+	return r.Resolver.GetEntity(ctx, id)
 }
 
 // EntitiesByType is the resolver for the entitiesByType field.
@@ -199,23 +204,15 @@ func (r *queryResolver) ValidateEntityAgainstSchema(ctx context.Context, entityI
 	return r.Resolver.ValidateEntityAgainstSchema(ctx, entityID)
 }
 
+// Entity returns graph.EntityResolver implementation.
+func (r *Resolver) Entity() graph.EntityResolver { return &entityResolver{r} }
+
 // Mutation returns graph.MutationResolver implementation.
 func (r *Resolver) Mutation() graph.MutationResolver { return &mutationResolver{r} }
 
 // Query returns graph.QueryResolver implementation.
 func (r *Resolver) Query() graph.QueryResolver { return &queryResolver{r} }
 
+type entityResolver struct{ *Resolver }
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
-
-// !!! WARNING !!!
-// The code below was going to be deleted when updating resolvers. It has been copied here so you have
-// one last chance to move it out of harms way if you want. There are two reasons this happens:
-//  - When renaming or deleting a resolver the old code will be put in here. You can safely delete
-//    it when you're done.
-//  - You have helper methods in this file. Move them out to keep these resolver files clean.
-/*
-	func (r *queryResolver) LinkedEntities(ctx context.Context, obj *graph.Entity) ([]*graph.Entity, error) {
-	panic("not implemented")
-}
-*/

@@ -38,6 +38,7 @@ type Config struct {
 }
 
 type ResolverRoot interface {
+	Entity() EntityResolver
 	Mutation() MutationResolver
 	Query() QueryResolver
 }
@@ -148,6 +149,9 @@ type ComplexityRoot struct {
 	}
 }
 
+type EntityResolver interface {
+	LinkedEntities(ctx context.Context, obj *Entity) ([]*Entity, error)
+}
 type MutationResolver interface {
 	CreateOrganization(ctx context.Context, input CreateOrganizationInput) (*Organization, error)
 	UpdateOrganization(ctx context.Context, input UpdateOrganizationInput) (*Organization, error)
@@ -1619,7 +1623,7 @@ func (ec *executionContext) _Entity_linkedEntities(ctx context.Context, field gr
 		field,
 		ec.fieldContext_Entity_linkedEntities,
 		func(ctx context.Context) (any, error) {
-			return obj.LinkedEntities, nil
+			return ec.resolvers.Entity().LinkedEntities(ctx, obj)
 		},
 		nil,
 		ec.marshalNEntity2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityᚄ,
@@ -1632,8 +1636,8 @@ func (ec *executionContext) fieldContext_Entity_linkedEntities(_ context.Context
 	fc = &graphql.FieldContext{
 		Object:     "Entity",
 		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
+		IsMethod:   true,
+		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
 			case "id":
@@ -5981,7 +5985,7 @@ func (ec *executionContext) unmarshalInputCreateEntityInput(ctx context.Context,
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"organizationId", "entityType", "path", "properties"}
+	fieldsInOrder := [...]string{"organizationId", "entityType", "path", "properties", "linkedEntityId"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -6016,6 +6020,13 @@ func (ec *executionContext) unmarshalInputCreateEntityInput(ctx context.Context,
 				return it, err
 			}
 			it.Properties = data
+		case "linkedEntityId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("linkedEntityId"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.LinkedEntityID = data
 		}
 	}
 
@@ -6521,43 +6532,74 @@ func (ec *executionContext) _Entity(ctx context.Context, sel ast.SelectionSet, o
 		case "id":
 			out.Values[i] = ec._Entity_id(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "organizationId":
 			out.Values[i] = ec._Entity_organizationId(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "entityType":
 			out.Values[i] = ec._Entity_entityType(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "path":
 			out.Values[i] = ec._Entity_path(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "properties":
 			out.Values[i] = ec._Entity_properties(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "createdAt":
 			out.Values[i] = ec._Entity_createdAt(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "updatedAt":
 			out.Values[i] = ec._Entity_updatedAt(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "linkedEntities":
-			out.Values[i] = ec._Entity_linkedEntities(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Entity_linkedEntities(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
 			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
