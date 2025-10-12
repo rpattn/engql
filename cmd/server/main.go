@@ -55,7 +55,11 @@ func main() {
 	srv.Use(&middleware.ResolverLoggerExtension{})
 
 	// Setup HTTP server
-	http.Handle("/query", middleware.LoggingMiddleware(srv))
+	http.Handle("/query",
+		middleware.LoggingMiddleware(
+			middleware.DataLoaderMiddleware(entityRepo)(srv),
+		),
+	)
 	http.Handle("/", middleware.LoggingMiddleware(playground.Handler("GraphQL playground", "/query")))
 
 	// Create HTTP server

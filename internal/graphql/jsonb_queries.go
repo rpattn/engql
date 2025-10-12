@@ -8,8 +8,10 @@ import (
 
 	"graphql-engineering-api/graph"
 	"graphql-engineering-api/internal/domain"
+	"graphql-engineering-api/internal/middleware"
 
 	"github.com/google/uuid"
+	"github.com/graph-gophers/dataloader"
 )
 
 // SearchEntitiesByProperty performs JSONB property-based search
@@ -120,24 +122,41 @@ func (r *Resolver) LinkedEntities(ctx context.Context, obj *graph.Entity) ([]*gr
 }
 
 func (r *Resolver) EntitiesByIDs(ctx context.Context, ids []string) ([]*graph.Entity, error) {
-	uuidList := make([]uuid.UUID, len(ids))
-	for i, idStr := range ids {
-		id, err := uuid.Parse(idStr)
-		if err != nil {
-			return nil, fmt.Errorf("invalid UUID: %w", err)
+	loader := middleware.EntityLoaderFromContext(ctx)
+	if loader == nil {
+		return nil, fmt.Errorf("entity loader not found in context")
+	}
+
+	// Load primary entities
+	keys := make(dataloader.Keys, len(ids))
+	for i, id := range ids {
+		keys[i] = dataloader.StringKey(id)
+	}
+	thunk := loader.LoadMany(ctx, keys)
+	rawResults, errs := thunk()
+
+	var partialErrs []error
+	if len(errs) > 0 {
+		partialErrs = append(partialErrs, errs...)
+	}
+
+	results := make([]*graph.Entity, len(rawResults))
+	linkedIDSet := make(map[string]struct{}) // collect all linked IDs
+
+	for i, r := range rawResults {
+		if r == nil {
+			results[i] = nil
+			continue
 		}
-		uuidList[i] = id
-	}
 
-	entities, err := r.entityRepo.GetByIDs(ctx, uuidList)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch entities: %w", err)
-	}
+		e, ok := r.(domain.Entity)
+		if !ok {
+			partialErrs = append(partialErrs, fmt.Errorf("unexpected type for entity"))
+			continue
+		}
 
-	results := make([]*graph.Entity, len(entities))
-	for i, e := range entities {
 		propsJSON, _ := json.Marshal(e.Properties)
-		results[i] = &graph.Entity{
+		gqlEntity := &graph.Entity{
 			ID:             e.ID.String(),
 			OrganizationID: e.OrganizationID.String(),
 			EntityType:     e.EntityType,
@@ -146,6 +165,71 @@ func (r *Resolver) EntitiesByIDs(ctx context.Context, ids []string) ([]*graph.En
 			CreatedAt:      e.CreatedAt.Format(time.RFC3339),
 			UpdatedAt:      e.UpdatedAt.Format(time.RFC3339),
 		}
+
+		// Collect linked IDs for batch resolution
+		if linkedIDsRaw, ok := e.Properties["linked_ids"]; ok {
+			if linkedIDsSlice, ok := linkedIDsRaw.([]interface{}); ok {
+				for _, idVal := range linkedIDsSlice {
+					if idStr, ok := idVal.(string); ok {
+						linkedIDSet[idStr] = struct{}{}
+					}
+				}
+			}
+		}
+
+		results[i] = gqlEntity
+	}
+
+	// --- Batch load all linked entities at once ---
+	if len(linkedIDSet) > 0 {
+		allLinkedIDs := make([]string, 0, len(linkedIDSet))
+		for id := range linkedIDSet {
+			allLinkedIDs = append(allLinkedIDs, id)
+		}
+
+		linkedEntities, err := r.EntitiesByIDs(ctx, allLinkedIDs)
+		if err != nil {
+			partialErrs = append(partialErrs, err)
+		}
+
+		// Map linked ID -> entity
+		linkedMap := make(map[string]*graph.Entity)
+		for _, le := range linkedEntities {
+			linkedMap[le.ID] = le
+		}
+
+		// Assign linked entities to each parent entity
+		for _, parent := range results {
+			if parent == nil {
+				continue
+			}
+			var props map[string]interface{}
+			err := json.Unmarshal([]byte(parent.Properties), &props)
+			if err == nil {
+				if idsRaw, ok := props["linked_ids"]; ok {
+					if idsSlice, ok := idsRaw.([]interface{}); ok {
+						var assigned []*graph.Entity
+						for _, idVal := range idsSlice {
+							if idStr, ok := idVal.(string); ok {
+								if le, found := linkedMap[idStr]; found {
+									assigned = append(assigned, le)
+								}
+							}
+						}
+						parent.LinkedEntities = assigned
+					}
+				}
+			}
+		}
+	}
+
+	// Return results with any partial errors
+	if len(partialErrs) > 0 {
+		errMsg := "partial errors occurred: "
+		for _, e := range partialErrs {
+			errMsg += e.Error() + "; "
+		}
+		return results, fmt.Errorf("%s", errMsg)
 	}
 
 	return results, nil
