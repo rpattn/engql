@@ -33,6 +33,7 @@ type EntitySchemaRepository interface {
 type EntityRepository interface {
 	Create(ctx context.Context, entity domain.Entity) (domain.Entity, error)
 	GetByID(ctx context.Context, id uuid.UUID) (domain.Entity, error)
+	GetByIDs(ctx context.Context, ids []uuid.UUID) ([]domain.Entity, error)
 	List(ctx context.Context, organizationID uuid.UUID, limit int, offset int) ([]domain.Entity, int, error)
 	ListByType(ctx context.Context, organizationID uuid.UUID, entityType string) ([]domain.Entity, error)
 	Update(ctx context.Context, entity domain.Entity) (domain.Entity, error)

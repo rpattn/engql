@@ -158,6 +158,7 @@ type Query {
   ): EntityConnection!
   entity(id: String!): Entity
   entitiesByType(organizationId: String!, entityType: String!): [Entity!]!
+  entitiesByIDs(ids: [String!]!): [Entity!]!
   
   # Hierarchical queries
   getEntityAncestors(entityId: String!): [Entity!]!

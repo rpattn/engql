@@ -119,6 +119,7 @@ type ComplexityRoot struct {
 
 	Query struct {
 		Entities                           func(childComplexity int, organizationID string, filter *EntityFilter, pagination *PaginationInput) int
+		EntitiesByIDs                      func(childComplexity int, ids []string) int
 		EntitiesByType                     func(childComplexity int, organizationID string, entityType string) int
 		Entity                             func(childComplexity int, id string) int
 		EntitySchema                       func(childComplexity int, id string) int
@@ -170,6 +171,7 @@ type QueryResolver interface {
 	Entities(ctx context.Context, organizationID string, filter *EntityFilter, pagination *PaginationInput) (*EntityConnection, error)
 	Entity(ctx context.Context, id string) (*Entity, error)
 	EntitiesByType(ctx context.Context, organizationID string, entityType string) ([]*Entity, error)
+	EntitiesByIDs(ctx context.Context, ids []string) ([]*Entity, error)
 	GetEntityAncestors(ctx context.Context, entityID string) ([]*Entity, error)
 	GetEntityDescendants(ctx context.Context, entityID string) ([]*Entity, error)
 	GetEntityChildren(ctx context.Context, entityID string) ([]*Entity, error)
@@ -558,6 +560,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Query.Entities(childComplexity, args["organizationId"].(string), args["filter"].(*EntityFilter), args["pagination"].(*PaginationInput)), true
+	case "Query.entitiesByIDs":
+		if e.complexity.Query.EntitiesByIDs == nil {
+			break
+		}
+
+		args, err := ec.field_Query_entitiesByIDs_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.EntitiesByIDs(childComplexity, args["ids"].([]string)), true
 	case "Query.entitiesByType":
 		if e.complexity.Query.EntitiesByType == nil {
 			break
@@ -1056,6 +1069,17 @@ func (ec *executionContext) field_Query___type_args(ctx context.Context, rawArgs
 		return nil, err
 	}
 	args["name"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_entitiesByIDs_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "ids", ec.unmarshalNString2ᚕstringᚄ)
+	if err != nil {
+		return nil, err
+	}
+	args["ids"] = arg0
 	return args, nil
 }
 
@@ -3613,6 +3637,65 @@ func (ec *executionContext) fieldContext_Query_entitiesByType(ctx context.Contex
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Query_entitiesByType_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_entitiesByIDs(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Query_entitiesByIDs,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Query().EntitiesByIDs(ctx, fc.Args["ids"].([]string))
+		},
+		nil,
+		ec.marshalNEntity2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Query_entitiesByIDs(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Entity_id(ctx, field)
+			case "organizationId":
+				return ec.fieldContext_Entity_organizationId(ctx, field)
+			case "entityType":
+				return ec.fieldContext_Entity_entityType(ctx, field)
+			case "path":
+				return ec.fieldContext_Entity_path(ctx, field)
+			case "properties":
+				return ec.fieldContext_Entity_properties(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_Entity_createdAt(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_Entity_updatedAt(ctx, field)
+			case "linkedEntities":
+				return ec.fieldContext_Entity_linkedEntities(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Entity", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_entitiesByIDs_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -7133,6 +7216,28 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 					}
 				}()
 				res = ec._Query_entitiesByType(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "entitiesByIDs":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_entitiesByIDs(ctx, field)
 				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}

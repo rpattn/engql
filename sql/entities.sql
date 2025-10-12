@@ -71,3 +71,8 @@ WHERE organization_id = $1;
 SELECT COUNT(*)
 FROM entities
 WHERE organization_id = $1 AND entity_type = $2;
+
+-- name: GetEntitiesByIDs :many
+SELECT id, organization_id, entity_type, path, properties, created_at, updated_at
+FROM entities
+WHERE id = ANY(@ids::uuid[]);

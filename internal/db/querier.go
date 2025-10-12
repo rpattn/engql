@@ -18,6 +18,7 @@ type Querier interface {
 	DeleteEntitySchema(ctx context.Context, id uuid.UUID) error
 	DeleteOrganization(ctx context.Context, id uuid.UUID) error
 	FilterEntitiesByProperty(ctx context.Context, arg FilterEntitiesByPropertyParams) ([]Entity, error)
+	GetEntitiesByIDs(ctx context.Context, ids []uuid.UUID) ([]Entity, error)
 	GetEntity(ctx context.Context, id uuid.UUID) (Entity, error)
 	GetEntityAncestors(ctx context.Context, arg GetEntityAncestorsParams) ([]Entity, error)
 	GetEntityChildren(ctx context.Context, arg GetEntityChildrenParams) ([]Entity, error)

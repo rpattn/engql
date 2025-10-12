@@ -97,6 +97,40 @@ func (q *Queries) FilterEntitiesByProperty(ctx context.Context, arg FilterEntiti
 	return items, nil
 }
 
+const GetEntitiesByIDs = `-- name: GetEntitiesByIDs :many
+SELECT id, organization_id, entity_type, path, properties, created_at, updated_at
+FROM entities
+WHERE id = ANY($1::uuid[])
+`
+
+func (q *Queries) GetEntitiesByIDs(ctx context.Context, ids []uuid.UUID) ([]Entity, error) {
+	rows, err := q.db.Query(ctx, GetEntitiesByIDs, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Entity{}
+	for rows.Next() {
+		var i Entity
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrganizationID,
+			&i.EntityType,
+			&i.Path,
+			&i.Properties,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const GetEntity = `-- name: GetEntity :one
 SELECT id, organization_id, entity_type, path, properties, created_at, updated_at
 FROM entities

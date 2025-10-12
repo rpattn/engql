@@ -80,6 +80,38 @@ func (r *entityRepository) GetByID(ctx context.Context, id uuid.UUID) (domain.En
 	}, nil
 }
 
+// GetByIDs retrieves multiple entities by their IDs.
+func (r *entityRepository) GetByIDs(ctx context.Context, ids []uuid.UUID) ([]domain.Entity, error) {
+	if len(ids) == 0 {
+		return []domain.Entity{}, nil
+	}
+
+	rows, err := r.queries.GetEntitiesByIDs(ctx, ids)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get entities by IDs: %w", err)
+	}
+
+	entities := make([]domain.Entity, len(rows))
+	for i, row := range rows {
+		props, err := domain.FromJSONBProperties(row.Properties)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal properties for entity %s: %w", row.ID, err)
+		}
+
+		entities[i] = domain.Entity{
+			ID:             row.ID,
+			OrganizationID: row.OrganizationID,
+			EntityType:     row.EntityType,
+			Path:           row.Path,
+			Properties:     props,
+			CreatedAt:      row.CreatedAt,
+			UpdatedAt:      row.UpdatedAt,
+		}
+	}
+
+	return entities, nil
+}
+
 // List retrieves all entities for an organization
 func (r *entityRepository) List(
 	ctx context.Context,

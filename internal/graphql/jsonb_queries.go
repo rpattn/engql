@@ -51,6 +51,106 @@ func (r *Resolver) SearchEntitiesByProperty(ctx context.Context, organizationID 
 	return result, nil
 }
 
+func (r *Resolver) LinkedEntities(ctx context.Context, obj *graph.Entity) ([]*graph.Entity, error) {
+	// 1️⃣ Load the entity’s schema
+	orgID, err := uuid.Parse(obj.OrganizationID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid organization ID: %w", err)
+	}
+
+	schema, err := r.entitySchemaRepo.GetByName(ctx, orgID, obj.EntityType)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load schema for entity type %s: %w", obj.EntityType, err)
+	}
+
+	// 2️⃣ Parse the properties JSON
+	var props map[string]any
+	if err := json.Unmarshal([]byte(obj.Properties), &props); err != nil {
+		return nil, fmt.Errorf("invalid properties JSON: %w", err)
+	}
+
+	// 3️⃣ Collect referenced IDs
+	var refIDs []uuid.UUID
+	for _, f := range schema.Fields {
+		if f.Type == domain.FieldTypeEntityReference || f.Type == domain.FieldTypeEntityReferenceArray {
+			val := props[f.Name]
+			switch v := val.(type) {
+			case string:
+				if id, err := uuid.Parse(v); err == nil {
+					refIDs = append(refIDs, id)
+				}
+			case []any:
+				for _, item := range v {
+					if s, ok := item.(string); ok {
+						if id, err := uuid.Parse(s); err == nil {
+							refIDs = append(refIDs, id)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// 4️⃣ Fetch the referenced entities
+	if len(refIDs) == 0 {
+		return []*graph.Entity{}, nil
+	}
+
+	linked, err := r.entityRepo.GetByIDs(ctx, refIDs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load linked entities: %w", err)
+	}
+
+	// 5️⃣ Map to GraphQL entities
+	result := make([]*graph.Entity, len(linked))
+	for i, e := range linked {
+		propsJSON, _ := e.GetPropertiesAsJSONB()
+		result[i] = &graph.Entity{
+			ID:             e.ID.String(),
+			OrganizationID: e.OrganizationID.String(),
+			EntityType:     e.EntityType,
+			Path:           e.Path,
+			Properties:     string(propsJSON),
+			CreatedAt:      e.CreatedAt.Format(time.RFC3339),
+			UpdatedAt:      e.UpdatedAt.Format(time.RFC3339),
+		}
+	}
+
+	return result, nil
+}
+
+func (r *Resolver) EntitiesByIDs(ctx context.Context, ids []string) ([]*graph.Entity, error) {
+	uuidList := make([]uuid.UUID, len(ids))
+	for i, idStr := range ids {
+		id, err := uuid.Parse(idStr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid UUID: %w", err)
+		}
+		uuidList[i] = id
+	}
+
+	entities, err := r.entityRepo.GetByIDs(ctx, uuidList)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch entities: %w", err)
+	}
+
+	results := make([]*graph.Entity, len(entities))
+	for i, e := range entities {
+		propsJSON, _ := json.Marshal(e.Properties)
+		results[i] = &graph.Entity{
+			ID:             e.ID.String(),
+			OrganizationID: e.OrganizationID.String(),
+			EntityType:     e.EntityType,
+			Path:           e.Path,
+			Properties:     string(propsJSON),
+			CreatedAt:      e.CreatedAt.Format(time.RFC3339),
+			UpdatedAt:      e.UpdatedAt.Format(time.RFC3339),
+		}
+	}
+
+	return results, nil
+}
+
 // SearchEntitiesByMultipleProperties performs JSONB search with multiple property filters
 func (r *Resolver) SearchEntitiesByMultipleProperties(ctx context.Context, organizationID string, filters map[string]any) ([]*graph.Entity, error) {
 	orgID, err := uuid.Parse(organizationID)

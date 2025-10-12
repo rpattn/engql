@@ -11,15 +11,17 @@ import (
 type FieldType string
 
 const (
-	FieldTypeString    FieldType = "string"
-	FieldTypeInteger   FieldType = "integer"
-	FieldTypeFloat     FieldType = "float"
-	FieldTypeBoolean   FieldType = "boolean"
-	FieldTypeTimestamp FieldType = "timestamp"
-	FieldTypeJSON      FieldType = "json"
-	FieldTypeFileRef   FieldType = "file_reference"
-	FieldTypeGeometry  FieldType = "geometry"
-	FieldTypeTimeseries FieldType = "timeseries"
+	FieldTypeString               FieldType = "string"
+	FieldTypeInteger              FieldType = "integer"
+	FieldTypeFloat                FieldType = "float"
+	FieldTypeBoolean              FieldType = "boolean"
+	FieldTypeTimestamp            FieldType = "timestamp"
+	FieldTypeJSON                 FieldType = "json"
+	FieldTypeFileRef              FieldType = "file_reference"
+	FieldTypeGeometry             FieldType = "geometry"
+	FieldTypeTimeseries           FieldType = "timeseries"
+	FieldTypeEntityReference      FieldType = "ENTITY_REFERENCE"
+	FieldTypeEntityReferenceArray FieldType = "ENTITY_REFERENCE_ARRAY"
 )
 
 // FieldDefinition represents a field definition in a schema
@@ -34,13 +36,13 @@ type FieldDefinition struct {
 
 // EntitySchema represents a schema definition for entity types
 type EntitySchema struct {
-	ID             uuid.UUID                  `json:"id"`
-	OrganizationID uuid.UUID                  `json:"organization_id"`
-	Name           string                     `json:"name"`
-	Description    string                     `json:"description"`
+	ID             uuid.UUID         `json:"id"`
+	OrganizationID uuid.UUID         `json:"organization_id"`
+	Name           string            `json:"name"`
+	Description    string            `json:"description"`
 	Fields         []FieldDefinition `json:"fields"`
-	CreatedAt      time.Time                  `json:"created_at"`
-	UpdatedAt      time.Time                  `json:"updated_at"`
+	CreatedAt      time.Time         `json:"created_at"`
+	UpdatedAt      time.Time         `json:"updated_at"`
 }
 
 // NewEntitySchema creates a new entity schema with immutable pattern
@@ -60,7 +62,7 @@ func NewEntitySchema(organizationID uuid.UUID, name, description string, fields 
 // WithField returns a new schema with an added/updated field
 func (es EntitySchema) WithField(field FieldDefinition) EntitySchema {
 	newFields := copyFields(es.Fields)
-	
+
 	// Check if field already exists and update it, otherwise append
 	found := false
 	for i, existingField := range newFields {
@@ -70,11 +72,11 @@ func (es EntitySchema) WithField(field FieldDefinition) EntitySchema {
 			break
 		}
 	}
-	
+
 	if !found {
 		newFields = append(newFields, field)
 	}
-	
+
 	return EntitySchema{
 		ID:             es.ID,
 		OrganizationID: es.OrganizationID,
@@ -94,7 +96,7 @@ func (es EntitySchema) WithoutField(name string) EntitySchema {
 			newFields = append(newFields, field)
 		}
 	}
-	
+
 	return EntitySchema{
 		ID:             es.ID,
 		OrganizationID: es.OrganizationID,

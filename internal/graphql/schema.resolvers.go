@@ -133,6 +133,11 @@ func (r *queryResolver) EntitiesByType(ctx context.Context, organizationID strin
 	return r.Resolver.EntitiesByType(ctx, organizationID, entityType)
 }
 
+// EntitiesByIDs is the resolver for the entitiesByIDs field.
+func (r *queryResolver) EntitiesByIDs(ctx context.Context, ids []string) ([]*graph.Entity, error) {
+	return r.Resolver.EntitiesByIDs(ctx, ids)
+}
+
 // GetEntityAncestors is the resolver for the getEntityAncestors field.
 func (r *queryResolver) GetEntityAncestors(ctx context.Context, entityID string) ([]*graph.Entity, error) {
 	return r.Resolver.GetEntityAncestors(ctx, entityID)
@@ -202,3 +207,15 @@ func (r *Resolver) Query() graph.QueryResolver { return &queryResolver{r} }
 
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
+
+// !!! WARNING !!!
+// The code below was going to be deleted when updating resolvers. It has been copied here so you have
+// one last chance to move it out of harms way if you want. There are two reasons this happens:
+//  - When renaming or deleting a resolver the old code will be put in here. You can safely delete
+//    it when you're done.
+//  - You have helper methods in this file. Move them out to keep these resolver files clean.
+/*
+	func (r *queryResolver) LinkedEntities(ctx context.Context, obj *graph.Entity) ([]*graph.Entity, error) {
+	panic("not implemented")
+}
+*/
