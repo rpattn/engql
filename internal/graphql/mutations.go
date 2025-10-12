@@ -48,6 +48,8 @@ var linkedFieldCandidates = []string{
 	"linkedEntities",
 	"linked_entity_id",
 	"linkedEntityId",
+	"linked_entity_ids",
+	"linkedEntityIds",
 }
 
 func findLinkedFieldDefinition(fields []domain.FieldDefinition) (string, domain.FieldType, bool) {
@@ -70,33 +72,33 @@ func isLinkedFieldName(name string) bool {
 	return false
 }
 
-func ensureLinkedEntityProperty(properties map[string]any, fieldName string, fieldType domain.FieldType, linkedID string) {
+func ensureLinkedEntityProperties(properties map[string]any, fieldName string, fieldType domain.FieldType, linkedIDs []string) error {
 	if properties == nil {
-		return
+		return nil
 	}
 
-	linkedID = strings.TrimSpace(linkedID)
-	if linkedID == "" {
-		return
+	trimmed := make([]string, 0, len(linkedIDs))
+	for _, id := range linkedIDs {
+		if s := strings.TrimSpace(id); s != "" {
+			trimmed = append(trimmed, s)
+		}
+	}
+	if len(trimmed) == 0 {
+		return nil
 	}
 
 	switch fieldType {
 	case domain.FieldTypeEntityReference:
-		properties[fieldName] = linkedID
+		if len(trimmed) > 1 {
+			return fmt.Errorf("linkedEntityIds provided but schema field %s expects a single reference", fieldName)
+		}
+		properties[fieldName] = trimmed[0]
 	default:
 		current := normalizeLinkedIDValues(properties[fieldName])
-		alreadyPresent := false
-		for _, existing := range current {
-			if existing == linkedID {
-				alreadyPresent = true
-				break
-			}
-		}
-		if !alreadyPresent {
-			current = append(current, linkedID)
-		}
-		properties[fieldName] = current
+		current = append(current, trimmed...)
+		properties[fieldName] = uniqueOrderedStrings(current)
 	}
+	return nil
 }
 
 func normalizeLinkedIDValues(value any) []string {
@@ -124,6 +126,24 @@ func normalizeLinkedIDValues(value any) []string {
 	default:
 		return []string{}
 	}
+}
+
+func gatherRequestedLinkedIDs(input graph.CreateEntityInput) []string {
+	var ids []string
+	if input.LinkedEntityID != nil {
+		if trimmed := strings.TrimSpace(*input.LinkedEntityID); trimmed != "" {
+			ids = append(ids, trimmed)
+		}
+	}
+	for _, raw := range input.LinkedEntityIds {
+		if trimmed := strings.TrimSpace(raw); trimmed != "" {
+			ids = append(ids, trimmed)
+		}
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	return uniqueOrderedStrings(ids)
 }
 
 func uniqueOrderedStrings(values []string) []string {
@@ -527,14 +547,14 @@ func (r *Resolver) CreateEntity(ctx context.Context, input graph.CreateEntityInp
 		return nil, fmt.Errorf("failed to load schema for entity type %s: %w", input.EntityType, err)
 	}
 
-	if input.LinkedEntityID != nil {
-		linkedID := strings.TrimSpace(*input.LinkedEntityID)
-		if linkedID != "" {
-			fieldName, fieldType, found := findLinkedFieldDefinition(fieldDefinitions.Fields)
-			if !found {
-				return nil, fmt.Errorf("entity schema %s does not define a linked entity field", input.EntityType)
-			}
-			ensureLinkedEntityProperty(properties, fieldName, fieldType, linkedID)
+	requestedLinkedIDs := gatherRequestedLinkedIDs(input)
+	if len(requestedLinkedIDs) > 0 {
+		fieldName, fieldType, found := findLinkedFieldDefinition(fieldDefinitions.Fields)
+		if !found {
+			return nil, fmt.Errorf("entity schema %s does not define a linked entity field", input.EntityType)
+		}
+		if err := ensureLinkedEntityProperties(properties, fieldName, fieldType, requestedLinkedIDs); err != nil {
+			return nil, err
 		}
 	}
 

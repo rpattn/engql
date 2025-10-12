@@ -98,6 +98,7 @@ input CreateEntityInput {
   path: String
   properties: String!
   linkedEntityId: String
+  linkedEntityIds: [String!]
 }
 
 input UpdateEntityInput {

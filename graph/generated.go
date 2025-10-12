@@ -5985,7 +5985,7 @@ func (ec *executionContext) unmarshalInputCreateEntityInput(ctx context.Context,
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"organizationId", "entityType", "path", "properties", "linkedEntityId"}
+	fieldsInOrder := [...]string{"organizationId", "entityType", "path", "properties", "linkedEntityId", "linkedEntityIds"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -6027,6 +6027,13 @@ func (ec *executionContext) unmarshalInputCreateEntityInput(ctx context.Context,
 				return it, err
 			}
 			it.LinkedEntityID = data
+		case "linkedEntityIds":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("linkedEntityIds"))
+			data, err := ec.unmarshalOString2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.LinkedEntityIds = data
 		}
 	}
 

@@ -10,11 +10,12 @@ import (
 )
 
 type CreateEntityInput struct {
-	OrganizationID string  `json:"organizationId"`
-	EntityType     string  `json:"entityType"`
-	Path           *string `json:"path,omitempty"`
-	Properties     string  `json:"properties"`
-	LinkedEntityID *string `json:"linkedEntityId,omitempty"`
+	OrganizationID  string   `json:"organizationId"`
+	EntityType      string   `json:"entityType"`
+	Path            *string  `json:"path,omitempty"`
+	Properties      string   `json:"properties"`
+	LinkedEntityID  *string  `json:"linkedEntityId,omitempty"`
+	LinkedEntityIds []string `json:"linkedEntityIds,omitempty"`
 }
 
 type CreateEntitySchemaInput struct {
