@@ -43,6 +43,7 @@ enum FieldType {
   TIMESERIES
   ENTITY_REFERENCE
   ENTITY_REFERENCE_ARRAY
+  ENTITY_ID
 }
 
 type EntitySchema {

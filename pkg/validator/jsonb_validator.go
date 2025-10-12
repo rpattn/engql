@@ -158,6 +158,14 @@ func (jv *JSONBValidator) validateFieldType(fieldName string, value any, expecte
 		if !jv.isTimeseries(value) {
 			return fmt.Errorf("field '%s' must be a valid timeseries, got %T", fieldName, value)
 		}
+	case graph.FieldTypeEntityID:
+		strVal, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("field '%s' must be an entity ID string, got %T", fieldName, value)
+		}
+		if _, err := uuid.Parse(strings.TrimSpace(strVal)); err != nil {
+			return fmt.Errorf("field '%s' must be a valid UUID string: %v", fieldName, err)
+		}
 	case graph.FieldTypeEntityReference:
 		strVal, ok := value.(string)
 		if !ok {

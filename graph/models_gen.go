@@ -169,6 +169,7 @@ const (
 	FieldTypeTimeseries           FieldType = "TIMESERIES"
 	FieldTypeEntityReference      FieldType = "ENTITY_REFERENCE"
 	FieldTypeEntityReferenceArray FieldType = "ENTITY_REFERENCE_ARRAY"
+	FieldTypeEntityID             FieldType = "ENTITY_ID"
 )
 
 var AllFieldType = []FieldType{
@@ -183,11 +184,12 @@ var AllFieldType = []FieldType{
 	FieldTypeTimeseries,
 	FieldTypeEntityReference,
 	FieldTypeEntityReferenceArray,
+	FieldTypeEntityID,
 }
 
 func (e FieldType) IsValid() bool {
 	switch e {
-	case FieldTypeString, FieldTypeInteger, FieldTypeFloat, FieldTypeBoolean, FieldTypeTimestamp, FieldTypeJSON, FieldTypeFileReference, FieldTypeGeometry, FieldTypeTimeseries, FieldTypeEntityReference, FieldTypeEntityReferenceArray:
+	case FieldTypeString, FieldTypeInteger, FieldTypeFloat, FieldTypeBoolean, FieldTypeTimestamp, FieldTypeJSON, FieldTypeFileReference, FieldTypeGeometry, FieldTypeTimeseries, FieldTypeEntityReference, FieldTypeEntityReferenceArray, FieldTypeEntityID:
 		return true
 	}
 	return false

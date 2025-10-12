@@ -48,13 +48,19 @@ func TestLinkedEntitiesAutoResolution(t *testing.T) {
 					"required":            false,
 					"referenceEntityType": "Component",
 				},
+				{
+					"name":                "owner",
+					"type":                "ENTITY_ID",
+					"required":            false,
+					"referenceEntityType": "Component",
+				},
 			},
 		},
 	}
 	schemaResp := sendGraphQLRequest(t, createSchema, schemaVars)
 	schema := schemaResp["createEntitySchema"].(map[string]interface{})
 	schemaID := schema["id"].(string)
-	t.Logf("[setup] created schema %s with ENTITY_REFERENCE_ARRAY field", schemaID)
+	t.Logf("[setup] created schema %s with ENTITY_REFERENCE_ARRAY and ENTITY_ID fields", schemaID)
 
 	createEntity := `
 		mutation ($input: CreateEntityInput!) {
@@ -98,7 +104,8 @@ func TestLinkedEntitiesAutoResolution(t *testing.T) {
 	t.Logf("[setup] created secondary component %s", secondaryID)
 
 	childProps, _ := json.Marshal(map[string]interface{}{
-		"name": "Child Component",
+		"name":  "Child Component",
+		"owner": parentID,
 	})
 	childVars := map[string]interface{}{
 		"input": map[string]interface{}{
@@ -106,9 +113,7 @@ func TestLinkedEntitiesAutoResolution(t *testing.T) {
 			"entityType":     "Component",
 			"path":           "root.parent.child",
 			"properties":     string(childProps),
-			"linkedEntityId": parentID,
 			"linkedEntityIds": []string{
-				parentID,
 				secondaryID,
 			},
 		},
@@ -116,7 +121,7 @@ func TestLinkedEntitiesAutoResolution(t *testing.T) {
 	childResp := sendGraphQLRequest(t, createEntity, childVars)
 	child := childResp["createEntity"].(map[string]interface{})
 	childID := child["id"].(string)
-	t.Logf("[setup] created child component %s linked to %s and %s", childID, parentID, secondaryID)
+	t.Logf("[setup] created child component %s with owner %s and linked_ids containing %s", childID, parentID, secondaryID)
 
 	var storedProps map[string]interface{}
 	if err := json.Unmarshal([]byte(child["properties"].(string)), &storedProps); err != nil {
@@ -126,24 +131,13 @@ func TestLinkedEntitiesAutoResolution(t *testing.T) {
 	if !ok {
 		t.Fatalf("? expected linked_ids array in child properties, got %#v", storedProps["linked_ids"])
 	}
-	if len(rawLinked) != 2 {
-		t.Fatalf("? expected two linked ids, got %#v", rawLinked)
+	if len(rawLinked) != 1 {
+		t.Fatalf("? expected one linked id (secondary), got %#v", rawLinked)
 	}
-	linkedSet := make(map[string]struct{})
-	for _, item := range rawLinked {
-		id, ok := item.(string)
-		if !ok {
-			t.Fatalf("? linked_ids entry not string: %#v", item)
-		}
-		linkedSet[id] = struct{}{}
+	if id, ok := rawLinked[0].(string); !ok || id != secondaryID {
+		t.Fatalf("? linked_ids should contain secondary parent %s, got %#v", secondaryID, rawLinked)
 	}
-	if _, ok := linkedSet[parentID]; !ok {
-		t.Fatalf("? linked_ids missing primary parent %s", parentID)
-	}
-	if _, ok := linkedSet[secondaryID]; !ok {
-		t.Fatalf("? linked_ids missing secondary parent %s", secondaryID)
-	}
-	t.Log("[assert] linked_ids persisted to child properties with both parents")
+	t.Log("[assert] linked_ids persisted to child properties with secondary link")
 
 	entitiesByIDs := `
 		query ($ids: [String!]!) {

@@ -51,7 +51,7 @@ func mapDomainEntity(e domain.Entity) (*graph.Entity, error) {
 	}, nil
 }
 
-func collectLinkedEntityIDs(props map[string]any) []string {
+func collectLinkedEntityIDs(props map[string]any, schema *domain.EntitySchema) []string {
 	if props == nil {
 		return nil
 	}
@@ -59,12 +59,8 @@ func collectLinkedEntityIDs(props map[string]any) []string {
 	ids := make([]string, 0)
 	seen := make(map[string]struct{})
 
-	for key, value := range props {
-		if !isLinkedFieldName(key) {
-			continue
-		}
-		linkIDs := normalizeLinkedIDValues(value)
-		for _, id := range linkIDs {
+	addIDs := func(value any) {
+		for _, id := range normalizeLinkedIDValues(value) {
 			if id == "" {
 				continue
 			}
@@ -73,6 +69,27 @@ func collectLinkedEntityIDs(props map[string]any) []string {
 			}
 			seen[id] = struct{}{}
 			ids = append(ids, id)
+		}
+	}
+
+	for key, value := range props {
+		if isLinkedFieldName(key) {
+			addIDs(value)
+		}
+	}
+
+	if schema != nil {
+		for _, field := range schema.Fields {
+			switch field.Type {
+			case domain.FieldTypeEntityReference, domain.FieldTypeEntityID:
+				if value, ok := props[field.Name]; ok {
+					addIDs(value)
+				}
+			case domain.FieldTypeEntityReferenceArray:
+				if value, ok := props[field.Name]; ok {
+					addIDs(value)
+				}
+			}
 		}
 	}
 
@@ -144,6 +161,7 @@ func (r *Resolver) LinkedEntities(ctx context.Context, obj *graph.Entity) ([]*gr
 	}
 
 	ctx, cache := ensureEntityCache(ctx)
+
 	if obj.ID != "" {
 		cache[obj.ID] = obj
 	}
@@ -241,6 +259,8 @@ func (r *Resolver) hydrateLinkedEntities(ctx context.Context, parents []*graph.E
 
 	ctx, cache := ensureEntityCache(ctx)
 
+	schemaCache := make(map[string]*domain.EntitySchema)
+
 	parentMissing := make(map[*graph.Entity][]string)
 	missingSet := make(map[string]struct{})
 	var errs []error
@@ -270,7 +290,23 @@ func (r *Resolver) hydrateLinkedEntities(ctx context.Context, parents []*graph.E
 			continue
 		}
 
-		linkedIDs := collectLinkedEntityIDs(props)
+		var schema *domain.EntitySchema
+		if parent.OrganizationID != "" && parent.EntityType != "" {
+			cacheKey := parent.OrganizationID + ":" + parent.EntityType
+			if cachedSchema, ok := schemaCache[cacheKey]; ok {
+				schema = cachedSchema
+			} else {
+				if orgUUID, err := uuid.Parse(parent.OrganizationID); err == nil {
+					if loadedSchema, err := r.entitySchemaRepo.GetByName(ctx, orgUUID, parent.EntityType); err == nil {
+						schemaCopy := loadedSchema
+						schema = &schemaCopy
+					}
+				}
+				schemaCache[cacheKey] = schema
+			}
+		}
+
+		linkedIDs := collectLinkedEntityIDs(props, schema)
 		if len(linkedIDs) == 0 {
 			parent.LinkedEntities = []*graph.Entity{}
 			continue
@@ -300,7 +336,7 @@ func (r *Resolver) hydrateLinkedEntities(ctx context.Context, parents []*graph.E
 
 	linkedEntities, err := r.EntitiesByIDs(ctx, missing)
 	if err != nil {
-		errs = append(errs, err)
+		errs = append(errs, fmt.Errorf("failed loading linked entities: %w", err))
 	}
 
 	for _, entity := range linkedEntities {

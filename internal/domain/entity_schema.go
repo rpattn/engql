@@ -22,6 +22,7 @@ const (
 	FieldTypeTimeseries           FieldType = "timeseries"
 	FieldTypeEntityReference      FieldType = "ENTITY_REFERENCE"
 	FieldTypeEntityReferenceArray FieldType = "ENTITY_REFERENCE_ARRAY"
+	FieldTypeEntityID             FieldType = "ENTITY_ID"
 )
 
 // FieldDefinition represents a field definition in a schema

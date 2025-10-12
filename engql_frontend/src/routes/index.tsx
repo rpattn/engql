@@ -370,7 +370,10 @@ function App() {
                   className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
                 />
                 <p className="mt-1 text-xs text-slate-400">
-                  Provide an array of FieldDefinitionInput objects.
+                  Provide an array of FieldDefinitionInput objects. Supported
+                  types include STRING, ENTITY_ID, ENTITY_REFERENCE, and
+                  ENTITY_REFERENCE_ARRAY. ENTITY_ID fields auto-resolve to the
+                  referenced entity when querying.
                 </p>
               </div>
 
