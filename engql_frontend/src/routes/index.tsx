@@ -1,6 +1,12 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import {
+  createColumnHelper,
+  flexRender,
+  getCoreRowModel,
+  useReactTable,
+} from '@tanstack/react-table'
+import { useMemo, useState } from 'react'
 import { graphqlRequest } from '../lib/graphql'
 
 type FieldDefinitionInput = {
@@ -41,6 +47,17 @@ type EntitiesByTypeResponse = {
     }>
   }>
 }
+
+type EntityRow = {
+  id: string
+  entityType: string
+  name: string | null
+  linkedCount: number
+  linkedSummary: string
+  propertiesJSON: string
+}
+
+const entityColumnHelper = createColumnHelper<EntityRow>()
 
 const CREATE_SCHEMA_MUTATION = `
   mutation CreateSchema($input: CreateEntitySchemaInput!) {
@@ -119,6 +136,7 @@ function App() {
 
   const [queryEntityType, setQueryEntityType] = useState('')
   const [queryError, setQueryError] = useState<string | null>(null)
+  const [resultView, setResultView] = useState<'cards' | 'grid'>('cards')
 
   const createSchemaMutation = useMutation({
     mutationFn: (variables: {
@@ -171,6 +189,110 @@ function App() {
       }),
     enabled: false,
   })
+
+  const safeParseProperties = (value: string) => {
+    try {
+      return JSON.parse(value)
+    } catch {
+      return value
+    }
+  }
+
+  const extractName = (value: unknown): string | undefined => {
+    if (
+      value &&
+      typeof value === 'object' &&
+      value !== null &&
+      'name' in value &&
+      typeof (value as Record<string, unknown>)['name'] === 'string'
+    ) {
+      return (value as Record<string, unknown>)['name'] as string
+    }
+    return undefined
+  }
+
+  const entityRows = useMemo<EntityRow[]>(() => {
+    if (!entitiesData?.entitiesByType) {
+      return []
+    }
+
+    return entitiesData.entitiesByType.map((entity) => {
+      const parsedProps = safeParseProperties(entity.properties)
+      const name = extractName(parsedProps) ?? null
+
+      const propertiesJSON =
+        typeof parsedProps === 'string'
+          ? parsedProps
+          : JSON.stringify(parsedProps, null, 2)
+
+      const linkedSummary = entity.linkedEntities
+        .map((link) => {
+          const linkedProps = safeParseProperties(link.properties)
+          const linkedName = extractName(linkedProps)
+          return linkedName
+            ? `${link.entityType}: ${linkedName}`
+            : `${link.entityType}: ${link.id}`
+        })
+        .join(', ')
+
+      return {
+        id: entity.id,
+        entityType: entity.entityType,
+        name,
+        linkedCount: entity.linkedEntities.length,
+        linkedSummary: linkedSummary || '—',
+        propertiesJSON,
+      }
+    })
+  }, [entitiesData])
+
+  const columns = useMemo(
+    () => [
+      entityColumnHelper.accessor('entityType', {
+        header: 'Type',
+        cell: (info) => info.getValue(),
+      }),
+      entityColumnHelper.accessor('id', {
+        header: 'ID',
+        cell: (info) => (
+          <code className="text-xs text-slate-300">{info.getValue()}</code>
+        ),
+      }),
+      entityColumnHelper.accessor('name', {
+        header: 'Name',
+        cell: (info) => info.getValue() ?? '—',
+      }),
+      entityColumnHelper.accessor('linkedCount', {
+        header: '# Linked',
+        cell: (info) => info.getValue(),
+      }),
+      entityColumnHelper.accessor('linkedSummary', {
+        header: 'Linked Entities',
+        cell: (info) => (
+          <span className="whitespace-pre-wrap text-slate-300">
+            {info.getValue()}
+          </span>
+        ),
+      }),
+      entityColumnHelper.accessor('propertiesJSON', {
+        header: 'Properties',
+        cell: (info) => (
+          <pre className="max-h-48 overflow-auto rounded-md bg-slate-950/70 p-2 text-[11px] leading-snug text-slate-200">
+            {info.getValue()}
+          </pre>
+        ),
+      }),
+    ],
+    [],
+  )
+
+  const table = useReactTable({
+    data: entityRows,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+  })
+
+  const hasResults = entityRows.length > 0
 
   const handleCreateSchema = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -284,14 +406,6 @@ function App() {
     }
     setQueryError(null)
     await refetchEntities()
-  }
-
-  const safeParseProperties = (value: string) => {
-    try {
-      return JSON.parse(value)
-    } catch {
-      return value
-    }
   }
 
   return (
@@ -510,7 +624,7 @@ function App() {
                 entities resolve automatically.
               </p>
             </div>
-            <div className="flex flex-col gap-2 md:flex-row md:items-center">
+            <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-200">
                   Entity Type
@@ -521,6 +635,32 @@ function App() {
                   placeholder="Component"
                   className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 md:w-56"
                 />
+              </div>
+              <div className="inline-flex items-center rounded-lg bg-slate-900/80 p-1 ring-1 ring-slate-700/60">
+                <button
+                  type="button"
+                  onClick={() => setResultView('cards')}
+                  className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                    resultView === 'cards'
+                      ? 'bg-cyan-600 text-white shadow'
+                      : 'text-slate-300 hover:bg-slate-800/60'
+                  }`}
+                  aria-pressed={resultView === 'cards'}
+                >
+                  Cards
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setResultView('grid')}
+                  className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                    resultView === 'grid'
+                      ? 'bg-cyan-600 text-white shadow'
+                      : 'text-slate-300 hover:bg-slate-800/60'
+                  }`}
+                  aria-pressed={resultView === 'grid'}
+                >
+                  Grid
+                </button>
               </div>
               <button
                 onClick={handleFetchEntities}
@@ -539,75 +679,115 @@ function App() {
           )}
 
           {entitiesData?.entitiesByType && (
-            <div className="mt-6 grid gap-4 md:grid-cols-2">
-              {entitiesData.entitiesByType.map((entity) => {
-                const parsedProps = safeParseProperties(entity.properties)
-                return (
-                  <div
-                    key={entity.id}
-                    className="rounded-xl border border-slate-700/60 bg-slate-900/70 p-4"
-                  >
-                    <div className="text-sm font-medium text-cyan-300">
-                      {entity.entityType}
-                    </div>
-                    <div className="mt-1 text-xs text-slate-400">
-                      ID: {entity.id}
-                    </div>
-                    <pre className="mt-3 max-h-40 overflow-auto rounded-lg bg-slate-950/60 p-3 text-xs text-slate-200">
-                      {JSON.stringify(parsedProps, null, 2)}
-                    </pre>
-                    <div className="mt-3 text-sm text-slate-300">
-                      Linked Entities:
-                    </div>
-                    {entity.linkedEntities.length ? (
-                      <ul className="mt-1 space-y-1 text-xs text-slate-400">
-                        {entity.linkedEntities.map((link) => {
-                          const linkedProps = safeParseProperties(link.properties)
-                          let name: string | undefined
-                          if (
-                            linkedProps &&
-                            typeof linkedProps === 'object' &&
-                            'name' in linkedProps
-                          ) {
-                            const maybeString = linkedProps['name']
-                            if (typeof maybeString === 'string') {
-                              name = maybeString
-                            }
-                          }
+            <>
+              <div className="mt-6 text-sm text-slate-300">
+                {hasResults
+                  ? `${entityRows.length} entities fetched`
+                  : 'No entities found for that type.'}
+              </div>
 
-                          return (
-                            <li key={link.id} className="space-y-1">
-                              <div>
-                                <span className="text-slate-200">
-                                  {link.entityType}
-                                </span>{' '}
-                                – {link.id}
-                                {name ? (
-                                  <span className="text-slate-400">
-                                    {' '}
-                                    ({name})
-                                  </span>
-                                ) : null}
-                              </div>
-                              <pre className="max-h-32 overflow-auto rounded-md bg-slate-950/70 p-2 text-[11px] text-slate-200">
-                                {JSON.stringify(linkedProps, null, 2)}
-                              </pre>
-                            </li>
-                          )
-                        })}
-                      </ul>
-                    ) : (
-                      <p className="mt-1 text-xs text-slate-500">
-                        No linked entities.
-                      </p>
-                    )}
+              {hasResults ? (
+                resultView === 'grid' ? (
+                  <div className="mt-6 overflow-auto rounded-xl border border-slate-700/60">
+                    <table className="min-w-full divide-y divide-slate-700">
+                      <thead className="bg-slate-900/80">
+                        {table.getHeaderGroups().map((headerGroup) => (
+                          <tr key={headerGroup.id}>
+                            {headerGroup.headers.map((header) => (
+                              <th
+                                key={header.id}
+                                className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-300"
+                              >
+                                {header.isPlaceholder
+                                  ? null
+                                  : flexRender(
+                                      header.column.columnDef.header,
+                                      header.getContext(),
+                                    )}
+                              </th>
+                            ))}
+                          </tr>
+                        ))}
+                      </thead>
+                      <tbody className="divide-y divide-slate-800">
+                        {table.getRowModel().rows.map((row) => (
+                          <tr key={row.id} className="hover:bg-slate-900/60">
+                            {row.getVisibleCells().map((cell) => (
+                              <td
+                                key={cell.id}
+                                className="whitespace-pre-wrap px-4 py-3 text-sm text-slate-200"
+                              >
+                                {flexRender(
+                                  cell.column.columnDef.cell,
+                                  cell.getContext(),
+                                )}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="mt-6 grid gap-4 md:grid-cols-2">
+                    {entitiesData.entitiesByType.map((entity) => {
+                      const parsedProps = safeParseProperties(entity.properties)
+                      return (
+                        <div
+                          key={entity.id}
+                          className="rounded-xl border border-slate-700/60 bg-slate-900/70 p-4"
+                        >
+                          <div className="text-sm font-medium text-cyan-300">
+                            {entity.entityType}
+                          </div>
+                          <div className="mt-1 text-xs text-slate-400">
+                            ID: {entity.id}
+                          </div>
+                          <pre className="mt-3 max-h-40 overflow-auto rounded-lg bg-slate-950/60 p-3 text-xs text-slate-200">
+                            {JSON.stringify(parsedProps, null, 2)}
+                          </pre>
+                          <div className="mt-3 text-sm text-slate-300">
+                            Linked Entities:
+                          </div>
+                          {entity.linkedEntities.length ? (
+                            <ul className="mt-1 space-y-1 text-xs text-slate-400">
+                              {entity.linkedEntities.map((link) => {
+                                const linkedProps = safeParseProperties(
+                                  link.properties,
+                                )
+                                const linkedName = extractName(linkedProps)
+
+                                return (
+                                  <li key={link.id}>
+                                    <div>
+                                      <span className="text-slate-200">
+                                        {link.entityType}
+                                      </span>{' '}
+                                      —{' '}
+                                      <span className="text-slate-300">
+                                        {linkedName ?? link.id}
+                                      </span>
+                                    </div>
+                                  </li>
+                                )
+                              })}
+                            </ul>
+                          ) : (
+                            <p className="mt-1 text-xs text-slate-500">
+                              No linked entities.
+                            </p>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
                 )
-              })}
-            </div>
+              ) : null}
+            </>
           )}
         </section>
       </main>
     </div>
   )
 }
+
