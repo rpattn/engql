@@ -52,3 +52,13 @@ type EntityRepository interface {
 	Count(ctx context.Context, organizationID uuid.UUID) (int64, error)
 	CountByType(ctx context.Context, organizationID uuid.UUID, entityType string) (int64, error)
 }
+
+// EntityJoinRepository defines operations for persisted join definitions and executions
+type EntityJoinRepository interface {
+	Create(ctx context.Context, join domain.EntityJoinDefinition) (domain.EntityJoinDefinition, error)
+	GetByID(ctx context.Context, id uuid.UUID) (domain.EntityJoinDefinition, error)
+	ListByOrganization(ctx context.Context, organizationID uuid.UUID) ([]domain.EntityJoinDefinition, error)
+	Update(ctx context.Context, join domain.EntityJoinDefinition) (domain.EntityJoinDefinition, error)
+	Delete(ctx context.Context, id uuid.UUID) error
+	ExecuteJoin(ctx context.Context, join domain.EntityJoinDefinition, options domain.JoinExecutionOptions) ([]domain.EntityJoinEdge, int64, error)
+}

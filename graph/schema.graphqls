@@ -46,6 +46,16 @@ enum FieldType {
   ENTITY_ID
 }
 
+enum JoinSide {
+  LEFT
+  RIGHT
+}
+
+enum JoinSortDirection {
+  ASC
+  DESC
+}
+
 type EntitySchema {
   id: String!
   organizationId: String!
@@ -124,6 +134,45 @@ input PropertyFilter {
   inArray: [String!]
 }
 
+type PropertyFilterConfig {
+  key: String!
+  value: String
+  exists: Boolean
+  inArray: [String!]
+}
+
+type JoinSortCriterion {
+  side: JoinSide!
+  field: String!
+  direction: JoinSortDirection!
+}
+
+type EntityJoinDefinition {
+  id: String!
+  organizationId: String!
+  name: String!
+  description: String
+  leftEntityType: String!
+  rightEntityType: String!
+  joinField: String!
+  joinFieldType: FieldType!
+  leftFilters: [PropertyFilterConfig!]!
+  rightFilters: [PropertyFilterConfig!]!
+  sortCriteria: [JoinSortCriterion!]!
+  createdAt: String!
+  updatedAt: String!
+}
+
+type EntityJoinEdge {
+  left: Entity!
+  right: Entity!
+}
+
+type EntityJoinConnection {
+  edges: [EntityJoinEdge!]!
+  pageInfo: PageInfo!
+}
+
 input PathFilter {
   ancestorsOf: String
   descendantsOf: String
@@ -135,6 +184,44 @@ input PathFilter {
 input PaginationInput {
   limit: Int = 10
   offset: Int = 0
+}
+
+input JoinSortInput {
+  side: JoinSide!
+  field: String!
+  direction: JoinSortDirection = ASC
+}
+
+input CreateEntityJoinDefinitionInput {
+  organizationId: String!
+  name: String!
+  description: String
+  leftEntityType: String!
+  rightEntityType: String!
+  joinField: String!
+  leftFilters: [PropertyFilter!]
+  rightFilters: [PropertyFilter!]
+  sortCriteria: [JoinSortInput!]
+}
+
+input UpdateEntityJoinDefinitionInput {
+  id: String!
+  name: String
+  description: String
+  leftEntityType: String
+  rightEntityType: String
+  joinField: String
+  leftFilters: [PropertyFilter!]
+  rightFilters: [PropertyFilter!]
+  sortCriteria: [JoinSortInput!]
+}
+
+input ExecuteEntityJoinInput {
+  joinId: String!
+  leftFilters: [PropertyFilter!]
+  rightFilters: [PropertyFilter!]
+  sortCriteria: [JoinSortInput!]
+  pagination: PaginationInput
 }
 
 type PageInfo {
@@ -179,6 +266,11 @@ type Query {
   searchEntitiesByPropertyExists(organizationId: String!, propertyKey: String!): [Entity!]!
   searchEntitiesByPropertyContains(organizationId: String!, propertyKey: String!, searchTerm: String!): [Entity!]!
   validateEntityAgainstSchema(entityId: String!): ValidationResult!
+
+  # Join definition queries
+  entityJoinDefinition(id: String!): EntityJoinDefinition
+  entityJoinDefinitions(organizationId: String!): [EntityJoinDefinition!]!
+  executeEntityJoin(input: ExecuteEntityJoinInput!): EntityJoinConnection!
 }
 
 type EntityConnection {
@@ -219,4 +311,9 @@ type Mutation {
   createEntity(input: CreateEntityInput!): Entity!
   updateEntity(input: UpdateEntityInput!): Entity!
   deleteEntity(id: String!): Boolean!
+
+  # Join definition mutations
+  createEntityJoinDefinition(input: CreateEntityJoinDefinitionInput!): EntityJoinDefinition!
+  updateEntityJoinDefinition(input: UpdateEntityJoinDefinitionInput!): EntityJoinDefinition!
+  deleteEntityJoinDefinition(id: String!): Boolean!
 }

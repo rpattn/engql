@@ -18,6 +18,18 @@ type CreateEntityInput struct {
 	LinkedEntityIds []string `json:"linkedEntityIds,omitempty"`
 }
 
+type CreateEntityJoinDefinitionInput struct {
+	OrganizationID  string            `json:"organizationId"`
+	Name            string            `json:"name"`
+	Description     *string           `json:"description,omitempty"`
+	LeftEntityType  string            `json:"leftEntityType"`
+	RightEntityType string            `json:"rightEntityType"`
+	JoinField       string            `json:"joinField"`
+	LeftFilters     []*PropertyFilter `json:"leftFilters,omitempty"`
+	RightFilters    []*PropertyFilter `json:"rightFilters,omitempty"`
+	SortCriteria    []*JoinSortInput  `json:"sortCriteria,omitempty"`
+}
+
 type CreateEntitySchemaInput struct {
 	OrganizationID string                  `json:"organizationId"`
 	Name           string                  `json:"name"`
@@ -60,6 +72,32 @@ type EntityHierarchy struct {
 	Siblings  []*Entity `json:"siblings"`
 }
 
+type EntityJoinConnection struct {
+	Edges    []*EntityJoinEdge `json:"edges"`
+	PageInfo *PageInfo         `json:"pageInfo"`
+}
+
+type EntityJoinDefinition struct {
+	ID              string                  `json:"id"`
+	OrganizationID  string                  `json:"organizationId"`
+	Name            string                  `json:"name"`
+	Description     *string                 `json:"description,omitempty"`
+	LeftEntityType  string                  `json:"leftEntityType"`
+	RightEntityType string                  `json:"rightEntityType"`
+	JoinField       string                  `json:"joinField"`
+	JoinFieldType   FieldType               `json:"joinFieldType"`
+	LeftFilters     []*PropertyFilterConfig `json:"leftFilters"`
+	RightFilters    []*PropertyFilterConfig `json:"rightFilters"`
+	SortCriteria    []*JoinSortCriterion    `json:"sortCriteria"`
+	CreatedAt       string                  `json:"createdAt"`
+	UpdatedAt       string                  `json:"updatedAt"`
+}
+
+type EntityJoinEdge struct {
+	Left  *Entity `json:"left"`
+	Right *Entity `json:"right"`
+}
+
 type EntitySchema struct {
 	ID             string             `json:"id"`
 	OrganizationID string             `json:"organizationId"`
@@ -68,6 +106,14 @@ type EntitySchema struct {
 	Fields         []*FieldDefinition `json:"fields"`
 	CreatedAt      string             `json:"createdAt"`
 	UpdatedAt      string             `json:"updatedAt"`
+}
+
+type ExecuteEntityJoinInput struct {
+	JoinID       string            `json:"joinId"`
+	LeftFilters  []*PropertyFilter `json:"leftFilters,omitempty"`
+	RightFilters []*PropertyFilter `json:"rightFilters,omitempty"`
+	SortCriteria []*JoinSortInput  `json:"sortCriteria,omitempty"`
+	Pagination   *PaginationInput  `json:"pagination,omitempty"`
 }
 
 type FieldDefinition struct {
@@ -88,6 +134,18 @@ type FieldDefinitionInput struct {
 	Default             *string   `json:"default,omitempty"`
 	Validation          *string   `json:"validation,omitempty"`
 	ReferenceEntityType *string   `json:"referenceEntityType,omitempty"`
+}
+
+type JoinSortCriterion struct {
+	Side      JoinSide          `json:"side"`
+	Field     string            `json:"field"`
+	Direction JoinSortDirection `json:"direction"`
+}
+
+type JoinSortInput struct {
+	Side      JoinSide           `json:"side"`
+	Field     string             `json:"field"`
+	Direction *JoinSortDirection `json:"direction,omitempty"`
 }
 
 type Mutation struct {
@@ -126,6 +184,13 @@ type PropertyFilter struct {
 	InArray []string `json:"inArray,omitempty"`
 }
 
+type PropertyFilterConfig struct {
+	Key     string   `json:"key"`
+	Value   *string  `json:"value,omitempty"`
+	Exists  *bool    `json:"exists,omitempty"`
+	InArray []string `json:"inArray,omitempty"`
+}
+
 type Query struct {
 }
 
@@ -134,6 +199,18 @@ type UpdateEntityInput struct {
 	EntityType *string `json:"entityType,omitempty"`
 	Path       *string `json:"path,omitempty"`
 	Properties *string `json:"properties,omitempty"`
+}
+
+type UpdateEntityJoinDefinitionInput struct {
+	ID              string            `json:"id"`
+	Name            *string           `json:"name,omitempty"`
+	Description     *string           `json:"description,omitempty"`
+	LeftEntityType  *string           `json:"leftEntityType,omitempty"`
+	RightEntityType *string           `json:"rightEntityType,omitempty"`
+	JoinField       *string           `json:"joinField,omitempty"`
+	LeftFilters     []*PropertyFilter `json:"leftFilters,omitempty"`
+	RightFilters    []*PropertyFilter `json:"rightFilters,omitempty"`
+	SortCriteria    []*JoinSortInput  `json:"sortCriteria,omitempty"`
 }
 
 type UpdateEntitySchemaInput struct {
@@ -225,6 +302,116 @@ func (e *FieldType) UnmarshalJSON(b []byte) error {
 }
 
 func (e FieldType) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type JoinSide string
+
+const (
+	JoinSideLeft  JoinSide = "LEFT"
+	JoinSideRight JoinSide = "RIGHT"
+)
+
+var AllJoinSide = []JoinSide{
+	JoinSideLeft,
+	JoinSideRight,
+}
+
+func (e JoinSide) IsValid() bool {
+	switch e {
+	case JoinSideLeft, JoinSideRight:
+		return true
+	}
+	return false
+}
+
+func (e JoinSide) String() string {
+	return string(e)
+}
+
+func (e *JoinSide) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = JoinSide(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid JoinSide", str)
+	}
+	return nil
+}
+
+func (e JoinSide) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *JoinSide) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e JoinSide) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type JoinSortDirection string
+
+const (
+	JoinSortDirectionAsc  JoinSortDirection = "ASC"
+	JoinSortDirectionDesc JoinSortDirection = "DESC"
+)
+
+var AllJoinSortDirection = []JoinSortDirection{
+	JoinSortDirectionAsc,
+	JoinSortDirectionDesc,
+}
+
+func (e JoinSortDirection) IsValid() bool {
+	switch e {
+	case JoinSortDirectionAsc, JoinSortDirectionDesc:
+		return true
+	}
+	return false
+}
+
+func (e JoinSortDirection) String() string {
+	return string(e)
+}
+
+func (e *JoinSortDirection) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = JoinSortDirection(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid JoinSortDirection", str)
+	}
+	return nil
+}
+
+func (e JoinSortDirection) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *JoinSortDirection) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e JoinSortDirection) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil

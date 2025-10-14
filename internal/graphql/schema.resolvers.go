@@ -92,6 +92,28 @@ func (r *mutationResolver) DeleteEntity(ctx context.Context, id string) (bool, e
 	return *res, nil
 }
 
+// CreateEntityJoinDefinition is the resolver for the createEntityJoinDefinition field.
+func (r *mutationResolver) CreateEntityJoinDefinition(ctx context.Context, input graph.CreateEntityJoinDefinitionInput) (*graph.EntityJoinDefinition, error) {
+	return r.Resolver.CreateEntityJoinDefinition(ctx, input)
+}
+
+// UpdateEntityJoinDefinition is the resolver for the updateEntityJoinDefinition field.
+func (r *mutationResolver) UpdateEntityJoinDefinition(ctx context.Context, input graph.UpdateEntityJoinDefinitionInput) (*graph.EntityJoinDefinition, error) {
+	return r.Resolver.UpdateEntityJoinDefinition(ctx, input)
+}
+
+// DeleteEntityJoinDefinition is the resolver for the deleteEntityJoinDefinition field.
+func (r *mutationResolver) DeleteEntityJoinDefinition(ctx context.Context, id string) (bool, error) {
+	res, err := r.Resolver.DeleteEntityJoinDefinition(ctx, id)
+	if err != nil {
+		return false, err
+	}
+	if res == nil {
+		return false, nil
+	}
+	return *res, nil
+}
+
 // Organizations is the resolver for the organizations field.
 func (r *queryResolver) Organizations(ctx context.Context) ([]*graph.Organization, error) {
 	return r.Resolver.Organizations(ctx)
@@ -202,6 +224,21 @@ func (r *queryResolver) SearchEntitiesByPropertyContains(ctx context.Context, or
 // ValidateEntityAgainstSchema is the resolver for the validateEntityAgainstSchema field.
 func (r *queryResolver) ValidateEntityAgainstSchema(ctx context.Context, entityID string) (*graph.ValidationResult, error) {
 	return r.Resolver.ValidateEntityAgainstSchema(ctx, entityID)
+}
+
+// EntityJoinDefinition is the resolver for the entityJoinDefinition field.
+func (r *queryResolver) EntityJoinDefinition(ctx context.Context, id string) (*graph.EntityJoinDefinition, error) {
+	return r.Resolver.EntityJoinDefinition(ctx, id)
+}
+
+// EntityJoinDefinitions is the resolver for the entityJoinDefinitions field.
+func (r *queryResolver) EntityJoinDefinitions(ctx context.Context, organizationID string) ([]*graph.EntityJoinDefinition, error) {
+	return r.Resolver.EntityJoinDefinitions(ctx, organizationID)
+}
+
+// ExecuteEntityJoin is the resolver for the executeEntityJoin field.
+func (r *queryResolver) ExecuteEntityJoin(ctx context.Context, input graph.ExecuteEntityJoinInput) (*graph.EntityJoinConnection, error) {
+	return r.Resolver.ExecuteEntityJoin(ctx, input)
 }
 
 // Entity returns graph.EntityResolver implementation.

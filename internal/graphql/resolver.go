@@ -16,6 +16,7 @@ type Resolver struct {
 	orgRepo          repository.OrganizationRepository
 	entitySchemaRepo repository.EntitySchemaRepository
 	entityRepo       repository.EntityRepository
+	entityJoinRepo   repository.EntityJoinRepository
 }
 
 // NewResolver creates a new GraphQL resolver
@@ -23,11 +24,13 @@ func NewResolver(
 	orgRepo repository.OrganizationRepository,
 	entitySchemaRepo repository.EntitySchemaRepository,
 	entityRepo repository.EntityRepository,
+	entityJoinRepo repository.EntityJoinRepository,
 ) *Resolver {
 	return &Resolver{
 		orgRepo:          orgRepo,
 		entitySchemaRepo: entitySchemaRepo,
 		entityRepo:       entityRepo,
+		entityJoinRepo:   entityJoinRepo,
 	}
 }
 

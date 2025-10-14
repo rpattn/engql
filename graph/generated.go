@@ -70,6 +70,32 @@ type ComplexityRoot struct {
 		Siblings  func(childComplexity int) int
 	}
 
+	EntityJoinConnection struct {
+		Edges    func(childComplexity int) int
+		PageInfo func(childComplexity int) int
+	}
+
+	EntityJoinDefinition struct {
+		CreatedAt       func(childComplexity int) int
+		Description     func(childComplexity int) int
+		ID              func(childComplexity int) int
+		JoinField       func(childComplexity int) int
+		JoinFieldType   func(childComplexity int) int
+		LeftEntityType  func(childComplexity int) int
+		LeftFilters     func(childComplexity int) int
+		Name            func(childComplexity int) int
+		OrganizationID  func(childComplexity int) int
+		RightEntityType func(childComplexity int) int
+		RightFilters    func(childComplexity int) int
+		SortCriteria    func(childComplexity int) int
+		UpdatedAt       func(childComplexity int) int
+	}
+
+	EntityJoinEdge struct {
+		Left  func(childComplexity int) int
+		Right func(childComplexity int) int
+	}
+
 	EntitySchema struct {
 		CreatedAt      func(childComplexity int) int
 		Description    func(childComplexity int) int
@@ -90,18 +116,27 @@ type ComplexityRoot struct {
 		Validation          func(childComplexity int) int
 	}
 
+	JoinSortCriterion struct {
+		Direction func(childComplexity int) int
+		Field     func(childComplexity int) int
+		Side      func(childComplexity int) int
+	}
+
 	Mutation struct {
-		AddFieldToSchema      func(childComplexity int, schemaID string, field FieldDefinitionInput) int
-		CreateEntity          func(childComplexity int, input CreateEntityInput) int
-		CreateEntitySchema    func(childComplexity int, input CreateEntitySchemaInput) int
-		CreateOrganization    func(childComplexity int, input CreateOrganizationInput) int
-		DeleteEntity          func(childComplexity int, id string) int
-		DeleteEntitySchema    func(childComplexity int, id string) int
-		DeleteOrganization    func(childComplexity int, id string) int
-		RemoveFieldFromSchema func(childComplexity int, schemaID string, fieldName string) int
-		UpdateEntity          func(childComplexity int, input UpdateEntityInput) int
-		UpdateEntitySchema    func(childComplexity int, input UpdateEntitySchemaInput) int
-		UpdateOrganization    func(childComplexity int, input UpdateOrganizationInput) int
+		AddFieldToSchema           func(childComplexity int, schemaID string, field FieldDefinitionInput) int
+		CreateEntity               func(childComplexity int, input CreateEntityInput) int
+		CreateEntityJoinDefinition func(childComplexity int, input CreateEntityJoinDefinitionInput) int
+		CreateEntitySchema         func(childComplexity int, input CreateEntitySchemaInput) int
+		CreateOrganization         func(childComplexity int, input CreateOrganizationInput) int
+		DeleteEntity               func(childComplexity int, id string) int
+		DeleteEntityJoinDefinition func(childComplexity int, id string) int
+		DeleteEntitySchema         func(childComplexity int, id string) int
+		DeleteOrganization         func(childComplexity int, id string) int
+		RemoveFieldFromSchema      func(childComplexity int, schemaID string, fieldName string) int
+		UpdateEntity               func(childComplexity int, input UpdateEntityInput) int
+		UpdateEntityJoinDefinition func(childComplexity int, input UpdateEntityJoinDefinitionInput) int
+		UpdateEntitySchema         func(childComplexity int, input UpdateEntitySchemaInput) int
+		UpdateOrganization         func(childComplexity int, input UpdateOrganizationInput) int
 	}
 
 	Organization struct {
@@ -118,14 +153,24 @@ type ComplexityRoot struct {
 		TotalCount      func(childComplexity int) int
 	}
 
+	PropertyFilterConfig struct {
+		Exists  func(childComplexity int) int
+		InArray func(childComplexity int) int
+		Key     func(childComplexity int) int
+		Value   func(childComplexity int) int
+	}
+
 	Query struct {
 		Entities                           func(childComplexity int, organizationID string, filter *EntityFilter, pagination *PaginationInput) int
 		EntitiesByIDs                      func(childComplexity int, ids []string) int
 		EntitiesByType                     func(childComplexity int, organizationID string, entityType string) int
 		Entity                             func(childComplexity int, id string) int
+		EntityJoinDefinition               func(childComplexity int, id string) int
+		EntityJoinDefinitions              func(childComplexity int, organizationID string) int
 		EntitySchema                       func(childComplexity int, id string) int
 		EntitySchemaByName                 func(childComplexity int, organizationID string, name string) int
 		EntitySchemas                      func(childComplexity int, organizationID string) int
+		ExecuteEntityJoin                  func(childComplexity int, input ExecuteEntityJoinInput) int
 		GetEntityAncestors                 func(childComplexity int, entityID string) int
 		GetEntityChildren                  func(childComplexity int, entityID string) int
 		GetEntityDescendants               func(childComplexity int, entityID string) int
@@ -164,6 +209,9 @@ type MutationResolver interface {
 	CreateEntity(ctx context.Context, input CreateEntityInput) (*Entity, error)
 	UpdateEntity(ctx context.Context, input UpdateEntityInput) (*Entity, error)
 	DeleteEntity(ctx context.Context, id string) (bool, error)
+	CreateEntityJoinDefinition(ctx context.Context, input CreateEntityJoinDefinitionInput) (*EntityJoinDefinition, error)
+	UpdateEntityJoinDefinition(ctx context.Context, input UpdateEntityJoinDefinitionInput) (*EntityJoinDefinition, error)
+	DeleteEntityJoinDefinition(ctx context.Context, id string) (bool, error)
 }
 type QueryResolver interface {
 	Organizations(ctx context.Context) ([]*Organization, error)
@@ -187,6 +235,9 @@ type QueryResolver interface {
 	SearchEntitiesByPropertyExists(ctx context.Context, organizationID string, propertyKey string) ([]*Entity, error)
 	SearchEntitiesByPropertyContains(ctx context.Context, organizationID string, propertyKey string, searchTerm string) ([]*Entity, error)
 	ValidateEntityAgainstSchema(ctx context.Context, entityID string) (*ValidationResult, error)
+	EntityJoinDefinition(ctx context.Context, id string) (*EntityJoinDefinition, error)
+	EntityJoinDefinitions(ctx context.Context, organizationID string) ([]*EntityJoinDefinition, error)
+	ExecuteEntityJoin(ctx context.Context, input ExecuteEntityJoinInput) (*EntityJoinConnection, error)
 }
 
 type executableSchema struct {
@@ -295,6 +346,111 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.EntityHierarchy.Siblings(childComplexity), true
 
+	case "EntityJoinConnection.edges":
+		if e.complexity.EntityJoinConnection.Edges == nil {
+			break
+		}
+
+		return e.complexity.EntityJoinConnection.Edges(childComplexity), true
+	case "EntityJoinConnection.pageInfo":
+		if e.complexity.EntityJoinConnection.PageInfo == nil {
+			break
+		}
+
+		return e.complexity.EntityJoinConnection.PageInfo(childComplexity), true
+
+	case "EntityJoinDefinition.createdAt":
+		if e.complexity.EntityJoinDefinition.CreatedAt == nil {
+			break
+		}
+
+		return e.complexity.EntityJoinDefinition.CreatedAt(childComplexity), true
+	case "EntityJoinDefinition.description":
+		if e.complexity.EntityJoinDefinition.Description == nil {
+			break
+		}
+
+		return e.complexity.EntityJoinDefinition.Description(childComplexity), true
+	case "EntityJoinDefinition.id":
+		if e.complexity.EntityJoinDefinition.ID == nil {
+			break
+		}
+
+		return e.complexity.EntityJoinDefinition.ID(childComplexity), true
+	case "EntityJoinDefinition.joinField":
+		if e.complexity.EntityJoinDefinition.JoinField == nil {
+			break
+		}
+
+		return e.complexity.EntityJoinDefinition.JoinField(childComplexity), true
+	case "EntityJoinDefinition.joinFieldType":
+		if e.complexity.EntityJoinDefinition.JoinFieldType == nil {
+			break
+		}
+
+		return e.complexity.EntityJoinDefinition.JoinFieldType(childComplexity), true
+	case "EntityJoinDefinition.leftEntityType":
+		if e.complexity.EntityJoinDefinition.LeftEntityType == nil {
+			break
+		}
+
+		return e.complexity.EntityJoinDefinition.LeftEntityType(childComplexity), true
+	case "EntityJoinDefinition.leftFilters":
+		if e.complexity.EntityJoinDefinition.LeftFilters == nil {
+			break
+		}
+
+		return e.complexity.EntityJoinDefinition.LeftFilters(childComplexity), true
+	case "EntityJoinDefinition.name":
+		if e.complexity.EntityJoinDefinition.Name == nil {
+			break
+		}
+
+		return e.complexity.EntityJoinDefinition.Name(childComplexity), true
+	case "EntityJoinDefinition.organizationId":
+		if e.complexity.EntityJoinDefinition.OrganizationID == nil {
+			break
+		}
+
+		return e.complexity.EntityJoinDefinition.OrganizationID(childComplexity), true
+	case "EntityJoinDefinition.rightEntityType":
+		if e.complexity.EntityJoinDefinition.RightEntityType == nil {
+			break
+		}
+
+		return e.complexity.EntityJoinDefinition.RightEntityType(childComplexity), true
+	case "EntityJoinDefinition.rightFilters":
+		if e.complexity.EntityJoinDefinition.RightFilters == nil {
+			break
+		}
+
+		return e.complexity.EntityJoinDefinition.RightFilters(childComplexity), true
+	case "EntityJoinDefinition.sortCriteria":
+		if e.complexity.EntityJoinDefinition.SortCriteria == nil {
+			break
+		}
+
+		return e.complexity.EntityJoinDefinition.SortCriteria(childComplexity), true
+	case "EntityJoinDefinition.updatedAt":
+		if e.complexity.EntityJoinDefinition.UpdatedAt == nil {
+			break
+		}
+
+		return e.complexity.EntityJoinDefinition.UpdatedAt(childComplexity), true
+
+	case "EntityJoinEdge.left":
+		if e.complexity.EntityJoinEdge.Left == nil {
+			break
+		}
+
+		return e.complexity.EntityJoinEdge.Left(childComplexity), true
+	case "EntityJoinEdge.right":
+		if e.complexity.EntityJoinEdge.Right == nil {
+			break
+		}
+
+		return e.complexity.EntityJoinEdge.Right(childComplexity), true
+
 	case "EntitySchema.createdAt":
 		if e.complexity.EntitySchema.CreatedAt == nil {
 			break
@@ -381,6 +537,25 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.FieldDefinition.Validation(childComplexity), true
 
+	case "JoinSortCriterion.direction":
+		if e.complexity.JoinSortCriterion.Direction == nil {
+			break
+		}
+
+		return e.complexity.JoinSortCriterion.Direction(childComplexity), true
+	case "JoinSortCriterion.field":
+		if e.complexity.JoinSortCriterion.Field == nil {
+			break
+		}
+
+		return e.complexity.JoinSortCriterion.Field(childComplexity), true
+	case "JoinSortCriterion.side":
+		if e.complexity.JoinSortCriterion.Side == nil {
+			break
+		}
+
+		return e.complexity.JoinSortCriterion.Side(childComplexity), true
+
 	case "Mutation.addFieldToSchema":
 		if e.complexity.Mutation.AddFieldToSchema == nil {
 			break
@@ -403,6 +578,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Mutation.CreateEntity(childComplexity, args["input"].(CreateEntityInput)), true
+	case "Mutation.createEntityJoinDefinition":
+		if e.complexity.Mutation.CreateEntityJoinDefinition == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_createEntityJoinDefinition_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.CreateEntityJoinDefinition(childComplexity, args["input"].(CreateEntityJoinDefinitionInput)), true
 	case "Mutation.createEntitySchema":
 		if e.complexity.Mutation.CreateEntitySchema == nil {
 			break
@@ -436,6 +622,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Mutation.DeleteEntity(childComplexity, args["id"].(string)), true
+	case "Mutation.deleteEntityJoinDefinition":
+		if e.complexity.Mutation.DeleteEntityJoinDefinition == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_deleteEntityJoinDefinition_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.DeleteEntityJoinDefinition(childComplexity, args["id"].(string)), true
 	case "Mutation.deleteEntitySchema":
 		if e.complexity.Mutation.DeleteEntitySchema == nil {
 			break
@@ -480,6 +677,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Mutation.UpdateEntity(childComplexity, args["input"].(UpdateEntityInput)), true
+	case "Mutation.updateEntityJoinDefinition":
+		if e.complexity.Mutation.UpdateEntityJoinDefinition == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_updateEntityJoinDefinition_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.UpdateEntityJoinDefinition(childComplexity, args["input"].(UpdateEntityJoinDefinitionInput)), true
 	case "Mutation.updateEntitySchema":
 		if e.complexity.Mutation.UpdateEntitySchema == nil {
 			break
@@ -553,6 +761,31 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.PageInfo.TotalCount(childComplexity), true
 
+	case "PropertyFilterConfig.exists":
+		if e.complexity.PropertyFilterConfig.Exists == nil {
+			break
+		}
+
+		return e.complexity.PropertyFilterConfig.Exists(childComplexity), true
+	case "PropertyFilterConfig.inArray":
+		if e.complexity.PropertyFilterConfig.InArray == nil {
+			break
+		}
+
+		return e.complexity.PropertyFilterConfig.InArray(childComplexity), true
+	case "PropertyFilterConfig.key":
+		if e.complexity.PropertyFilterConfig.Key == nil {
+			break
+		}
+
+		return e.complexity.PropertyFilterConfig.Key(childComplexity), true
+	case "PropertyFilterConfig.value":
+		if e.complexity.PropertyFilterConfig.Value == nil {
+			break
+		}
+
+		return e.complexity.PropertyFilterConfig.Value(childComplexity), true
+
 	case "Query.entities":
 		if e.complexity.Query.Entities == nil {
 			break
@@ -597,6 +830,28 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Query.Entity(childComplexity, args["id"].(string)), true
+	case "Query.entityJoinDefinition":
+		if e.complexity.Query.EntityJoinDefinition == nil {
+			break
+		}
+
+		args, err := ec.field_Query_entityJoinDefinition_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.EntityJoinDefinition(childComplexity, args["id"].(string)), true
+	case "Query.entityJoinDefinitions":
+		if e.complexity.Query.EntityJoinDefinitions == nil {
+			break
+		}
+
+		args, err := ec.field_Query_entityJoinDefinitions_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.EntityJoinDefinitions(childComplexity, args["organizationId"].(string)), true
 	case "Query.entitySchema":
 		if e.complexity.Query.EntitySchema == nil {
 			break
@@ -630,6 +885,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Query.EntitySchemas(childComplexity, args["organizationId"].(string)), true
+	case "Query.executeEntityJoin":
+		if e.complexity.Query.ExecuteEntityJoin == nil {
+			break
+		}
+
+		args, err := ec.field_Query_executeEntityJoin_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.ExecuteEntityJoin(childComplexity, args["input"].(ExecuteEntityJoinInput)), true
 	case "Query.getEntityAncestors":
 		if e.complexity.Query.GetEntityAncestors == nil {
 			break
@@ -808,14 +1074,18 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 	ec := executionContext{opCtx, e, 0, 0, make(chan graphql.DeferredResult)}
 	inputUnmarshalMap := graphql.BuildUnmarshalerMap(
 		ec.unmarshalInputCreateEntityInput,
+		ec.unmarshalInputCreateEntityJoinDefinitionInput,
 		ec.unmarshalInputCreateEntitySchemaInput,
 		ec.unmarshalInputCreateOrganizationInput,
 		ec.unmarshalInputEntityFilter,
+		ec.unmarshalInputExecuteEntityJoinInput,
 		ec.unmarshalInputFieldDefinitionInput,
+		ec.unmarshalInputJoinSortInput,
 		ec.unmarshalInputPaginationInput,
 		ec.unmarshalInputPathFilter,
 		ec.unmarshalInputPropertyFilter,
 		ec.unmarshalInputUpdateEntityInput,
+		ec.unmarshalInputUpdateEntityJoinDefinitionInput,
 		ec.unmarshalInputUpdateEntitySchemaInput,
 		ec.unmarshalInputUpdateOrganizationInput,
 	)
@@ -950,6 +1220,17 @@ func (ec *executionContext) field_Mutation_addFieldToSchema_args(ctx context.Con
 	return args, nil
 }
 
+func (ec *executionContext) field_Mutation_createEntityJoinDefinition_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateEntityJoinDefinitionInput2graphqlᚑengineeringᚑapiᚋgraphᚐCreateEntityJoinDefinitionInput)
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_createEntitySchema_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -980,6 +1261,17 @@ func (ec *executionContext) field_Mutation_createOrganization_args(ctx context.C
 		return nil, err
 	}
 	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_deleteEntityJoinDefinition_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id", ec.unmarshalNString2string)
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
 	return args, nil
 }
 
@@ -1029,6 +1321,17 @@ func (ec *executionContext) field_Mutation_removeFieldFromSchema_args(ctx contex
 		return nil, err
 	}
 	args["fieldName"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_updateEntityJoinDefinition_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateEntityJoinDefinitionInput2graphqlᚑengineeringᚑapiᚋgraphᚐUpdateEntityJoinDefinitionInput)
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
 	return args, nil
 }
 
@@ -1124,6 +1427,28 @@ func (ec *executionContext) field_Query_entities_args(ctx context.Context, rawAr
 	return args, nil
 }
 
+func (ec *executionContext) field_Query_entityJoinDefinition_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id", ec.unmarshalNString2string)
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_entityJoinDefinitions_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "organizationId", ec.unmarshalNString2string)
+	if err != nil {
+		return nil, err
+	}
+	args["organizationId"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Query_entitySchemaByName_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -1170,6 +1495,17 @@ func (ec *executionContext) field_Query_entity_args(ctx context.Context, rawArgs
 		return nil, err
 	}
 	args["id"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_executeEntityJoin_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNExecuteEntityJoinInput2graphqlᚑengineeringᚑapiᚋgraphᚐExecuteEntityJoinInput)
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
 	return args, nil
 }
 
@@ -1935,6 +2271,577 @@ func (ec *executionContext) fieldContext_EntityHierarchy_siblings(_ context.Cont
 	return fc, nil
 }
 
+func (ec *executionContext) _EntityJoinConnection_edges(ctx context.Context, field graphql.CollectedField, obj *EntityJoinConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityJoinConnection_edges,
+		func(ctx context.Context) (any, error) {
+			return obj.Edges, nil
+		},
+		nil,
+		ec.marshalNEntityJoinEdge2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityJoinEdgeᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityJoinConnection_edges(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityJoinConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "left":
+				return ec.fieldContext_EntityJoinEdge_left(ctx, field)
+			case "right":
+				return ec.fieldContext_EntityJoinEdge_right(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type EntityJoinEdge", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityJoinConnection_pageInfo(ctx context.Context, field graphql.CollectedField, obj *EntityJoinConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityJoinConnection_pageInfo,
+		func(ctx context.Context) (any, error) {
+			return obj.PageInfo, nil
+		},
+		nil,
+		ec.marshalNPageInfo2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐPageInfo,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityJoinConnection_pageInfo(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityJoinConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "hasNextPage":
+				return ec.fieldContext_PageInfo_hasNextPage(ctx, field)
+			case "hasPreviousPage":
+				return ec.fieldContext_PageInfo_hasPreviousPage(ctx, field)
+			case "totalCount":
+				return ec.fieldContext_PageInfo_totalCount(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type PageInfo", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityJoinDefinition_id(ctx context.Context, field graphql.CollectedField, obj *EntityJoinDefinition) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityJoinDefinition_id,
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityJoinDefinition_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityJoinDefinition",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityJoinDefinition_organizationId(ctx context.Context, field graphql.CollectedField, obj *EntityJoinDefinition) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityJoinDefinition_organizationId,
+		func(ctx context.Context) (any, error) {
+			return obj.OrganizationID, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityJoinDefinition_organizationId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityJoinDefinition",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityJoinDefinition_name(ctx context.Context, field graphql.CollectedField, obj *EntityJoinDefinition) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityJoinDefinition_name,
+		func(ctx context.Context) (any, error) {
+			return obj.Name, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityJoinDefinition_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityJoinDefinition",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityJoinDefinition_description(ctx context.Context, field graphql.CollectedField, obj *EntityJoinDefinition) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityJoinDefinition_description,
+		func(ctx context.Context) (any, error) {
+			return obj.Description, nil
+		},
+		nil,
+		ec.marshalOString2ᚖstring,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityJoinDefinition_description(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityJoinDefinition",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityJoinDefinition_leftEntityType(ctx context.Context, field graphql.CollectedField, obj *EntityJoinDefinition) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityJoinDefinition_leftEntityType,
+		func(ctx context.Context) (any, error) {
+			return obj.LeftEntityType, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityJoinDefinition_leftEntityType(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityJoinDefinition",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityJoinDefinition_rightEntityType(ctx context.Context, field graphql.CollectedField, obj *EntityJoinDefinition) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityJoinDefinition_rightEntityType,
+		func(ctx context.Context) (any, error) {
+			return obj.RightEntityType, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityJoinDefinition_rightEntityType(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityJoinDefinition",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityJoinDefinition_joinField(ctx context.Context, field graphql.CollectedField, obj *EntityJoinDefinition) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityJoinDefinition_joinField,
+		func(ctx context.Context) (any, error) {
+			return obj.JoinField, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityJoinDefinition_joinField(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityJoinDefinition",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityJoinDefinition_joinFieldType(ctx context.Context, field graphql.CollectedField, obj *EntityJoinDefinition) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityJoinDefinition_joinFieldType,
+		func(ctx context.Context) (any, error) {
+			return obj.JoinFieldType, nil
+		},
+		nil,
+		ec.marshalNFieldType2graphqlᚑengineeringᚑapiᚋgraphᚐFieldType,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityJoinDefinition_joinFieldType(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityJoinDefinition",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type FieldType does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityJoinDefinition_leftFilters(ctx context.Context, field graphql.CollectedField, obj *EntityJoinDefinition) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityJoinDefinition_leftFilters,
+		func(ctx context.Context) (any, error) {
+			return obj.LeftFilters, nil
+		},
+		nil,
+		ec.marshalNPropertyFilterConfig2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐPropertyFilterConfigᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityJoinDefinition_leftFilters(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityJoinDefinition",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "key":
+				return ec.fieldContext_PropertyFilterConfig_key(ctx, field)
+			case "value":
+				return ec.fieldContext_PropertyFilterConfig_value(ctx, field)
+			case "exists":
+				return ec.fieldContext_PropertyFilterConfig_exists(ctx, field)
+			case "inArray":
+				return ec.fieldContext_PropertyFilterConfig_inArray(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type PropertyFilterConfig", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityJoinDefinition_rightFilters(ctx context.Context, field graphql.CollectedField, obj *EntityJoinDefinition) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityJoinDefinition_rightFilters,
+		func(ctx context.Context) (any, error) {
+			return obj.RightFilters, nil
+		},
+		nil,
+		ec.marshalNPropertyFilterConfig2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐPropertyFilterConfigᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityJoinDefinition_rightFilters(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityJoinDefinition",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "key":
+				return ec.fieldContext_PropertyFilterConfig_key(ctx, field)
+			case "value":
+				return ec.fieldContext_PropertyFilterConfig_value(ctx, field)
+			case "exists":
+				return ec.fieldContext_PropertyFilterConfig_exists(ctx, field)
+			case "inArray":
+				return ec.fieldContext_PropertyFilterConfig_inArray(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type PropertyFilterConfig", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityJoinDefinition_sortCriteria(ctx context.Context, field graphql.CollectedField, obj *EntityJoinDefinition) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityJoinDefinition_sortCriteria,
+		func(ctx context.Context) (any, error) {
+			return obj.SortCriteria, nil
+		},
+		nil,
+		ec.marshalNJoinSortCriterion2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐJoinSortCriterionᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityJoinDefinition_sortCriteria(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityJoinDefinition",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "side":
+				return ec.fieldContext_JoinSortCriterion_side(ctx, field)
+			case "field":
+				return ec.fieldContext_JoinSortCriterion_field(ctx, field)
+			case "direction":
+				return ec.fieldContext_JoinSortCriterion_direction(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type JoinSortCriterion", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityJoinDefinition_createdAt(ctx context.Context, field graphql.CollectedField, obj *EntityJoinDefinition) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityJoinDefinition_createdAt,
+		func(ctx context.Context) (any, error) {
+			return obj.CreatedAt, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityJoinDefinition_createdAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityJoinDefinition",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityJoinDefinition_updatedAt(ctx context.Context, field graphql.CollectedField, obj *EntityJoinDefinition) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityJoinDefinition_updatedAt,
+		func(ctx context.Context) (any, error) {
+			return obj.UpdatedAt, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityJoinDefinition_updatedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityJoinDefinition",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityJoinEdge_left(ctx context.Context, field graphql.CollectedField, obj *EntityJoinEdge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityJoinEdge_left,
+		func(ctx context.Context) (any, error) {
+			return obj.Left, nil
+		},
+		nil,
+		ec.marshalNEntity2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntity,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityJoinEdge_left(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityJoinEdge",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Entity_id(ctx, field)
+			case "organizationId":
+				return ec.fieldContext_Entity_organizationId(ctx, field)
+			case "entityType":
+				return ec.fieldContext_Entity_entityType(ctx, field)
+			case "path":
+				return ec.fieldContext_Entity_path(ctx, field)
+			case "properties":
+				return ec.fieldContext_Entity_properties(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_Entity_createdAt(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_Entity_updatedAt(ctx, field)
+			case "linkedEntities":
+				return ec.fieldContext_Entity_linkedEntities(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Entity", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityJoinEdge_right(ctx context.Context, field graphql.CollectedField, obj *EntityJoinEdge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityJoinEdge_right,
+		func(ctx context.Context) (any, error) {
+			return obj.Right, nil
+		},
+		nil,
+		ec.marshalNEntity2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntity,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityJoinEdge_right(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityJoinEdge",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Entity_id(ctx, field)
+			case "organizationId":
+				return ec.fieldContext_Entity_organizationId(ctx, field)
+			case "entityType":
+				return ec.fieldContext_Entity_entityType(ctx, field)
+			case "path":
+				return ec.fieldContext_Entity_path(ctx, field)
+			case "properties":
+				return ec.fieldContext_Entity_properties(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_Entity_createdAt(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_Entity_updatedAt(ctx, field)
+			case "linkedEntities":
+				return ec.fieldContext_Entity_linkedEntities(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Entity", field.Name)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _EntitySchema_id(ctx context.Context, field graphql.CollectedField, obj *EntitySchema) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -2352,6 +3259,93 @@ func (ec *executionContext) fieldContext_FieldDefinition_referenceEntityType(_ c
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _JoinSortCriterion_side(ctx context.Context, field graphql.CollectedField, obj *JoinSortCriterion) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_JoinSortCriterion_side,
+		func(ctx context.Context) (any, error) {
+			return obj.Side, nil
+		},
+		nil,
+		ec.marshalNJoinSide2graphqlᚑengineeringᚑapiᚋgraphᚐJoinSide,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_JoinSortCriterion_side(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "JoinSortCriterion",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type JoinSide does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _JoinSortCriterion_field(ctx context.Context, field graphql.CollectedField, obj *JoinSortCriterion) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_JoinSortCriterion_field,
+		func(ctx context.Context) (any, error) {
+			return obj.Field, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_JoinSortCriterion_field(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "JoinSortCriterion",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _JoinSortCriterion_direction(ctx context.Context, field graphql.CollectedField, obj *JoinSortCriterion) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_JoinSortCriterion_direction,
+		func(ctx context.Context) (any, error) {
+			return obj.Direction, nil
+		},
+		nil,
+		ec.marshalNJoinSortDirection2graphqlᚑengineeringᚑapiᚋgraphᚐJoinSortDirection,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_JoinSortCriterion_direction(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "JoinSortCriterion",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type JoinSortDirection does not have child fields")
 		},
 	}
 	return fc, nil
@@ -2932,6 +3926,185 @@ func (ec *executionContext) fieldContext_Mutation_deleteEntity(ctx context.Conte
 	return fc, nil
 }
 
+func (ec *executionContext) _Mutation_createEntityJoinDefinition(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Mutation_createEntityJoinDefinition,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Mutation().CreateEntityJoinDefinition(ctx, fc.Args["input"].(CreateEntityJoinDefinitionInput))
+		},
+		nil,
+		ec.marshalNEntityJoinDefinition2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityJoinDefinition,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Mutation_createEntityJoinDefinition(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_EntityJoinDefinition_id(ctx, field)
+			case "organizationId":
+				return ec.fieldContext_EntityJoinDefinition_organizationId(ctx, field)
+			case "name":
+				return ec.fieldContext_EntityJoinDefinition_name(ctx, field)
+			case "description":
+				return ec.fieldContext_EntityJoinDefinition_description(ctx, field)
+			case "leftEntityType":
+				return ec.fieldContext_EntityJoinDefinition_leftEntityType(ctx, field)
+			case "rightEntityType":
+				return ec.fieldContext_EntityJoinDefinition_rightEntityType(ctx, field)
+			case "joinField":
+				return ec.fieldContext_EntityJoinDefinition_joinField(ctx, field)
+			case "joinFieldType":
+				return ec.fieldContext_EntityJoinDefinition_joinFieldType(ctx, field)
+			case "leftFilters":
+				return ec.fieldContext_EntityJoinDefinition_leftFilters(ctx, field)
+			case "rightFilters":
+				return ec.fieldContext_EntityJoinDefinition_rightFilters(ctx, field)
+			case "sortCriteria":
+				return ec.fieldContext_EntityJoinDefinition_sortCriteria(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_EntityJoinDefinition_createdAt(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_EntityJoinDefinition_updatedAt(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type EntityJoinDefinition", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_createEntityJoinDefinition_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_updateEntityJoinDefinition(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Mutation_updateEntityJoinDefinition,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Mutation().UpdateEntityJoinDefinition(ctx, fc.Args["input"].(UpdateEntityJoinDefinitionInput))
+		},
+		nil,
+		ec.marshalNEntityJoinDefinition2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityJoinDefinition,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Mutation_updateEntityJoinDefinition(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_EntityJoinDefinition_id(ctx, field)
+			case "organizationId":
+				return ec.fieldContext_EntityJoinDefinition_organizationId(ctx, field)
+			case "name":
+				return ec.fieldContext_EntityJoinDefinition_name(ctx, field)
+			case "description":
+				return ec.fieldContext_EntityJoinDefinition_description(ctx, field)
+			case "leftEntityType":
+				return ec.fieldContext_EntityJoinDefinition_leftEntityType(ctx, field)
+			case "rightEntityType":
+				return ec.fieldContext_EntityJoinDefinition_rightEntityType(ctx, field)
+			case "joinField":
+				return ec.fieldContext_EntityJoinDefinition_joinField(ctx, field)
+			case "joinFieldType":
+				return ec.fieldContext_EntityJoinDefinition_joinFieldType(ctx, field)
+			case "leftFilters":
+				return ec.fieldContext_EntityJoinDefinition_leftFilters(ctx, field)
+			case "rightFilters":
+				return ec.fieldContext_EntityJoinDefinition_rightFilters(ctx, field)
+			case "sortCriteria":
+				return ec.fieldContext_EntityJoinDefinition_sortCriteria(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_EntityJoinDefinition_createdAt(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_EntityJoinDefinition_updatedAt(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type EntityJoinDefinition", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_updateEntityJoinDefinition_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_deleteEntityJoinDefinition(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Mutation_deleteEntityJoinDefinition,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Mutation().DeleteEntityJoinDefinition(ctx, fc.Args["id"].(string))
+		},
+		nil,
+		ec.marshalNBoolean2bool,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Mutation_deleteEntityJoinDefinition(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_deleteEntityJoinDefinition_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Organization_id(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -3159,6 +4332,122 @@ func (ec *executionContext) fieldContext_PageInfo_totalCount(_ context.Context, 
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PropertyFilterConfig_key(ctx context.Context, field graphql.CollectedField, obj *PropertyFilterConfig) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_PropertyFilterConfig_key,
+		func(ctx context.Context) (any, error) {
+			return obj.Key, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_PropertyFilterConfig_key(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PropertyFilterConfig",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PropertyFilterConfig_value(ctx context.Context, field graphql.CollectedField, obj *PropertyFilterConfig) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_PropertyFilterConfig_value,
+		func(ctx context.Context) (any, error) {
+			return obj.Value, nil
+		},
+		nil,
+		ec.marshalOString2ᚖstring,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_PropertyFilterConfig_value(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PropertyFilterConfig",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PropertyFilterConfig_exists(ctx context.Context, field graphql.CollectedField, obj *PropertyFilterConfig) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_PropertyFilterConfig_exists,
+		func(ctx context.Context) (any, error) {
+			return obj.Exists, nil
+		},
+		nil,
+		ec.marshalOBoolean2ᚖbool,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_PropertyFilterConfig_exists(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PropertyFilterConfig",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PropertyFilterConfig_inArray(ctx context.Context, field graphql.CollectedField, obj *PropertyFilterConfig) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_PropertyFilterConfig_inArray,
+		func(ctx context.Context) (any, error) {
+			return obj.InArray, nil
+		},
+		nil,
+		ec.marshalOString2ᚕstringᚄ,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_PropertyFilterConfig_inArray(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PropertyFilterConfig",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
 		},
 	}
 	return fc, nil
@@ -4331,6 +5620,191 @@ func (ec *executionContext) fieldContext_Query_validateEntityAgainstSchema(ctx c
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Query_validateEntityAgainstSchema_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_entityJoinDefinition(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Query_entityJoinDefinition,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Query().EntityJoinDefinition(ctx, fc.Args["id"].(string))
+		},
+		nil,
+		ec.marshalOEntityJoinDefinition2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityJoinDefinition,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_Query_entityJoinDefinition(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_EntityJoinDefinition_id(ctx, field)
+			case "organizationId":
+				return ec.fieldContext_EntityJoinDefinition_organizationId(ctx, field)
+			case "name":
+				return ec.fieldContext_EntityJoinDefinition_name(ctx, field)
+			case "description":
+				return ec.fieldContext_EntityJoinDefinition_description(ctx, field)
+			case "leftEntityType":
+				return ec.fieldContext_EntityJoinDefinition_leftEntityType(ctx, field)
+			case "rightEntityType":
+				return ec.fieldContext_EntityJoinDefinition_rightEntityType(ctx, field)
+			case "joinField":
+				return ec.fieldContext_EntityJoinDefinition_joinField(ctx, field)
+			case "joinFieldType":
+				return ec.fieldContext_EntityJoinDefinition_joinFieldType(ctx, field)
+			case "leftFilters":
+				return ec.fieldContext_EntityJoinDefinition_leftFilters(ctx, field)
+			case "rightFilters":
+				return ec.fieldContext_EntityJoinDefinition_rightFilters(ctx, field)
+			case "sortCriteria":
+				return ec.fieldContext_EntityJoinDefinition_sortCriteria(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_EntityJoinDefinition_createdAt(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_EntityJoinDefinition_updatedAt(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type EntityJoinDefinition", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_entityJoinDefinition_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_entityJoinDefinitions(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Query_entityJoinDefinitions,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Query().EntityJoinDefinitions(ctx, fc.Args["organizationId"].(string))
+		},
+		nil,
+		ec.marshalNEntityJoinDefinition2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityJoinDefinitionᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Query_entityJoinDefinitions(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_EntityJoinDefinition_id(ctx, field)
+			case "organizationId":
+				return ec.fieldContext_EntityJoinDefinition_organizationId(ctx, field)
+			case "name":
+				return ec.fieldContext_EntityJoinDefinition_name(ctx, field)
+			case "description":
+				return ec.fieldContext_EntityJoinDefinition_description(ctx, field)
+			case "leftEntityType":
+				return ec.fieldContext_EntityJoinDefinition_leftEntityType(ctx, field)
+			case "rightEntityType":
+				return ec.fieldContext_EntityJoinDefinition_rightEntityType(ctx, field)
+			case "joinField":
+				return ec.fieldContext_EntityJoinDefinition_joinField(ctx, field)
+			case "joinFieldType":
+				return ec.fieldContext_EntityJoinDefinition_joinFieldType(ctx, field)
+			case "leftFilters":
+				return ec.fieldContext_EntityJoinDefinition_leftFilters(ctx, field)
+			case "rightFilters":
+				return ec.fieldContext_EntityJoinDefinition_rightFilters(ctx, field)
+			case "sortCriteria":
+				return ec.fieldContext_EntityJoinDefinition_sortCriteria(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_EntityJoinDefinition_createdAt(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_EntityJoinDefinition_updatedAt(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type EntityJoinDefinition", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_entityJoinDefinitions_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_executeEntityJoin(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Query_executeEntityJoin,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Query().ExecuteEntityJoin(ctx, fc.Args["input"].(ExecuteEntityJoinInput))
+		},
+		nil,
+		ec.marshalNEntityJoinConnection2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityJoinConnection,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Query_executeEntityJoin(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "edges":
+				return ec.fieldContext_EntityJoinConnection_edges(ctx, field)
+			case "pageInfo":
+				return ec.fieldContext_EntityJoinConnection_pageInfo(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type EntityJoinConnection", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_executeEntityJoin_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -6040,6 +7514,89 @@ func (ec *executionContext) unmarshalInputCreateEntityInput(ctx context.Context,
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputCreateEntityJoinDefinitionInput(ctx context.Context, obj any) (CreateEntityJoinDefinitionInput, error) {
+	var it CreateEntityJoinDefinitionInput
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"organizationId", "name", "description", "leftEntityType", "rightEntityType", "joinField", "leftFilters", "rightFilters", "sortCriteria"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "organizationId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("organizationId"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.OrganizationID = data
+		case "name":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Name = data
+		case "description":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("description"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Description = data
+		case "leftEntityType":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("leftEntityType"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.LeftEntityType = data
+		case "rightEntityType":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("rightEntityType"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.RightEntityType = data
+		case "joinField":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("joinField"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.JoinField = data
+		case "leftFilters":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("leftFilters"))
+			data, err := ec.unmarshalOPropertyFilter2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐPropertyFilterᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.LeftFilters = data
+		case "rightFilters":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("rightFilters"))
+			data, err := ec.unmarshalOPropertyFilter2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐPropertyFilterᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.RightFilters = data
+		case "sortCriteria":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("sortCriteria"))
+			data, err := ec.unmarshalOJoinSortInput2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐJoinSortInputᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.SortCriteria = data
+		}
+	}
+
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputCreateEntitySchemaInput(ctx context.Context, obj any) (CreateEntitySchemaInput, error) {
 	var it CreateEntitySchemaInput
 	asMap := map[string]any{}
@@ -6170,6 +7727,61 @@ func (ec *executionContext) unmarshalInputEntityFilter(ctx context.Context, obj 
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputExecuteEntityJoinInput(ctx context.Context, obj any) (ExecuteEntityJoinInput, error) {
+	var it ExecuteEntityJoinInput
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"joinId", "leftFilters", "rightFilters", "sortCriteria", "pagination"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "joinId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("joinId"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.JoinID = data
+		case "leftFilters":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("leftFilters"))
+			data, err := ec.unmarshalOPropertyFilter2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐPropertyFilterᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.LeftFilters = data
+		case "rightFilters":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("rightFilters"))
+			data, err := ec.unmarshalOPropertyFilter2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐPropertyFilterᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.RightFilters = data
+		case "sortCriteria":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("sortCriteria"))
+			data, err := ec.unmarshalOJoinSortInput2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐJoinSortInputᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.SortCriteria = data
+		case "pagination":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("pagination"))
+			data, err := ec.unmarshalOPaginationInput2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐPaginationInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Pagination = data
+		}
+	}
+
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputFieldDefinitionInput(ctx context.Context, obj any) (FieldDefinitionInput, error) {
 	var it FieldDefinitionInput
 	asMap := map[string]any{}
@@ -6237,6 +7849,51 @@ func (ec *executionContext) unmarshalInputFieldDefinitionInput(ctx context.Conte
 				return it, err
 			}
 			it.ReferenceEntityType = data
+		}
+	}
+
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputJoinSortInput(ctx context.Context, obj any) (JoinSortInput, error) {
+	var it JoinSortInput
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	if _, present := asMap["direction"]; !present {
+		asMap["direction"] = "ASC"
+	}
+
+	fieldsInOrder := [...]string{"side", "field", "direction"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "side":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("side"))
+			data, err := ec.unmarshalNJoinSide2graphqlᚑengineeringᚑapiᚋgraphᚐJoinSide(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Side = data
+		case "field":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("field"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Field = data
+		case "direction":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("direction"))
+			data, err := ec.unmarshalOJoinSortDirection2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐJoinSortDirection(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Direction = data
 		}
 	}
 
@@ -6422,6 +8079,89 @@ func (ec *executionContext) unmarshalInputUpdateEntityInput(ctx context.Context,
 				return it, err
 			}
 			it.Properties = data
+		}
+	}
+
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputUpdateEntityJoinDefinitionInput(ctx context.Context, obj any) (UpdateEntityJoinDefinitionInput, error) {
+	var it UpdateEntityJoinDefinitionInput
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"id", "name", "description", "leftEntityType", "rightEntityType", "joinField", "leftFilters", "rightFilters", "sortCriteria"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "id":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ID = data
+		case "name":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Name = data
+		case "description":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("description"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Description = data
+		case "leftEntityType":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("leftEntityType"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.LeftEntityType = data
+		case "rightEntityType":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("rightEntityType"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.RightEntityType = data
+		case "joinField":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("joinField"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.JoinField = data
+		case "leftFilters":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("leftFilters"))
+			data, err := ec.unmarshalOPropertyFilter2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐPropertyFilterᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.LeftFilters = data
+		case "rightFilters":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("rightFilters"))
+			data, err := ec.unmarshalOPropertyFilter2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐPropertyFilterᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.RightFilters = data
+		case "sortCriteria":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("sortCriteria"))
+			data, err := ec.unmarshalOJoinSortInput2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐJoinSortInputᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.SortCriteria = data
 		}
 	}
 
@@ -6728,6 +8468,190 @@ func (ec *executionContext) _EntityHierarchy(ctx context.Context, sel ast.Select
 	return out
 }
 
+var entityJoinConnectionImplementors = []string{"EntityJoinConnection"}
+
+func (ec *executionContext) _EntityJoinConnection(ctx context.Context, sel ast.SelectionSet, obj *EntityJoinConnection) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, entityJoinConnectionImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("EntityJoinConnection")
+		case "edges":
+			out.Values[i] = ec._EntityJoinConnection_edges(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "pageInfo":
+			out.Values[i] = ec._EntityJoinConnection_pageInfo(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var entityJoinDefinitionImplementors = []string{"EntityJoinDefinition"}
+
+func (ec *executionContext) _EntityJoinDefinition(ctx context.Context, sel ast.SelectionSet, obj *EntityJoinDefinition) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, entityJoinDefinitionImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("EntityJoinDefinition")
+		case "id":
+			out.Values[i] = ec._EntityJoinDefinition_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "organizationId":
+			out.Values[i] = ec._EntityJoinDefinition_organizationId(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "name":
+			out.Values[i] = ec._EntityJoinDefinition_name(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "description":
+			out.Values[i] = ec._EntityJoinDefinition_description(ctx, field, obj)
+		case "leftEntityType":
+			out.Values[i] = ec._EntityJoinDefinition_leftEntityType(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "rightEntityType":
+			out.Values[i] = ec._EntityJoinDefinition_rightEntityType(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "joinField":
+			out.Values[i] = ec._EntityJoinDefinition_joinField(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "joinFieldType":
+			out.Values[i] = ec._EntityJoinDefinition_joinFieldType(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "leftFilters":
+			out.Values[i] = ec._EntityJoinDefinition_leftFilters(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "rightFilters":
+			out.Values[i] = ec._EntityJoinDefinition_rightFilters(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "sortCriteria":
+			out.Values[i] = ec._EntityJoinDefinition_sortCriteria(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "createdAt":
+			out.Values[i] = ec._EntityJoinDefinition_createdAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "updatedAt":
+			out.Values[i] = ec._EntityJoinDefinition_updatedAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var entityJoinEdgeImplementors = []string{"EntityJoinEdge"}
+
+func (ec *executionContext) _EntityJoinEdge(ctx context.Context, sel ast.SelectionSet, obj *EntityJoinEdge) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, entityJoinEdgeImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("EntityJoinEdge")
+		case "left":
+			out.Values[i] = ec._EntityJoinEdge_left(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "right":
+			out.Values[i] = ec._EntityJoinEdge_right(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var entitySchemaImplementors = []string{"EntitySchema"}
 
 func (ec *executionContext) _EntitySchema(ctx context.Context, sel ast.SelectionSet, obj *EntitySchema) graphql.Marshaler {
@@ -6851,6 +8775,55 @@ func (ec *executionContext) _FieldDefinition(ctx context.Context, sel ast.Select
 	return out
 }
 
+var joinSortCriterionImplementors = []string{"JoinSortCriterion"}
+
+func (ec *executionContext) _JoinSortCriterion(ctx context.Context, sel ast.SelectionSet, obj *JoinSortCriterion) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, joinSortCriterionImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("JoinSortCriterion")
+		case "side":
+			out.Values[i] = ec._JoinSortCriterion_side(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "field":
+			out.Values[i] = ec._JoinSortCriterion_field(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "direction":
+			out.Values[i] = ec._JoinSortCriterion_direction(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var mutationImplementors = []string{"Mutation"}
 
 func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet) graphql.Marshaler {
@@ -6943,6 +8916,27 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		case "deleteEntity":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_deleteEntity(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "createEntityJoinDefinition":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_createEntityJoinDefinition(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "updateEntityJoinDefinition":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_updateEntityJoinDefinition(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "deleteEntityJoinDefinition":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_deleteEntityJoinDefinition(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
@@ -7052,6 +9046,51 @@ func (ec *executionContext) _PageInfo(ctx context.Context, sel ast.SelectionSet,
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var propertyFilterConfigImplementors = []string{"PropertyFilterConfig"}
+
+func (ec *executionContext) _PropertyFilterConfig(ctx context.Context, sel ast.SelectionSet, obj *PropertyFilterConfig) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, propertyFilterConfigImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("PropertyFilterConfig")
+		case "key":
+			out.Values[i] = ec._PropertyFilterConfig_key(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "value":
+			out.Values[i] = ec._PropertyFilterConfig_value(ctx, field, obj)
+		case "exists":
+			out.Values[i] = ec._PropertyFilterConfig_exists(ctx, field, obj)
+		case "inArray":
+			out.Values[i] = ec._PropertyFilterConfig_inArray(ctx, field, obj)
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -7541,6 +9580,69 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "entityJoinDefinition":
+			field := field
+
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_entityJoinDefinition(ctx, field)
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "entityJoinDefinitions":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_entityJoinDefinitions(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "executeEntityJoin":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_executeEntityJoin(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
 		case "__type":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Query___type(ctx, field)
@@ -7977,6 +10079,11 @@ func (ec *executionContext) unmarshalNCreateEntityInput2graphqlᚑengineeringᚑ
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
+func (ec *executionContext) unmarshalNCreateEntityJoinDefinitionInput2graphqlᚑengineeringᚑapiᚋgraphᚐCreateEntityJoinDefinitionInput(ctx context.Context, v any) (CreateEntityJoinDefinitionInput, error) {
+	res, err := ec.unmarshalInputCreateEntityJoinDefinitionInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
 func (ec *executionContext) unmarshalNCreateEntitySchemaInput2graphqlᚑengineeringᚑapiᚋgraphᚐCreateEntitySchemaInput(ctx context.Context, v any) (CreateEntitySchemaInput, error) {
 	res, err := ec.unmarshalInputCreateEntitySchemaInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -8073,6 +10180,132 @@ func (ec *executionContext) marshalNEntityHierarchy2ᚖgraphqlᚑengineeringᚑa
 	return ec._EntityHierarchy(ctx, sel, v)
 }
 
+func (ec *executionContext) marshalNEntityJoinConnection2graphqlᚑengineeringᚑapiᚋgraphᚐEntityJoinConnection(ctx context.Context, sel ast.SelectionSet, v EntityJoinConnection) graphql.Marshaler {
+	return ec._EntityJoinConnection(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNEntityJoinConnection2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityJoinConnection(ctx context.Context, sel ast.SelectionSet, v *EntityJoinConnection) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._EntityJoinConnection(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNEntityJoinDefinition2graphqlᚑengineeringᚑapiᚋgraphᚐEntityJoinDefinition(ctx context.Context, sel ast.SelectionSet, v EntityJoinDefinition) graphql.Marshaler {
+	return ec._EntityJoinDefinition(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNEntityJoinDefinition2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityJoinDefinitionᚄ(ctx context.Context, sel ast.SelectionSet, v []*EntityJoinDefinition) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNEntityJoinDefinition2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityJoinDefinition(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNEntityJoinDefinition2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityJoinDefinition(ctx context.Context, sel ast.SelectionSet, v *EntityJoinDefinition) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._EntityJoinDefinition(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNEntityJoinEdge2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityJoinEdgeᚄ(ctx context.Context, sel ast.SelectionSet, v []*EntityJoinEdge) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNEntityJoinEdge2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityJoinEdge(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNEntityJoinEdge2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityJoinEdge(ctx context.Context, sel ast.SelectionSet, v *EntityJoinEdge) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._EntityJoinEdge(ctx, sel, v)
+}
+
 func (ec *executionContext) marshalNEntitySchema2graphqlᚑengineeringᚑapiᚋgraphᚐEntitySchema(ctx context.Context, sel ast.SelectionSet, v EntitySchema) graphql.Marshaler {
 	return ec._EntitySchema(ctx, sel, &v)
 }
@@ -8129,6 +10362,11 @@ func (ec *executionContext) marshalNEntitySchema2ᚖgraphqlᚑengineeringᚑapi�
 		return graphql.Null
 	}
 	return ec._EntitySchema(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNExecuteEntityJoinInput2graphqlᚑengineeringᚑapiᚋgraphᚐExecuteEntityJoinInput(ctx context.Context, v any) (ExecuteEntityJoinInput, error) {
+	res, err := ec.unmarshalInputExecuteEntityJoinInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
 }
 
 func (ec *executionContext) marshalNFieldDefinition2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐFieldDefinitionᚄ(ctx context.Context, sel ast.SelectionSet, v []*FieldDefinition) graphql.Marshaler {
@@ -8236,6 +10474,85 @@ func (ec *executionContext) marshalNInt2int(ctx context.Context, sel ast.Selecti
 	return res
 }
 
+func (ec *executionContext) unmarshalNJoinSide2graphqlᚑengineeringᚑapiᚋgraphᚐJoinSide(ctx context.Context, v any) (JoinSide, error) {
+	var res JoinSide
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNJoinSide2graphqlᚑengineeringᚑapiᚋgraphᚐJoinSide(ctx context.Context, sel ast.SelectionSet, v JoinSide) graphql.Marshaler {
+	return v
+}
+
+func (ec *executionContext) marshalNJoinSortCriterion2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐJoinSortCriterionᚄ(ctx context.Context, sel ast.SelectionSet, v []*JoinSortCriterion) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNJoinSortCriterion2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐJoinSortCriterion(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNJoinSortCriterion2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐJoinSortCriterion(ctx context.Context, sel ast.SelectionSet, v *JoinSortCriterion) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._JoinSortCriterion(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNJoinSortDirection2graphqlᚑengineeringᚑapiᚋgraphᚐJoinSortDirection(ctx context.Context, v any) (JoinSortDirection, error) {
+	var res JoinSortDirection
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNJoinSortDirection2graphqlᚑengineeringᚑapiᚋgraphᚐJoinSortDirection(ctx context.Context, sel ast.SelectionSet, v JoinSortDirection) graphql.Marshaler {
+	return v
+}
+
+func (ec *executionContext) unmarshalNJoinSortInput2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐJoinSortInput(ctx context.Context, v any) (*JoinSortInput, error) {
+	res, err := ec.unmarshalInputJoinSortInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
 func (ec *executionContext) marshalNOrganization2graphqlᚑengineeringᚑapiᚋgraphᚐOrganization(ctx context.Context, sel ast.SelectionSet, v Organization) graphql.Marshaler {
 	return ec._Organization(ctx, sel, &v)
 }
@@ -8309,6 +10626,60 @@ func (ec *executionContext) unmarshalNPropertyFilter2ᚖgraphqlᚑengineeringᚑ
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
+func (ec *executionContext) marshalNPropertyFilterConfig2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐPropertyFilterConfigᚄ(ctx context.Context, sel ast.SelectionSet, v []*PropertyFilterConfig) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNPropertyFilterConfig2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐPropertyFilterConfig(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNPropertyFilterConfig2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐPropertyFilterConfig(ctx context.Context, sel ast.SelectionSet, v *PropertyFilterConfig) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._PropertyFilterConfig(ctx, sel, v)
+}
+
 func (ec *executionContext) unmarshalNString2string(ctx context.Context, v any) (string, error) {
 	res, err := graphql.UnmarshalString(v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -8357,6 +10728,11 @@ func (ec *executionContext) marshalNString2ᚕstringᚄ(ctx context.Context, sel
 
 func (ec *executionContext) unmarshalNUpdateEntityInput2graphqlᚑengineeringᚑapiᚋgraphᚐUpdateEntityInput(ctx context.Context, v any) (UpdateEntityInput, error) {
 	res, err := ec.unmarshalInputUpdateEntityInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNUpdateEntityJoinDefinitionInput2graphqlᚑengineeringᚑapiᚋgraphᚐUpdateEntityJoinDefinitionInput(ctx context.Context, v any) (UpdateEntityJoinDefinitionInput, error) {
+	res, err := ec.unmarshalInputUpdateEntityJoinDefinitionInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
@@ -8682,6 +11058,13 @@ func (ec *executionContext) unmarshalOEntityFilter2ᚖgraphqlᚑengineeringᚑap
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
+func (ec *executionContext) marshalOEntityJoinDefinition2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityJoinDefinition(ctx context.Context, sel ast.SelectionSet, v *EntityJoinDefinition) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._EntityJoinDefinition(ctx, sel, v)
+}
+
 func (ec *executionContext) marshalOEntitySchema2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntitySchema(ctx context.Context, sel ast.SelectionSet, v *EntitySchema) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
@@ -8740,6 +11123,40 @@ func (ec *executionContext) marshalOInt2ᚖint(ctx context.Context, sel ast.Sele
 	_ = ctx
 	res := graphql.MarshalInt(*v)
 	return res
+}
+
+func (ec *executionContext) unmarshalOJoinSortDirection2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐJoinSortDirection(ctx context.Context, v any) (*JoinSortDirection, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var res = new(JoinSortDirection)
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOJoinSortDirection2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐJoinSortDirection(ctx context.Context, sel ast.SelectionSet, v *JoinSortDirection) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return v
+}
+
+func (ec *executionContext) unmarshalOJoinSortInput2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐJoinSortInputᚄ(ctx context.Context, v any) ([]*JoinSortInput, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]*JoinSortInput, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNJoinSortInput2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐJoinSortInput(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
 }
 
 func (ec *executionContext) marshalOOrganization2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐOrganization(ctx context.Context, sel ast.SelectionSet, v *Organization) graphql.Marshaler {

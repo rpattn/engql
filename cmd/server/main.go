@@ -45,9 +45,10 @@ func main() {
 	orgRepo := repository.NewOrganizationRepository(queries)
 	entitySchemaRepo := repository.NewEntitySchemaRepository(queries)
 	entityRepo := repository.NewEntityRepository(queries)
+	entityJoinRepo := repository.NewEntityJoinRepository(queries, conn.Pool)
 
 	// Create GraphQL resolver
-	resolver := graphql.NewResolver(orgRepo, entitySchemaRepo, entityRepo)
+	resolver := graphql.NewResolver(orgRepo, entitySchemaRepo, entityRepo, entityJoinRepo)
 
 	// Create GraphQL server
 	srv := handler.NewDefaultServer(graph.NewExecutableSchema(graph.Config{Resolvers: resolver}))
