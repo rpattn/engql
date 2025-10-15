@@ -27,14 +27,48 @@ func (r *Resolver) CreateEntityJoinDefinition(ctx context.Context, input graph.C
 
 	leftType := strings.TrimSpace(input.LeftEntityType)
 	rightType := strings.TrimSpace(input.RightEntityType)
-	joinFieldInput := strings.TrimSpace(input.JoinField)
-	if leftType == "" || rightType == "" || joinFieldInput == "" {
-		return nil, fmt.Errorf("leftEntityType, rightEntityType and joinField must be provided")
+	if leftType == "" || rightType == "" {
+		return nil, fmt.Errorf("leftEntityType and rightEntityType must be provided")
 	}
 
-	canonicalField, fieldType, err := r.resolveJoinField(ctx, orgID, leftType, joinFieldInput, rightType)
-	if err != nil {
-		return nil, err
+	joinTypeInput := graph.JoinTypeReference
+	if input.JoinType != nil {
+		joinTypeInput = *input.JoinType
+	}
+
+	joinType := graphJoinTypeToDomain(joinTypeInput)
+
+	var joinFieldPtr *string
+	var joinFieldTypePtr *domain.FieldType
+
+	switch joinType {
+	case domain.JoinTypeReference:
+		if input.JoinField == nil {
+			return nil, fmt.Errorf("joinField must be provided for REFERENCE joins")
+		}
+		joinFieldValue := strings.TrimSpace(*input.JoinField)
+		if joinFieldValue == "" {
+			return nil, fmt.Errorf("joinField must be provided for REFERENCE joins")
+		}
+
+		canonicalField, fieldType, err := r.resolveJoinField(ctx, orgID, leftType, joinFieldValue, rightType)
+		if err != nil {
+			return nil, err
+		}
+		joinFieldPtr = stringPtr(canonicalField)
+		joinFieldTypePtr = fieldTypePtr(fieldType)
+	case domain.JoinTypeCross:
+		if input.JoinField != nil && strings.TrimSpace(*input.JoinField) != "" {
+			return nil, fmt.Errorf("joinField must be omitted for CROSS joins")
+		}
+		if err := r.ensureSchemaExists(ctx, orgID, leftType); err != nil {
+			return nil, err
+		}
+		if err := r.ensureSchemaExists(ctx, orgID, rightType); err != nil {
+			return nil, err
+		}
+	default:
+		return nil, fmt.Errorf("unsupported join type %s", joinType)
 	}
 
 	leftFilters := convertGraphFiltersToDomain(input.LeftFilters)
@@ -52,8 +86,9 @@ func (r *Resolver) CreateEntityJoinDefinition(ctx context.Context, input graph.C
 		Description:     description,
 		LeftEntityType:  leftType,
 		RightEntityType: rightType,
-		JoinField:       canonicalField,
-		JoinFieldType:   fieldType,
+		JoinType:        joinType,
+		JoinField:       joinFieldPtr,
+		JoinFieldType:   joinFieldTypePtr,
 		LeftFilters:     leftFilters,
 		RightFilters:    rightFilters,
 		SortCriteria:    sortCriteria,
@@ -91,7 +126,7 @@ func (r *Resolver) UpdateEntityJoinDefinition(ctx context.Context, input graph.U
 
 	leftType := existing.LeftEntityType
 	rightType := existing.RightEntityType
-	joinField := existing.JoinField
+	newJoinType := sanitizeJoinType(existing.JoinType)
 
 	if input.LeftEntityType != nil {
 		if candidate := strings.TrimSpace(*input.LeftEntityType); candidate != "" {
@@ -103,22 +138,49 @@ func (r *Resolver) UpdateEntityJoinDefinition(ctx context.Context, input graph.U
 			rightType = candidate
 		}
 	}
-	if input.JoinField != nil {
-		if candidate := strings.TrimSpace(*input.JoinField); candidate != "" {
-			joinField = candidate
-		}
+	if input.JoinType != nil {
+		newJoinType = graphJoinTypeToDomain(*input.JoinType)
 	}
 
-	if leftType != existing.LeftEntityType || rightType != existing.RightEntityType || !strings.EqualFold(joinField, existing.JoinField) {
-		canonicalField, fieldType, err := r.resolveJoinField(ctx, existing.OrganizationID, leftType, joinField, rightType)
+	var joinFieldOverride *string
+	if input.JoinField != nil {
+		trimmed := strings.TrimSpace(*input.JoinField)
+		if trimmed != "" {
+			joinFieldOverride = stringPtr(trimmed)
+		} else {
+			joinFieldOverride = nil
+		}
+	} else {
+		joinFieldOverride = existing.JoinField
+	}
+
+	switch newJoinType {
+	case domain.JoinTypeReference:
+		if joinFieldOverride == nil || *joinFieldOverride == "" {
+			return nil, fmt.Errorf("joinField must be provided for REFERENCE joins")
+		}
+		canonicalField, fieldType, err := r.resolveJoinField(ctx, existing.OrganizationID, leftType, *joinFieldOverride, rightType)
 		if err != nil {
 			return nil, err
 		}
-		existing.LeftEntityType = leftType
-		existing.RightEntityType = rightType
-		existing.JoinField = canonicalField
-		existing.JoinFieldType = fieldType
+		existing.JoinField = stringPtr(canonicalField)
+		existing.JoinFieldType = fieldTypePtr(fieldType)
+	case domain.JoinTypeCross:
+		if err := r.ensureSchemaExists(ctx, existing.OrganizationID, leftType); err != nil {
+			return nil, err
+		}
+		if err := r.ensureSchemaExists(ctx, existing.OrganizationID, rightType); err != nil {
+			return nil, err
+		}
+		existing.JoinField = nil
+		existing.JoinFieldType = nil
+	default:
+		return nil, fmt.Errorf("unsupported join type %s", newJoinType)
 	}
+
+	existing.JoinType = newJoinType
+	existing.LeftEntityType = leftType
+	existing.RightEntityType = rightType
 
 	if input.LeftFilters != nil {
 		existing.LeftFilters = convertGraphFiltersToDomain(input.LeftFilters)
@@ -341,6 +403,17 @@ func mapJoinDefinitionToGraph(def domain.EntityJoinDefinition) *graph.EntityJoin
 		description = &desc
 	}
 
+	gqlJoinType := graph.JoinType(strings.ToUpper(string(def.JoinType)))
+	if gqlJoinType != graph.JoinTypeCross && gqlJoinType != graph.JoinTypeReference {
+		gqlJoinType = graph.JoinTypeReference
+	}
+
+	var joinFieldType *graph.FieldType
+	if def.JoinFieldType != nil {
+		ft := graph.FieldType(strings.ToUpper(string(*def.JoinFieldType)))
+		joinFieldType = &ft
+	}
+
 	return &graph.EntityJoinDefinition{
 		ID:              def.ID.String(),
 		OrganizationID:  def.OrganizationID.String(),
@@ -348,8 +421,9 @@ func mapJoinDefinitionToGraph(def domain.EntityJoinDefinition) *graph.EntityJoin
 		Description:     description,
 		LeftEntityType:  def.LeftEntityType,
 		RightEntityType: def.RightEntityType,
+		JoinType:        gqlJoinType,
 		JoinField:       def.JoinField,
-		JoinFieldType:   graph.FieldType(strings.ToUpper(string(def.JoinFieldType))),
+		JoinFieldType:   joinFieldType,
 		LeftFilters:     convertDomainFiltersToGraph(def.LeftFilters),
 		RightFilters:    convertDomainFiltersToGraph(def.RightFilters),
 		SortCriteria:    convertDomainSortsToGraph(def.SortCriteria),
@@ -424,4 +498,49 @@ func resolvePagination(pagination *graph.PaginationInput) (int, int) {
 	}
 
 	return limit, offset
+}
+
+func graphJoinTypeToDomain(joinType graph.JoinType) domain.JoinType {
+	switch joinType {
+	case graph.JoinTypeCross:
+		return domain.JoinTypeCross
+	case graph.JoinTypeReference:
+		return domain.JoinTypeReference
+	default:
+		return domain.JoinTypeReference
+	}
+}
+
+func sanitizeJoinType(value domain.JoinType) domain.JoinType {
+	switch value {
+	case domain.JoinTypeCross:
+		return domain.JoinTypeCross
+	case domain.JoinTypeReference:
+		return domain.JoinTypeReference
+	default:
+		return domain.JoinTypeReference
+	}
+}
+
+func (r *Resolver) ensureSchemaExists(ctx context.Context, organizationID uuid.UUID, entityType string) error {
+	if entityType == "" {
+		return fmt.Errorf("entity type cannot be empty")
+	}
+	if _, err := r.entitySchemaRepo.GetByName(ctx, organizationID, entityType); err != nil {
+		return fmt.Errorf("failed to load schema %s: %w", entityType, err)
+	}
+	return nil
+}
+
+func stringPtr(value string) *string {
+	if value == "" {
+		return nil
+	}
+	v := value
+	return &v
+}
+
+func fieldTypePtr(value domain.FieldType) *domain.FieldType {
+	v := value
+	return &v
 }

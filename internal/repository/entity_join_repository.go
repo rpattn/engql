@@ -17,6 +17,31 @@ type entityJoinRepository struct {
 	db      db.DBTX
 }
 
+func textFromStringPtr(value *string) pgtype.Text {
+	if value == nil {
+		return pgtype.Text{Valid: false}
+	}
+	return pgtype.Text{String: *value, Valid: true}
+}
+
+func textFromFieldTypePtr(value *domain.FieldType) pgtype.Text {
+	if value == nil {
+		return pgtype.Text{Valid: false}
+	}
+	return pgtype.Text{String: string(*value), Valid: true}
+}
+
+func sanitizeJoinType(value domain.JoinType) domain.JoinType {
+	switch value {
+	case domain.JoinTypeCross:
+		return domain.JoinTypeCross
+	case domain.JoinTypeReference, "":
+		return domain.JoinTypeReference
+	default:
+		return domain.JoinTypeReference
+	}
+}
+
 // NewEntityJoinRepository creates a repository for managing join definitions
 func NewEntityJoinRepository(queries *db.Queries, exec db.DBTX) EntityJoinRepository {
 	return &entityJoinRepository{
@@ -39,14 +64,17 @@ func (r *entityJoinRepository) Create(ctx context.Context, join domain.EntityJoi
 		return domain.EntityJoinDefinition{}, fmt.Errorf("marshal sort criteria: %w", err)
 	}
 
+	joinType := sanitizeJoinType(join.JoinType)
+
 	row, err := r.queries.CreateEntityJoin(ctx, db.CreateEntityJoinParams{
 		OrganizationID:  join.OrganizationID,
 		Name:            join.Name,
 		Description:     pgtype.Text{String: join.Description, Valid: join.Description != ""},
 		LeftEntityType:  join.LeftEntityType,
 		RightEntityType: join.RightEntityType,
-		JoinField:       join.JoinField,
-		JoinFieldType:   string(join.JoinFieldType),
+		JoinField:       textFromStringPtr(join.JoinField),
+		JoinFieldType:   textFromFieldTypePtr(join.JoinFieldType),
+		JoinType:        string(joinType),
 		LeftFilters:     leftFiltersJSON,
 		RightFilters:    rightFiltersJSON,
 		SortCriteria:    sortJSON,
@@ -55,7 +83,7 @@ func (r *entityJoinRepository) Create(ctx context.Context, join domain.EntityJoi
 		return domain.EntityJoinDefinition{}, fmt.Errorf("create entity join: %w", err)
 	}
 
-	return mapJoinRow(row)
+	return mapJoinRow(convertCreateRow(row))
 }
 
 func (r *entityJoinRepository) GetByID(ctx context.Context, id uuid.UUID) (domain.EntityJoinDefinition, error) {
@@ -63,7 +91,7 @@ func (r *entityJoinRepository) GetByID(ctx context.Context, id uuid.UUID) (domai
 	if err != nil {
 		return domain.EntityJoinDefinition{}, fmt.Errorf("get entity join: %w", err)
 	}
-	return mapJoinRow(row)
+	return mapJoinRow(convertGetRow(row))
 }
 
 func (r *entityJoinRepository) ListByOrganization(ctx context.Context, organizationID uuid.UUID) ([]domain.EntityJoinDefinition, error) {
@@ -74,7 +102,7 @@ func (r *entityJoinRepository) ListByOrganization(ctx context.Context, organizat
 
 	result := make([]domain.EntityJoinDefinition, 0, len(rows))
 	for _, row := range rows {
-		mapped, err := mapJoinRow(row)
+		mapped, err := mapJoinRow(convertListRow(row))
 		if err != nil {
 			return nil, err
 		}
@@ -98,14 +126,17 @@ func (r *entityJoinRepository) Update(ctx context.Context, join domain.EntityJoi
 		return domain.EntityJoinDefinition{}, fmt.Errorf("marshal sort criteria: %w", err)
 	}
 
+	joinType := sanitizeJoinType(join.JoinType)
+
 	row, err := r.queries.UpdateEntityJoin(ctx, db.UpdateEntityJoinParams{
 		ID:              join.ID,
 		Name:            join.Name,
 		Description:     pgtype.Text{String: join.Description, Valid: join.Description != ""},
 		LeftEntityType:  join.LeftEntityType,
 		RightEntityType: join.RightEntityType,
-		JoinField:       join.JoinField,
-		JoinFieldType:   string(join.JoinFieldType),
+		JoinField:       textFromStringPtr(join.JoinField),
+		JoinFieldType:   textFromFieldTypePtr(join.JoinFieldType),
+		JoinType:        string(joinType),
 		LeftFilters:     leftFiltersJSON,
 		RightFilters:    rightFiltersJSON,
 		SortCriteria:    sortJSON,
@@ -114,7 +145,7 @@ func (r *entityJoinRepository) Update(ctx context.Context, join domain.EntityJoi
 		return domain.EntityJoinDefinition{}, fmt.Errorf("update entity join: %w", err)
 	}
 
-	return mapJoinRow(row)
+	return mapJoinRow(convertUpdateRow(row))
 }
 
 func (r *entityJoinRepository) Delete(ctx context.Context, id uuid.UUID) error {
@@ -130,7 +161,16 @@ func (r *entityJoinRepository) ExecuteJoin(ctx context.Context, join domain.Enti
 	leftAlias := "l"
 	rightAlias := "r"
 
-	joinFieldIdx := builder.addArg(join.JoinField)
+	joinType := sanitizeJoinType(join.JoinType)
+
+	joinFieldIdx := -1
+	if joinType == domain.JoinTypeReference {
+		if join.JoinField == nil {
+			return nil, 0, fmt.Errorf("join field is required for reference joins")
+		}
+		joinFieldIdx = builder.addArg(*join.JoinField)
+	}
+
 	orgIdx := builder.addArg(join.OrganizationID)
 	leftTypeIdx := builder.addArg(join.LeftEntityType)
 	rightTypeIdx := builder.addArg(join.RightEntityType)
@@ -140,14 +180,20 @@ func (r *entityJoinRepository) ExecuteJoin(ctx context.Context, join domain.Enti
 	fromBuilder.WriteString(leftAlias)
 	fromBuilder.WriteString(" ")
 
-	switch join.JoinFieldType {
-	case domain.FieldTypeEntityReferenceArray:
-		fromBuilder.WriteString(fmt.Sprintf("JOIN LATERAL jsonb_array_elements_text(COALESCE("+
-			"%s.properties -> %s::text, '[]'::jsonb)) AS jf(value) ON TRUE ", leftAlias, builder.placeholder(joinFieldIdx)))
-		fromBuilder.WriteString(fmt.Sprintf("JOIN entities %s ON %s.id::text = jf.value ", rightAlias, rightAlias))
+	switch joinType {
+	case domain.JoinTypeReference:
+		if join.JoinFieldType != nil && *join.JoinFieldType == domain.FieldTypeEntityReferenceArray {
+			fromBuilder.WriteString(fmt.Sprintf("JOIN LATERAL jsonb_array_elements_text(COALESCE("+
+				"%s.properties -> %s::text, '[]'::jsonb)) AS jf(value) ON TRUE ", leftAlias, builder.placeholder(joinFieldIdx)))
+			fromBuilder.WriteString(fmt.Sprintf("JOIN entities %s ON %s.id::text = jf.value ", rightAlias, rightAlias))
+		} else {
+			fromBuilder.WriteString(fmt.Sprintf("JOIN entities %s ON %s.id::text = %s.properties ->> %s::text ",
+				rightAlias, rightAlias, leftAlias, builder.placeholder(joinFieldIdx)))
+		}
+	case domain.JoinTypeCross:
+		fromBuilder.WriteString(fmt.Sprintf("CROSS JOIN entities %s ", rightAlias))
 	default:
-		fromBuilder.WriteString(fmt.Sprintf("JOIN entities %s ON %s.id::text = %s.properties ->> %s::text ",
-			rightAlias, rightAlias, leftAlias, builder.placeholder(joinFieldIdx)))
+		return nil, 0, fmt.Errorf("unsupported join type %s", joinType)
 	}
 
 	whereClauses := []string{
@@ -187,7 +233,12 @@ func (r *entityJoinRepository) ExecuteJoin(ctx context.Context, join domain.Enti
 
 	countArgs := append([]any{}, builder.args...)
 
-	orderClause := buildOrderClause(combinedSorts, builder, join, leftAlias, rightAlias, joinFieldIdx)
+	var joinFieldPlaceholder string
+	if joinType == domain.JoinTypeReference && joinFieldIdx > 0 {
+		joinFieldPlaceholder = builder.placeholder(joinFieldIdx)
+	}
+
+	orderClause := buildOrderClause(combinedSorts, builder, join, joinType, leftAlias, rightAlias, joinFieldPlaceholder)
 
 	selectClause := fmt.Sprintf("SELECT %s.id, %s.organization_id, %s.entity_type, %s.path, %s.properties, %s.created_at, %s.updated_at, "+
 		"%s.id, %s.organization_id, %s.entity_type, %s.path, %s.properties, %s.created_at, %s.updated_at ",
@@ -274,6 +325,98 @@ func (r *entityJoinRepository) ExecuteJoin(ctx context.Context, join domain.Enti
 	return edges, total, nil
 }
 
+func convertCreateRow(row db.CreateEntityJoinRow) db.EntityJoin {
+	return db.EntityJoin{
+		ID:              row.ID,
+		OrganizationID:  row.OrganizationID,
+		Name:            row.Name,
+		Description:     row.Description,
+		LeftEntityType:  row.LeftEntityType,
+		RightEntityType: row.RightEntityType,
+		JoinField:       row.JoinField,
+		JoinFieldType:   row.JoinFieldType,
+		LeftFilters:     row.LeftFilters,
+		RightFilters:    row.RightFilters,
+		SortCriteria:    row.SortCriteria,
+		CreatedAt:       row.CreatedAt,
+		UpdatedAt:       row.UpdatedAt,
+		JoinType:        row.JoinType,
+	}
+}
+
+func convertUpdateRow(row db.UpdateEntityJoinRow) db.EntityJoin {
+	return db.EntityJoin{
+		ID:              row.ID,
+		OrganizationID:  row.OrganizationID,
+		Name:            row.Name,
+		Description:     row.Description,
+		LeftEntityType:  row.LeftEntityType,
+		RightEntityType: row.RightEntityType,
+		JoinField:       row.JoinField,
+		JoinFieldType:   row.JoinFieldType,
+		LeftFilters:     row.LeftFilters,
+		RightFilters:    row.RightFilters,
+		SortCriteria:    row.SortCriteria,
+		CreatedAt:       row.CreatedAt,
+		UpdatedAt:       row.UpdatedAt,
+		JoinType:        row.JoinType,
+	}
+}
+
+func convertGetRow(row db.GetEntityJoinRow) db.EntityJoin {
+	return db.EntityJoin{
+		ID:              row.ID,
+		OrganizationID:  row.OrganizationID,
+		Name:            row.Name,
+		Description:     row.Description,
+		LeftEntityType:  row.LeftEntityType,
+		RightEntityType: row.RightEntityType,
+		JoinField:       row.JoinField,
+		JoinFieldType:   row.JoinFieldType,
+		LeftFilters:     row.LeftFilters,
+		RightFilters:    row.RightFilters,
+		SortCriteria:    row.SortCriteria,
+		CreatedAt:       row.CreatedAt,
+		UpdatedAt:       row.UpdatedAt,
+		JoinType:        row.JoinType,
+	}
+}
+
+func convertListRow(row db.ListEntityJoinsByOrganizationRow) db.EntityJoin {
+	return db.EntityJoin{
+		ID:              row.ID,
+		OrganizationID:  row.OrganizationID,
+		Name:            row.Name,
+		Description:     row.Description,
+		LeftEntityType:  row.LeftEntityType,
+		RightEntityType: row.RightEntityType,
+		JoinField:       row.JoinField,
+		JoinFieldType:   row.JoinFieldType,
+		LeftFilters:     row.LeftFilters,
+		RightFilters:    row.RightFilters,
+		SortCriteria:    row.SortCriteria,
+		CreatedAt:       row.CreatedAt,
+		UpdatedAt:       row.UpdatedAt,
+		JoinType:        row.JoinType,
+	}
+}
+
+func stringPtrFromText(value pgtype.Text) *string {
+	if !value.Valid {
+		return nil
+	}
+	str := value.String
+	return &str
+}
+
+func fieldTypePtrFromText(value pgtype.Text) *domain.FieldType {
+	if !value.Valid {
+		return nil
+	}
+	ft := domain.FieldType(value.String)
+	return &ft
+}
+
 func mapJoinRow(row db.EntityJoin) (domain.EntityJoinDefinition, error) {
 	leftFilters, err := domain.FiltersFromJSONB(row.LeftFilters)
 	if err != nil {
@@ -300,8 +443,9 @@ func mapJoinRow(row db.EntityJoin) (domain.EntityJoinDefinition, error) {
 		Description:     description,
 		LeftEntityType:  row.LeftEntityType,
 		RightEntityType: row.RightEntityType,
-		JoinField:       row.JoinField,
-		JoinFieldType:   domain.FieldType(row.JoinFieldType),
+		JoinType:        sanitizeJoinType(domain.JoinType(row.JoinType)),
+		JoinField:       stringPtrFromText(row.JoinField),
+		JoinFieldType:   fieldTypePtrFromText(row.JoinFieldType),
 		LeftFilters:     leftFilters,
 		RightFilters:    rightFilters,
 		SortCriteria:    sorts,
@@ -377,7 +521,7 @@ func appendFilterClauses(alias string, filter domain.JoinPropertyFilter, builder
 	}
 }
 
-func buildOrderClause(sorts []domain.JoinSortCriterion, builder *sqlBuilder, join domain.EntityJoinDefinition, leftAlias, rightAlias string, joinFieldIdx int) string {
+func buildOrderClause(sorts []domain.JoinSortCriterion, builder *sqlBuilder, join domain.EntityJoinDefinition, joinType domain.JoinType, leftAlias, rightAlias string, joinFieldPlaceholder string) string {
 	if len(sorts) == 0 {
 		return "ORDER BY " + leftAlias + ".created_at DESC"
 	}
@@ -397,7 +541,7 @@ func buildOrderClause(sorts []domain.JoinSortCriterion, builder *sqlBuilder, joi
 			targetAlias = rightAlias
 		}
 
-		orderExpr := buildSortExpression(targetAlias, sort.Field, join, builder, leftAlias, joinFieldIdx)
+		orderExpr := buildSortExpression(targetAlias, sort.Field, join, joinType, builder, leftAlias, joinFieldPlaceholder)
 		if orderExpr == "" {
 			continue
 		}
@@ -412,7 +556,7 @@ func buildOrderClause(sorts []domain.JoinSortCriterion, builder *sqlBuilder, joi
 	return "ORDER BY " + strings.Join(orderings, ", ")
 }
 
-func buildSortExpression(alias, field string, join domain.EntityJoinDefinition, builder *sqlBuilder, leftAlias string, joinFieldIdx int) string {
+func buildSortExpression(alias, field string, join domain.EntityJoinDefinition, joinType domain.JoinType, builder *sqlBuilder, leftAlias string, joinFieldPlaceholder string) string {
 	switch strings.ToLower(field) {
 	case "createdat":
 		return alias + ".created_at"
@@ -426,11 +570,13 @@ func buildSortExpression(alias, field string, join domain.EntityJoinDefinition, 
 		return alias + ".id::text"
 	}
 
-	if alias == leftAlias && strings.EqualFold(field, join.JoinField) {
-		if join.JoinFieldType == domain.FieldTypeEntityReferenceArray {
+	if joinType == domain.JoinTypeReference && alias == leftAlias && join.JoinField != nil && strings.EqualFold(field, *join.JoinField) {
+		if join.JoinFieldType != nil && *join.JoinFieldType == domain.FieldTypeEntityReferenceArray {
 			return "jf.value"
 		}
-		return fmt.Sprintf("%s.properties ->> %s::text", alias, builder.placeholder(joinFieldIdx))
+		if joinFieldPlaceholder != "" {
+			return fmt.Sprintf("%s.properties ->> %s::text", alias, joinFieldPlaceholder)
+		}
 	}
 
 	fieldIdx := builder.addArg(field)

@@ -81,6 +81,7 @@ type ComplexityRoot struct {
 		ID              func(childComplexity int) int
 		JoinField       func(childComplexity int) int
 		JoinFieldType   func(childComplexity int) int
+		JoinType        func(childComplexity int) int
 		LeftEntityType  func(childComplexity int) int
 		LeftFilters     func(childComplexity int) int
 		Name            func(childComplexity int) int
@@ -389,6 +390,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.EntityJoinDefinition.JoinFieldType(childComplexity), true
+	case "EntityJoinDefinition.joinType":
+		if e.complexity.EntityJoinDefinition.JoinType == nil {
+			break
+		}
+
+		return e.complexity.EntityJoinDefinition.JoinType(childComplexity), true
 	case "EntityJoinDefinition.leftEntityType":
 		if e.complexity.EntityJoinDefinition.LeftEntityType == nil {
 			break
@@ -2517,6 +2524,35 @@ func (ec *executionContext) fieldContext_EntityJoinDefinition_rightEntityType(_ 
 	return fc, nil
 }
 
+func (ec *executionContext) _EntityJoinDefinition_joinType(ctx context.Context, field graphql.CollectedField, obj *EntityJoinDefinition) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityJoinDefinition_joinType,
+		func(ctx context.Context) (any, error) {
+			return obj.JoinType, nil
+		},
+		nil,
+		ec.marshalNJoinType2graphqlᚑengineeringᚑapiᚋgraphᚐJoinType,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityJoinDefinition_joinType(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityJoinDefinition",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type JoinType does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _EntityJoinDefinition_joinField(ctx context.Context, field graphql.CollectedField, obj *EntityJoinDefinition) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -2527,9 +2563,9 @@ func (ec *executionContext) _EntityJoinDefinition_joinField(ctx context.Context,
 			return obj.JoinField, nil
 		},
 		nil,
-		ec.marshalNString2string,
+		ec.marshalOString2ᚖstring,
 		true,
-		true,
+		false,
 	)
 }
 
@@ -2556,9 +2592,9 @@ func (ec *executionContext) _EntityJoinDefinition_joinFieldType(ctx context.Cont
 			return obj.JoinFieldType, nil
 		},
 		nil,
-		ec.marshalNFieldType2graphqlᚑengineeringᚑapiᚋgraphᚐFieldType,
+		ec.marshalOFieldType2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐFieldType,
 		true,
-		true,
+		false,
 	)
 }
 
@@ -3963,6 +3999,8 @@ func (ec *executionContext) fieldContext_Mutation_createEntityJoinDefinition(ctx
 				return ec.fieldContext_EntityJoinDefinition_leftEntityType(ctx, field)
 			case "rightEntityType":
 				return ec.fieldContext_EntityJoinDefinition_rightEntityType(ctx, field)
+			case "joinType":
+				return ec.fieldContext_EntityJoinDefinition_joinType(ctx, field)
 			case "joinField":
 				return ec.fieldContext_EntityJoinDefinition_joinField(ctx, field)
 			case "joinFieldType":
@@ -4032,6 +4070,8 @@ func (ec *executionContext) fieldContext_Mutation_updateEntityJoinDefinition(ctx
 				return ec.fieldContext_EntityJoinDefinition_leftEntityType(ctx, field)
 			case "rightEntityType":
 				return ec.fieldContext_EntityJoinDefinition_rightEntityType(ctx, field)
+			case "joinType":
+				return ec.fieldContext_EntityJoinDefinition_joinType(ctx, field)
 			case "joinField":
 				return ec.fieldContext_EntityJoinDefinition_joinField(ctx, field)
 			case "joinFieldType":
@@ -5663,6 +5703,8 @@ func (ec *executionContext) fieldContext_Query_entityJoinDefinition(ctx context.
 				return ec.fieldContext_EntityJoinDefinition_leftEntityType(ctx, field)
 			case "rightEntityType":
 				return ec.fieldContext_EntityJoinDefinition_rightEntityType(ctx, field)
+			case "joinType":
+				return ec.fieldContext_EntityJoinDefinition_joinType(ctx, field)
 			case "joinField":
 				return ec.fieldContext_EntityJoinDefinition_joinField(ctx, field)
 			case "joinFieldType":
@@ -5732,6 +5774,8 @@ func (ec *executionContext) fieldContext_Query_entityJoinDefinitions(ctx context
 				return ec.fieldContext_EntityJoinDefinition_leftEntityType(ctx, field)
 			case "rightEntityType":
 				return ec.fieldContext_EntityJoinDefinition_rightEntityType(ctx, field)
+			case "joinType":
+				return ec.fieldContext_EntityJoinDefinition_joinType(ctx, field)
 			case "joinField":
 				return ec.fieldContext_EntityJoinDefinition_joinField(ctx, field)
 			case "joinFieldType":
@@ -7521,7 +7565,11 @@ func (ec *executionContext) unmarshalInputCreateEntityJoinDefinitionInput(ctx co
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"organizationId", "name", "description", "leftEntityType", "rightEntityType", "joinField", "leftFilters", "rightFilters", "sortCriteria"}
+	if _, present := asMap["joinType"]; !present {
+		asMap["joinType"] = "REFERENCE"
+	}
+
+	fieldsInOrder := [...]string{"organizationId", "name", "description", "joinType", "leftEntityType", "rightEntityType", "joinField", "leftFilters", "rightFilters", "sortCriteria"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -7549,6 +7597,13 @@ func (ec *executionContext) unmarshalInputCreateEntityJoinDefinitionInput(ctx co
 				return it, err
 			}
 			it.Description = data
+		case "joinType":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("joinType"))
+			data, err := ec.unmarshalOJoinType2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐJoinType(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.JoinType = data
 		case "leftEntityType":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("leftEntityType"))
 			data, err := ec.unmarshalNString2string(ctx, v)
@@ -7565,7 +7620,7 @@ func (ec *executionContext) unmarshalInputCreateEntityJoinDefinitionInput(ctx co
 			it.RightEntityType = data
 		case "joinField":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("joinField"))
-			data, err := ec.unmarshalNString2string(ctx, v)
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -8092,7 +8147,7 @@ func (ec *executionContext) unmarshalInputUpdateEntityJoinDefinitionInput(ctx co
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"id", "name", "description", "leftEntityType", "rightEntityType", "joinField", "leftFilters", "rightFilters", "sortCriteria"}
+	fieldsInOrder := [...]string{"id", "name", "description", "joinType", "leftEntityType", "rightEntityType", "joinField", "leftFilters", "rightFilters", "sortCriteria"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -8120,6 +8175,13 @@ func (ec *executionContext) unmarshalInputUpdateEntityJoinDefinitionInput(ctx co
 				return it, err
 			}
 			it.Description = data
+		case "joinType":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("joinType"))
+			data, err := ec.unmarshalOJoinType2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐJoinType(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.JoinType = data
 		case "leftEntityType":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("leftEntityType"))
 			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
@@ -8550,16 +8612,15 @@ func (ec *executionContext) _EntityJoinDefinition(ctx context.Context, sel ast.S
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "joinType":
+			out.Values[i] = ec._EntityJoinDefinition_joinType(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		case "joinField":
 			out.Values[i] = ec._EntityJoinDefinition_joinField(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
 		case "joinFieldType":
 			out.Values[i] = ec._EntityJoinDefinition_joinFieldType(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
 		case "leftFilters":
 			out.Values[i] = ec._EntityJoinDefinition_leftFilters(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -10553,6 +10614,16 @@ func (ec *executionContext) unmarshalNJoinSortInput2ᚖgraphqlᚑengineeringᚑa
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
+func (ec *executionContext) unmarshalNJoinType2graphqlᚑengineeringᚑapiᚋgraphᚐJoinType(ctx context.Context, v any) (JoinType, error) {
+	var res JoinType
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNJoinType2graphqlᚑengineeringᚑapiᚋgraphᚐJoinType(ctx context.Context, sel ast.SelectionSet, v JoinType) graphql.Marshaler {
+	return v
+}
+
 func (ec *executionContext) marshalNOrganization2graphqlᚑengineeringᚑapiᚋgraphᚐOrganization(ctx context.Context, sel ast.SelectionSet, v Organization) graphql.Marshaler {
 	return ec._Organization(ctx, sel, &v)
 }
@@ -11090,6 +11161,22 @@ func (ec *executionContext) unmarshalOFieldDefinitionInput2ᚕᚖgraphqlᚑengin
 	return res, nil
 }
 
+func (ec *executionContext) unmarshalOFieldType2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐFieldType(ctx context.Context, v any) (*FieldType, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var res = new(FieldType)
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOFieldType2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐFieldType(ctx context.Context, sel ast.SelectionSet, v *FieldType) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return v
+}
+
 func (ec *executionContext) unmarshalOFloat2ᚖfloat64(ctx context.Context, v any) (*float64, error) {
 	if v == nil {
 		return nil, nil
@@ -11157,6 +11244,22 @@ func (ec *executionContext) unmarshalOJoinSortInput2ᚕᚖgraphqlᚑengineering�
 		}
 	}
 	return res, nil
+}
+
+func (ec *executionContext) unmarshalOJoinType2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐJoinType(ctx context.Context, v any) (*JoinType, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var res = new(JoinType)
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOJoinType2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐJoinType(ctx context.Context, sel ast.SelectionSet, v *JoinType) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return v
 }
 
 func (ec *executionContext) marshalOOrganization2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐOrganization(ctx context.Context, sel ast.SelectionSet, v *Organization) graphql.Marshaler {

@@ -7,6 +7,7 @@ package db
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -21,11 +22,12 @@ INSERT INTO entity_joins (
     right_entity_type,
     join_field,
     join_field_type,
+    join_type,
     left_filters,
     right_filters,
     sort_criteria
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 RETURNING
     id,
     organization_id,
@@ -35,6 +37,7 @@ RETURNING
     right_entity_type,
     join_field,
     join_field_type,
+    join_type,
     left_filters,
     right_filters,
     sort_criteria,
@@ -48,14 +51,32 @@ type CreateEntityJoinParams struct {
 	Description     pgtype.Text `json:"description"`
 	LeftEntityType  string      `json:"left_entity_type"`
 	RightEntityType string      `json:"right_entity_type"`
-	JoinField       string      `json:"join_field"`
-	JoinFieldType   string      `json:"join_field_type"`
+	JoinField       pgtype.Text `json:"join_field"`
+	JoinFieldType   pgtype.Text `json:"join_field_type"`
+	JoinType        string      `json:"join_type"`
 	LeftFilters     []byte      `json:"left_filters"`
 	RightFilters    []byte      `json:"right_filters"`
 	SortCriteria    []byte      `json:"sort_criteria"`
 }
 
-func (q *Queries) CreateEntityJoin(ctx context.Context, arg CreateEntityJoinParams) (EntityJoin, error) {
+type CreateEntityJoinRow struct {
+	ID              uuid.UUID   `json:"id"`
+	OrganizationID  uuid.UUID   `json:"organization_id"`
+	Name            string      `json:"name"`
+	Description     pgtype.Text `json:"description"`
+	LeftEntityType  string      `json:"left_entity_type"`
+	RightEntityType string      `json:"right_entity_type"`
+	JoinField       pgtype.Text `json:"join_field"`
+	JoinFieldType   pgtype.Text `json:"join_field_type"`
+	JoinType        string      `json:"join_type"`
+	LeftFilters     []byte      `json:"left_filters"`
+	RightFilters    []byte      `json:"right_filters"`
+	SortCriteria    []byte      `json:"sort_criteria"`
+	CreatedAt       time.Time   `json:"created_at"`
+	UpdatedAt       time.Time   `json:"updated_at"`
+}
+
+func (q *Queries) CreateEntityJoin(ctx context.Context, arg CreateEntityJoinParams) (CreateEntityJoinRow, error) {
 	row := q.db.QueryRow(ctx, CreateEntityJoin,
 		arg.OrganizationID,
 		arg.Name,
@@ -64,11 +85,12 @@ func (q *Queries) CreateEntityJoin(ctx context.Context, arg CreateEntityJoinPara
 		arg.RightEntityType,
 		arg.JoinField,
 		arg.JoinFieldType,
+		arg.JoinType,
 		arg.LeftFilters,
 		arg.RightFilters,
 		arg.SortCriteria,
 	)
-	var i EntityJoin
+	var i CreateEntityJoinRow
 	err := row.Scan(
 		&i.ID,
 		&i.OrganizationID,
@@ -78,6 +100,7 @@ func (q *Queries) CreateEntityJoin(ctx context.Context, arg CreateEntityJoinPara
 		&i.RightEntityType,
 		&i.JoinField,
 		&i.JoinFieldType,
+		&i.JoinType,
 		&i.LeftFilters,
 		&i.RightFilters,
 		&i.SortCriteria,
@@ -107,6 +130,7 @@ SELECT
     right_entity_type,
     join_field,
     join_field_type,
+    join_type,
     left_filters,
     right_filters,
     sort_criteria,
@@ -116,9 +140,26 @@ FROM entity_joins
 WHERE id = $1
 `
 
-func (q *Queries) GetEntityJoin(ctx context.Context, id uuid.UUID) (EntityJoin, error) {
+type GetEntityJoinRow struct {
+	ID              uuid.UUID   `json:"id"`
+	OrganizationID  uuid.UUID   `json:"organization_id"`
+	Name            string      `json:"name"`
+	Description     pgtype.Text `json:"description"`
+	LeftEntityType  string      `json:"left_entity_type"`
+	RightEntityType string      `json:"right_entity_type"`
+	JoinField       pgtype.Text `json:"join_field"`
+	JoinFieldType   pgtype.Text `json:"join_field_type"`
+	JoinType        string      `json:"join_type"`
+	LeftFilters     []byte      `json:"left_filters"`
+	RightFilters    []byte      `json:"right_filters"`
+	SortCriteria    []byte      `json:"sort_criteria"`
+	CreatedAt       time.Time   `json:"created_at"`
+	UpdatedAt       time.Time   `json:"updated_at"`
+}
+
+func (q *Queries) GetEntityJoin(ctx context.Context, id uuid.UUID) (GetEntityJoinRow, error) {
 	row := q.db.QueryRow(ctx, GetEntityJoin, id)
-	var i EntityJoin
+	var i GetEntityJoinRow
 	err := row.Scan(
 		&i.ID,
 		&i.OrganizationID,
@@ -128,6 +169,7 @@ func (q *Queries) GetEntityJoin(ctx context.Context, id uuid.UUID) (EntityJoin, 
 		&i.RightEntityType,
 		&i.JoinField,
 		&i.JoinFieldType,
+		&i.JoinType,
 		&i.LeftFilters,
 		&i.RightFilters,
 		&i.SortCriteria,
@@ -147,6 +189,7 @@ SELECT
     right_entity_type,
     join_field,
     join_field_type,
+    join_type,
     left_filters,
     right_filters,
     sort_criteria,
@@ -157,15 +200,32 @@ WHERE organization_id = $1
 ORDER BY created_at DESC
 `
 
-func (q *Queries) ListEntityJoinsByOrganization(ctx context.Context, organizationID uuid.UUID) ([]EntityJoin, error) {
+type ListEntityJoinsByOrganizationRow struct {
+	ID              uuid.UUID   `json:"id"`
+	OrganizationID  uuid.UUID   `json:"organization_id"`
+	Name            string      `json:"name"`
+	Description     pgtype.Text `json:"description"`
+	LeftEntityType  string      `json:"left_entity_type"`
+	RightEntityType string      `json:"right_entity_type"`
+	JoinField       pgtype.Text `json:"join_field"`
+	JoinFieldType   pgtype.Text `json:"join_field_type"`
+	JoinType        string      `json:"join_type"`
+	LeftFilters     []byte      `json:"left_filters"`
+	RightFilters    []byte      `json:"right_filters"`
+	SortCriteria    []byte      `json:"sort_criteria"`
+	CreatedAt       time.Time   `json:"created_at"`
+	UpdatedAt       time.Time   `json:"updated_at"`
+}
+
+func (q *Queries) ListEntityJoinsByOrganization(ctx context.Context, organizationID uuid.UUID) ([]ListEntityJoinsByOrganizationRow, error) {
 	rows, err := q.db.Query(ctx, ListEntityJoinsByOrganization, organizationID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []EntityJoin{}
+	items := []ListEntityJoinsByOrganizationRow{}
 	for rows.Next() {
-		var i EntityJoin
+		var i ListEntityJoinsByOrganizationRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.OrganizationID,
@@ -175,6 +235,7 @@ func (q *Queries) ListEntityJoinsByOrganization(ctx context.Context, organizatio
 			&i.RightEntityType,
 			&i.JoinField,
 			&i.JoinFieldType,
+			&i.JoinType,
 			&i.LeftFilters,
 			&i.RightFilters,
 			&i.SortCriteria,
@@ -200,9 +261,10 @@ SET
     right_entity_type = COALESCE($5, right_entity_type),
     join_field = COALESCE($6, join_field),
     join_field_type = COALESCE($7, join_field_type),
-    left_filters = COALESCE($8, left_filters),
-    right_filters = COALESCE($9, right_filters),
-    sort_criteria = COALESCE($10, sort_criteria),
+    join_type = COALESCE($8, join_type),
+    left_filters = COALESCE($9, left_filters),
+    right_filters = COALESCE($10, right_filters),
+    sort_criteria = COALESCE($11, sort_criteria),
     updated_at = NOW()
 WHERE id = $1
 RETURNING
@@ -214,6 +276,7 @@ RETURNING
     right_entity_type,
     join_field,
     join_field_type,
+    join_type,
     left_filters,
     right_filters,
     sort_criteria,
@@ -227,14 +290,32 @@ type UpdateEntityJoinParams struct {
 	Description     pgtype.Text `json:"description"`
 	LeftEntityType  string      `json:"left_entity_type"`
 	RightEntityType string      `json:"right_entity_type"`
-	JoinField       string      `json:"join_field"`
-	JoinFieldType   string      `json:"join_field_type"`
+	JoinField       pgtype.Text `json:"join_field"`
+	JoinFieldType   pgtype.Text `json:"join_field_type"`
+	JoinType        string      `json:"join_type"`
 	LeftFilters     []byte      `json:"left_filters"`
 	RightFilters    []byte      `json:"right_filters"`
 	SortCriteria    []byte      `json:"sort_criteria"`
 }
 
-func (q *Queries) UpdateEntityJoin(ctx context.Context, arg UpdateEntityJoinParams) (EntityJoin, error) {
+type UpdateEntityJoinRow struct {
+	ID              uuid.UUID   `json:"id"`
+	OrganizationID  uuid.UUID   `json:"organization_id"`
+	Name            string      `json:"name"`
+	Description     pgtype.Text `json:"description"`
+	LeftEntityType  string      `json:"left_entity_type"`
+	RightEntityType string      `json:"right_entity_type"`
+	JoinField       pgtype.Text `json:"join_field"`
+	JoinFieldType   pgtype.Text `json:"join_field_type"`
+	JoinType        string      `json:"join_type"`
+	LeftFilters     []byte      `json:"left_filters"`
+	RightFilters    []byte      `json:"right_filters"`
+	SortCriteria    []byte      `json:"sort_criteria"`
+	CreatedAt       time.Time   `json:"created_at"`
+	UpdatedAt       time.Time   `json:"updated_at"`
+}
+
+func (q *Queries) UpdateEntityJoin(ctx context.Context, arg UpdateEntityJoinParams) (UpdateEntityJoinRow, error) {
 	row := q.db.QueryRow(ctx, UpdateEntityJoin,
 		arg.ID,
 		arg.Name,
@@ -243,11 +324,12 @@ func (q *Queries) UpdateEntityJoin(ctx context.Context, arg UpdateEntityJoinPara
 		arg.RightEntityType,
 		arg.JoinField,
 		arg.JoinFieldType,
+		arg.JoinType,
 		arg.LeftFilters,
 		arg.RightFilters,
 		arg.SortCriteria,
 	)
-	var i EntityJoin
+	var i UpdateEntityJoinRow
 	err := row.Scan(
 		&i.ID,
 		&i.OrganizationID,
@@ -257,6 +339,7 @@ func (q *Queries) UpdateEntityJoin(ctx context.Context, arg UpdateEntityJoinPara
 		&i.RightEntityType,
 		&i.JoinField,
 		&i.JoinFieldType,
+		&i.JoinType,
 		&i.LeftFilters,
 		&i.RightFilters,
 		&i.SortCriteria,

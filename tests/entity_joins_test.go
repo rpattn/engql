@@ -115,6 +115,7 @@ func TestEntityJoinDefinitionLifecycle(t *testing.T) {
 			createEntityJoinDefinition(input: $input) {
 				id
 				name
+				joinType
 				joinField
 				joinFieldType
 				leftFilters { key value }
@@ -144,6 +145,9 @@ func TestEntityJoinDefinitionLifecycle(t *testing.T) {
 	if joinData["joinFieldType"].(string) != "ENTITY_REFERENCE" {
 		t.Fatalf("? expected join field type ENTITY_REFERENCE, got %s", joinData["joinFieldType"])
 	}
+	if joinData["joinType"].(string) != "REFERENCE" {
+		t.Fatalf("? expected join type REFERENCE, got %s", joinData["joinType"])
+	}
 	t.Logf("[assert] created join definition %s", joinID)
 
 	listJoinsQuery := `
@@ -151,6 +155,7 @@ func TestEntityJoinDefinitionLifecycle(t *testing.T) {
 			entityJoinDefinitions(organizationId: $org) {
 				id
 				name
+				joinType
 				leftEntityType
 				rightEntityType
 				joinField

@@ -7,11 +7,12 @@ INSERT INTO entity_joins (
     right_entity_type,
     join_field,
     join_field_type,
+    join_type,
     left_filters,
     right_filters,
     sort_criteria
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 RETURNING
     id,
     organization_id,
@@ -21,6 +22,7 @@ RETURNING
     right_entity_type,
     join_field,
     join_field_type,
+    join_type,
     left_filters,
     right_filters,
     sort_criteria,
@@ -37,6 +39,7 @@ SELECT
     right_entity_type,
     join_field,
     join_field_type,
+    join_type,
     left_filters,
     right_filters,
     sort_criteria,
@@ -55,6 +58,7 @@ SELECT
     right_entity_type,
     join_field,
     join_field_type,
+    join_type,
     left_filters,
     right_filters,
     sort_criteria,
@@ -73,9 +77,10 @@ SET
     right_entity_type = COALESCE($5, right_entity_type),
     join_field = COALESCE($6, join_field),
     join_field_type = COALESCE($7, join_field_type),
-    left_filters = COALESCE($8, left_filters),
-    right_filters = COALESCE($9, right_filters),
-    sort_criteria = COALESCE($10, sort_criteria),
+    join_type = COALESCE($8, join_type),
+    left_filters = COALESCE($9, left_filters),
+    right_filters = COALESCE($10, right_filters),
+    sort_criteria = COALESCE($11, sort_criteria),
     updated_at = NOW()
 WHERE id = $1
 RETURNING
@@ -87,6 +92,7 @@ RETURNING
     right_entity_type,
     join_field,
     join_field_type,
+    join_type,
     left_filters,
     right_filters,
     sort_criteria,

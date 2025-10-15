@@ -22,9 +22,10 @@ type CreateEntityJoinDefinitionInput struct {
 	OrganizationID  string            `json:"organizationId"`
 	Name            string            `json:"name"`
 	Description     *string           `json:"description,omitempty"`
+	JoinType        *JoinType         `json:"joinType,omitempty"`
 	LeftEntityType  string            `json:"leftEntityType"`
 	RightEntityType string            `json:"rightEntityType"`
-	JoinField       string            `json:"joinField"`
+	JoinField       *string           `json:"joinField,omitempty"`
 	LeftFilters     []*PropertyFilter `json:"leftFilters,omitempty"`
 	RightFilters    []*PropertyFilter `json:"rightFilters,omitempty"`
 	SortCriteria    []*JoinSortInput  `json:"sortCriteria,omitempty"`
@@ -84,8 +85,9 @@ type EntityJoinDefinition struct {
 	Description     *string                 `json:"description,omitempty"`
 	LeftEntityType  string                  `json:"leftEntityType"`
 	RightEntityType string                  `json:"rightEntityType"`
-	JoinField       string                  `json:"joinField"`
-	JoinFieldType   FieldType               `json:"joinFieldType"`
+	JoinType        JoinType                `json:"joinType"`
+	JoinField       *string                 `json:"joinField,omitempty"`
+	JoinFieldType   *FieldType              `json:"joinFieldType,omitempty"`
 	LeftFilters     []*PropertyFilterConfig `json:"leftFilters"`
 	RightFilters    []*PropertyFilterConfig `json:"rightFilters"`
 	SortCriteria    []*JoinSortCriterion    `json:"sortCriteria"`
@@ -205,6 +207,7 @@ type UpdateEntityJoinDefinitionInput struct {
 	ID              string            `json:"id"`
 	Name            *string           `json:"name,omitempty"`
 	Description     *string           `json:"description,omitempty"`
+	JoinType        *JoinType         `json:"joinType,omitempty"`
 	LeftEntityType  *string           `json:"leftEntityType,omitempty"`
 	RightEntityType *string           `json:"rightEntityType,omitempty"`
 	JoinField       *string           `json:"joinField,omitempty"`
@@ -412,6 +415,61 @@ func (e *JoinSortDirection) UnmarshalJSON(b []byte) error {
 }
 
 func (e JoinSortDirection) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type JoinType string
+
+const (
+	JoinTypeReference JoinType = "REFERENCE"
+	JoinTypeCross     JoinType = "CROSS"
+)
+
+var AllJoinType = []JoinType{
+	JoinTypeReference,
+	JoinTypeCross,
+}
+
+func (e JoinType) IsValid() bool {
+	switch e {
+	case JoinTypeReference, JoinTypeCross:
+		return true
+	}
+	return false
+}
+
+func (e JoinType) String() string {
+	return string(e)
+}
+
+func (e *JoinType) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = JoinType(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid JoinType", str)
+	}
+	return nil
+}
+
+func (e JoinType) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *JoinType) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e JoinType) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil

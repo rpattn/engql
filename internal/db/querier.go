@@ -12,7 +12,7 @@ import (
 
 type Querier interface {
 	CreateEntity(ctx context.Context, arg CreateEntityParams) (Entity, error)
-	CreateEntityJoin(ctx context.Context, arg CreateEntityJoinParams) (EntityJoin, error)
+	CreateEntityJoin(ctx context.Context, arg CreateEntityJoinParams) (CreateEntityJoinRow, error)
 	CreateEntitySchema(ctx context.Context, arg CreateEntitySchemaParams) (EntitySchema, error)
 	CreateOrganization(ctx context.Context, arg CreateOrganizationParams) (Organization, error)
 	DeleteEntity(ctx context.Context, id uuid.UUID) error
@@ -27,7 +27,7 @@ type Querier interface {
 	GetEntityCount(ctx context.Context, organizationID uuid.UUID) (int64, error)
 	GetEntityCountByType(ctx context.Context, arg GetEntityCountByTypeParams) (int64, error)
 	GetEntityDescendants(ctx context.Context, arg GetEntityDescendantsParams) ([]Entity, error)
-	GetEntityJoin(ctx context.Context, id uuid.UUID) (EntityJoin, error)
+	GetEntityJoin(ctx context.Context, id uuid.UUID) (GetEntityJoinRow, error)
 	GetEntitySchema(ctx context.Context, id uuid.UUID) (EntitySchema, error)
 	GetEntitySchemaByName(ctx context.Context, arg GetEntitySchemaByNameParams) (EntitySchema, error)
 	GetEntitySiblings(ctx context.Context, arg GetEntitySiblingsParams) ([]Entity, error)
@@ -35,12 +35,12 @@ type Querier interface {
 	GetOrganizationByName(ctx context.Context, name string) (Organization, error)
 	ListEntities(ctx context.Context, arg ListEntitiesParams) ([]ListEntitiesRow, error)
 	ListEntitiesByType(ctx context.Context, arg ListEntitiesByTypeParams) ([]Entity, error)
-	ListEntityJoinsByOrganization(ctx context.Context, organizationID uuid.UUID) ([]EntityJoin, error)
+	ListEntityJoinsByOrganization(ctx context.Context, organizationID uuid.UUID) ([]ListEntityJoinsByOrganizationRow, error)
 	ListEntitySchemas(ctx context.Context, organizationID uuid.UUID) ([]EntitySchema, error)
 	ListOrganizations(ctx context.Context) ([]Organization, error)
 	SchemaExists(ctx context.Context, arg SchemaExistsParams) (bool, error)
 	UpdateEntity(ctx context.Context, arg UpdateEntityParams) (Entity, error)
-	UpdateEntityJoin(ctx context.Context, arg UpdateEntityJoinParams) (EntityJoin, error)
+	UpdateEntityJoin(ctx context.Context, arg UpdateEntityJoinParams) (UpdateEntityJoinRow, error)
 	UpdateEntitySchema(ctx context.Context, arg UpdateEntitySchemaParams) (EntitySchema, error)
 	UpdateOrganization(ctx context.Context, arg UpdateOrganizationParams) (Organization, error)
 }

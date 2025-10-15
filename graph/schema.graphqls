@@ -56,6 +56,11 @@ enum JoinSortDirection {
   DESC
 }
 
+enum JoinType {
+  REFERENCE
+  CROSS
+}
+
 type EntitySchema {
   id: String!
   organizationId: String!
@@ -154,8 +159,9 @@ type EntityJoinDefinition {
   description: String
   leftEntityType: String!
   rightEntityType: String!
-  joinField: String!
-  joinFieldType: FieldType!
+  joinType: JoinType!
+  joinField: String
+  joinFieldType: FieldType
   leftFilters: [PropertyFilterConfig!]!
   rightFilters: [PropertyFilterConfig!]!
   sortCriteria: [JoinSortCriterion!]!
@@ -196,9 +202,10 @@ input CreateEntityJoinDefinitionInput {
   organizationId: String!
   name: String!
   description: String
+  joinType: JoinType = REFERENCE
   leftEntityType: String!
   rightEntityType: String!
-  joinField: String!
+  joinField: String
   leftFilters: [PropertyFilter!]
   rightFilters: [PropertyFilter!]
   sortCriteria: [JoinSortInput!]
@@ -208,6 +215,7 @@ input UpdateEntityJoinDefinitionInput {
   id: String!
   name: String
   description: String
+  joinType: JoinType
   leftEntityType: String
   rightEntityType: String
   joinField: String

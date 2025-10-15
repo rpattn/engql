@@ -29,13 +29,14 @@ type EntityJoin struct {
 	Description     pgtype.Text `json:"description"`
 	LeftEntityType  string      `json:"left_entity_type"`
 	RightEntityType string      `json:"right_entity_type"`
-	JoinField       string      `json:"join_field"`
-	JoinFieldType   string      `json:"join_field_type"`
+	JoinField       pgtype.Text `json:"join_field"`
+	JoinFieldType   pgtype.Text `json:"join_field_type"`
 	LeftFilters     []byte      `json:"left_filters"`
 	RightFilters    []byte      `json:"right_filters"`
 	SortCriteria    []byte      `json:"sort_criteria"`
 	CreatedAt       time.Time   `json:"created_at"`
 	UpdatedAt       time.Time   `json:"updated_at"`
+	JoinType        string      `json:"join_type"`
 }
 
 type EntitySchema struct {

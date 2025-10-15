@@ -21,6 +21,13 @@ const (
 	JoinSortDesc JoinSortDirection = "DESC"
 )
 
+type JoinType string
+
+const (
+	JoinTypeReference JoinType = "REFERENCE"
+	JoinTypeCross     JoinType = "CROSS"
+)
+
 // JoinPropertyFilter mirrors the GraphQL-level filter structure for persistence
 type JoinPropertyFilter struct {
 	Key     string   `json:"key"`
@@ -42,8 +49,9 @@ type EntityJoinDefinition struct {
 	Description     string               `json:"description"`
 	LeftEntityType  string               `json:"left_entity_type"`
 	RightEntityType string               `json:"right_entity_type"`
-	JoinField       string               `json:"join_field"`
-	JoinFieldType   FieldType            `json:"join_field_type"`
+	JoinType        JoinType             `json:"join_type"`
+	JoinField       *string              `json:"join_field,omitempty"`
+	JoinFieldType   *FieldType           `json:"join_field_type,omitempty"`
 	LeftFilters     []JoinPropertyFilter `json:"left_filters"`
 	RightFilters    []JoinPropertyFilter `json:"right_filters"`
 	SortCriteria    []JoinSortCriterion  `json:"sort_criteria"`
