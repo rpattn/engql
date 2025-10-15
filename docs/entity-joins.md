@@ -1,21 +1,24 @@
 # Entity Join Support
 
-This project now supports defining, persisting, and executing reusable join definitions between entity types in the GraphQL API. Join definitions capture how two entity types relate through a reference field, along with optional filter and sorting rules, so complex lookups can be rebuilt consistently without duplicating business logic.
+This project now supports defining, persisting, and executing reusable join definitions between entity types in the GraphQL API. Join definitions capture how two entity types relate—either by explicit reference fields or by producing a cartesian product—along with optional filter and sorting rules, so complex lookups can be rebuilt consistently without duplicating business logic.
 
 ## Data Model
 
-- **`entity_joins` table** stores each definition, including the organization scope, related entity types, the reference field, JSONB filter stacks for each side, and structured sort criteria.
+- **`entity_joins` table** stores each definition, including the organization scope, related entity types, the join type, optional reference field metadata, JSONB filter stacks for each side, and structured sort criteria.
 - SQLC-generated accessors expose CRUD operations for these definitions, and the repository layer provides a high-level `ExecuteJoin` helper that materializes the paired entities with optional overrides for filters, sorts, and pagination.
 
 ## GraphQL Surface
 
-The schema introduces several new types (`EntityJoinDefinition`, `EntityJoinConnection`, `JoinSortCriterion`, and `PropertyFilterConfig`) plus the following operations:
+The schema introduces several new types (`EntityJoinDefinition`, `EntityJoinConnection`, `JoinSortCriterion`, `JoinType`, and `PropertyFilterConfig`) plus the following operations:
 
 - `createEntityJoinDefinition`, `updateEntityJoinDefinition`, and `deleteEntityJoinDefinition` mutations for lifecycle management.
 - `entityJoinDefinition` and `entityJoinDefinitions` queries to inspect definitions.
 - `executeEntityJoin` query to stream paired entity results (`left` and `right`) based on the stored definition, with optional runtime filters and pagination.
 
-All operations accept/return strongly typed filter and sort structures, mirroring the backend repository contract.
+- Join types:
+  - `REFERENCE` joins behave like foreign-key lookups (requires `joinField`).
+  - `CROSS` joins produce the cartesian product between both entity sets without a linking field.
+- All operations accept/return strongly typed filter and sort structures, mirroring the backend repository contract.
 
 ## Manual Testing
 
@@ -25,7 +28,7 @@ All operations accept/return strongly typed filter and sort structures, mirrorin
 
 2. **Navigate to the Join Testing page**
    - Visit `http://localhost:3000/join-testing`.
-   - Use the *Create Join Definition* form to supply organization + schema details. Filters and sort criteria accept JSON arrays (helpers and defaults are pre-filled).
+   - Use the *Create Join Definition* form to supply organization + schema details. Choose between `REFERENCE` and `CROSS` joins; filters and sort criteria accept JSON arrays (helpers and defaults are pre-filled).
    - Use *List Join Definitions* to fetch definitions for an organization. The grid view reuses the entity table styles for easy scanning.
    - Execute a join via *Run Join* to preview paired entities. Results stream into the shared grid viewer with parsed property summaries.
    - Update or delete a definition from the action buttons embedded in the table to validate round-trips quickly.

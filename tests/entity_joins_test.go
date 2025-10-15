@@ -2,6 +2,7 @@ package tests
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -130,6 +131,7 @@ func TestEntityJoinDefinitionLifecycle(t *testing.T) {
 			"description":     "Join component owners to team definitions",
 			"leftEntityType":  "Component",
 			"rightEntityType": "Team",
+			"joinType":        "REFERENCE",
 			"joinField":       "owner",
 			"leftFilters": []map[string]interface{}{
 				{"key": "name", "value": "Component Falcon"},
@@ -274,4 +276,177 @@ func TestEntityJoinDefinitionLifecycle(t *testing.T) {
 	`
 	sendGraphQLRequest(t, deleteOrgMutation, map[string]interface{}{"id": orgID})
 	t.Log("[cleanup] removed organization")
+}
+
+func TestEntityCrossJoinDefinition(t *testing.T) {
+	createOrg := `
+		mutation ($input: CreateOrganizationInput!) {
+			createOrganization(input: $input) { id name }
+		}
+	`
+	orgResp := sendGraphQLRequest(t, createOrg, map[string]interface{}{
+		"input": map[string]interface{}{
+			"name":        "Cross Join Org",
+			"description": "Org for cross join testing",
+		},
+	})
+	orgID := orgResp["createOrganization"].(map[string]interface{})["id"].(string)
+
+	createSchema := `
+		mutation ($input: CreateEntitySchemaInput!) {
+			createEntitySchema(input: $input) { id name }
+		}
+	`
+
+	alphaSchemaResp := sendGraphQLRequest(t, createSchema, map[string]interface{}{
+		"input": map[string]interface{}{
+			"organizationId": orgID,
+			"name":           "Alpha",
+			"fields": []map[string]interface{}{
+				{"name": "name", "type": "STRING", "required": true},
+			},
+		},
+	})
+	betaSchemaResp := sendGraphQLRequest(t, createSchema, map[string]interface{}{
+		"input": map[string]interface{}{
+			"organizationId": orgID,
+			"name":           "Beta",
+			"fields": []map[string]interface{}{
+				{"name": "name", "type": "STRING", "required": true},
+			},
+		},
+	})
+
+	createEntity := `
+		mutation ($input: CreateEntityInput!) {
+			createEntity(input: $input) { id properties }
+		}
+	`
+	var alphaIDs []string
+	for _, name := range []string{"Alpha One", "Alpha Two"} {
+		props, _ := json.Marshal(map[string]interface{}{"name": name})
+		resp := sendGraphQLRequest(t, createEntity, map[string]interface{}{
+			"input": map[string]interface{}{
+				"organizationId": orgID,
+				"entityType":     "Alpha",
+				"path":           "alpha." + strings.ReplaceAll(name, " ", "_"),
+				"properties":     string(props),
+			},
+		})
+		alphaIDs = append(alphaIDs, resp["createEntity"].(map[string]interface{})["id"].(string))
+	}
+
+	var betaIDs []string
+	for _, name := range []string{"Beta One", "Beta Two"} {
+		props, _ := json.Marshal(map[string]interface{}{"name": name})
+		resp := sendGraphQLRequest(t, createEntity, map[string]interface{}{
+			"input": map[string]interface{}{
+				"organizationId": orgID,
+				"entityType":     "Beta",
+				"path":           "beta." + strings.ReplaceAll(name, " ", "_"),
+				"properties":     string(props),
+			},
+		})
+		betaIDs = append(betaIDs, resp["createEntity"].(map[string]interface{})["id"].(string))
+	}
+
+	createCrossJoin := `
+		mutation ($input: CreateEntityJoinDefinitionInput!) {
+			createEntityJoinDefinition(input: $input) {
+				id
+				name
+				joinType
+				joinField
+			}
+		}
+	`
+	crossResp := sendGraphQLRequest(t, createCrossJoin, map[string]interface{}{
+		"input": map[string]interface{}{
+			"organizationId":  orgID,
+			"name":            "AlphaBetaCross",
+			"joinType":        "CROSS",
+			"leftEntityType":  "Alpha",
+			"rightEntityType": "Beta",
+		},
+	})
+	crossData := crossResp["createEntityJoinDefinition"].(map[string]interface{})
+	joinID := crossData["id"].(string)
+	if crossData["joinType"].(string) != "CROSS" {
+		t.Fatalf("? expected join type CROSS, got %s", crossData["joinType"])
+	}
+	if crossData["joinField"] != nil {
+		t.Fatalf("? expected join field to be nil for CROSS join, got %#v", crossData["joinField"])
+	}
+
+	executeJoin := `
+		query ($input: ExecuteEntityJoinInput!) {
+			executeEntityJoin(input: $input) {
+				edges {
+					left { id }
+					right { id }
+				}
+				pageInfo { totalCount }
+			}
+		}
+	`
+	execResp := sendGraphQLRequest(t, executeJoin, map[string]interface{}{
+		"input": map[string]interface{}{
+			"joinId": joinID,
+			"pagination": map[string]interface{}{
+				"limit":  10,
+				"offset": 0,
+			},
+		},
+	})
+	execData := execResp["executeEntityJoin"].(map[string]interface{})
+	edges := execData["edges"].([]interface{})
+	if len(edges) != 4 {
+		t.Fatalf("? expected 4 combinations, got %d", len(edges))
+	}
+	total := int(execData["pageInfo"].(map[string]interface{})["totalCount"].(float64))
+	if total != 4 {
+		t.Fatalf("? expected totalCount 4, got %d", total)
+	}
+
+	foundPairs := make(map[string]struct{})
+	for _, raw := range edges {
+		pair := raw.(map[string]interface{})
+		leftID := pair["left"].(map[string]interface{})["id"].(string)
+		rightID := pair["right"].(map[string]interface{})["id"].(string)
+		foundPairs[leftID+"|"+rightID] = struct{}{}
+	}
+	for _, l := range alphaIDs {
+		for _, rID := range betaIDs {
+			if _, ok := foundPairs[l+"|"+rID]; !ok {
+				t.Fatalf("? missing combination %s | %s", l, rID)
+			}
+		}
+	}
+
+	deleteJoin := `
+		mutation ($id: String!) { deleteEntityJoinDefinition(id: $id) }
+	`
+	sendGraphQLRequest(t, deleteJoin, map[string]interface{}{"id": joinID})
+
+	deleteEntity := `
+		mutation ($id: String!) { deleteEntity(id: $id) }
+	`
+	for _, id := range append(alphaIDs, betaIDs...) {
+		sendGraphQLRequest(t, deleteEntity, map[string]interface{}{"id": id})
+	}
+
+	deleteSchema := `
+		mutation ($id: String!) { deleteEntitySchema(id: $id) }
+	`
+	for _, schemaID := range []string{
+		alphaSchemaResp["createEntitySchema"].(map[string]interface{})["id"].(string),
+		betaSchemaResp["createEntitySchema"].(map[string]interface{})["id"].(string),
+	} {
+		sendGraphQLRequest(t, deleteSchema, map[string]interface{}{"id": schemaID})
+	}
+
+	deleteOrg := `
+		mutation ($id: String!) { deleteOrganization(id: $id) }
+	`
+	sendGraphQLRequest(t, deleteOrg, map[string]interface{}{"id": orgID})
 }
