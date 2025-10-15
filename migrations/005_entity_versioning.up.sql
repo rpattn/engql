@@ -107,9 +107,19 @@ ALTER TABLE entities
 ALTER TABLE entities
     ALTER COLUMN version SET NOT NULL;
 
-ALTER TABLE entities
-    ADD CONSTRAINT entities_schema_id_fkey
-    FOREIGN KEY (schema_id) REFERENCES entity_schemas(id);
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'entities_schema_id_fkey'
+    ) THEN
+        ALTER TABLE entities
+            ADD CONSTRAINT entities_schema_id_fkey
+            FOREIGN KEY (schema_id) REFERENCES entity_schemas(id);
+    END IF;
+END;
+$$;
 
 -- Append-only history table for entity changes
 CREATE TABLE IF NOT EXISTS entities_history (
