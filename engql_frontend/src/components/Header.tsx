@@ -1,7 +1,7 @@
 import { Link } from '@tanstack/react-router'
 
 import { useState } from 'react'
-import { GitMerge, Home, Menu, SquareFunction, X } from 'lucide-react'
+import { GitMerge, Home, Menu, SquareFunction, Upload, X } from 'lucide-react'
 
 export default function Header() {
   const [isOpen, setIsOpen] = useState(false)
@@ -83,6 +83,19 @@ export default function Header() {
           >
             <GitMerge size={20} />
             <span className="font-medium">Join Testing</span>
+          </Link>
+
+          <Link
+            to="/ingestion"
+            onClick={() => setIsOpen(false)}
+            className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition-colors mb-2"
+            activeProps={{
+              className:
+                'flex items-center gap-3 p-3 rounded-lg bg-cyan-600 hover:bg-cyan-700 transition-colors mb-2',
+            }}
+          >
+            <Upload size={20} />
+            <span className="font-medium">Ingestion</span>
           </Link>
 
           {/* Demo Links End */}

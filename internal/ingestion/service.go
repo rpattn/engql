@@ -98,7 +98,10 @@ type tableData struct {
 
 // Ingest reads the uploaded file, updates the schema, and persists valid entities.
 func (s *Service) Ingest(ctx context.Context, req Request) (Summary, error) {
-	summary := Summary{}
+	summary := Summary{
+		NewFieldsDetected: []string{},
+		SchemaChanges:     []SchemaChange{},
+	}
 
 	if req.OrganizationID == uuid.Nil {
 		return summary, errors.New("organization id is required")
