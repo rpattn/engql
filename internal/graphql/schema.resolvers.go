@@ -8,7 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"graphql-engineering-api/graph"
+	"github.com/rpattn/engql/graph"
 )
 
 // LinkedEntities is the resolver for the linkedEntities field.

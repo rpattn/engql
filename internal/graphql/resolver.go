@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"graphql-engineering-api/graph"
-	"graphql-engineering-api/internal/repository"
+	"github.com/rpattn/engql/graph"
+	"github.com/rpattn/engql/internal/repository"
 
 	"github.com/google/uuid"
 )

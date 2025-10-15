@@ -9,11 +9,11 @@ import (
 	"syscall"
 	"time"
 
-	"graphql-engineering-api/graph"
-	"graphql-engineering-api/internal/db"
-	"graphql-engineering-api/internal/graphql"
-	"graphql-engineering-api/internal/middleware"
-	"graphql-engineering-api/internal/repository"
+	"github.com/rpattn/engql/graph"
+	"github.com/rpattn/engql/internal/db"
+	"github.com/rpattn/engql/internal/graphql"
+	"github.com/rpattn/engql/internal/middleware"
+	"github.com/rpattn/engql/internal/repository"
 
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/playground"

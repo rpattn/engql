@@ -30,7 +30,7 @@ A Go and PostgreSQL powered GraphQL API for engineering data management with dyn
 ## Project Structure
 
 ```
-graphql-engineering-api/
+github.com/rpattn/engql/
 ├── cmd/server/           # Application entry point
 ├── internal/
 │   ├── domain/          # Core business entities
@@ -73,7 +73,7 @@ graphql-engineering-api/
 1. **Clone and install dependencies**:
    ```bash
    git clone <repository>
-   cd graphql-engineering-api
+   cd github.com/rpattn/engql
    go mod tidy
    ```
 

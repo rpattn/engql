@@ -4,8 +4,8 @@ import (
 	"context"
 	"net/http"
 
-	"graphql-engineering-api/internal/entityloader"
-	"graphql-engineering-api/internal/repository"
+	"github.com/rpattn/engql/internal/entityloader"
+	"github.com/rpattn/engql/internal/repository"
 
 	"github.com/graph-gophers/dataloader"
 )

@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 
-	"graphql-engineering-api/internal/domain"
+	"github.com/rpattn/engql/internal/domain"
 
 	"github.com/google/uuid"
 )

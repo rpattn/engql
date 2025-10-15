@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"graphql-engineering-api/internal/domain"
-	"graphql-engineering-api/internal/repository"
+	"github.com/rpattn/engql/internal/domain"
+	"github.com/rpattn/engql/internal/repository"
 
 	"github.com/google/uuid"
 	"github.com/graph-gophers/dataloader"

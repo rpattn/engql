@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"graphql-engineering-api/graph"
-	"graphql-engineering-api/internal/domain"
-	"graphql-engineering-api/pkg/validator"
+	"github.com/rpattn/engql/graph"
+	"github.com/rpattn/engql/internal/domain"
+	"github.com/rpattn/engql/pkg/validator"
 
 	"github.com/google/uuid"
 )

@@ -1,4 +1,4 @@
-module graphql-engineering-api
+module github.com/rpattn/engql
 
 go 1.25.0
 

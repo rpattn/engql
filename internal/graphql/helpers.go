@@ -3,8 +3,8 @@ package graphql
 import "time"
 import "encoding/json"
 
-import "graphql-engineering-api/internal/domain"
-import "graphql-engineering-api/graph"
+import "github.com/rpattn/engql/internal/domain"
+import "github.com/rpattn/engql/graph"
 
 // Safely dereference strings
 func stringOrEmpty(s *string) string {

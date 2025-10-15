@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"graphql-engineering-api/graph"
-	"graphql-engineering-api/internal/domain"
+	"github.com/rpattn/engql/graph"
+	"github.com/rpattn/engql/internal/domain"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
