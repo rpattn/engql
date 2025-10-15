@@ -99,7 +99,7 @@ func DefaultConfig() Config {
 	return Config{
 		Host:     "localhost",
 		Port:     5432,
-		User:     "rpatt",
+		User:     "postgres",
 		Password: "admin",
 		DBName:   "engineering_api",
 		SSLMode:  "disable",

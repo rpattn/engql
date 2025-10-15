@@ -62,3 +62,8 @@ type EntityJoinRepository interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 	ExecuteJoin(ctx context.Context, join domain.EntityJoinDefinition, options domain.JoinExecutionOptions) ([]domain.EntityJoinEdge, int64, error)
 }
+
+// IngestionLogRepository stores ingestion errors for observability.
+type IngestionLogRepository interface {
+	Record(ctx context.Context, entry domain.IngestionLogEntry) error
+}

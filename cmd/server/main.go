@@ -12,6 +12,7 @@ import (
 	"github.com/rpattn/engql/graph"
 	"github.com/rpattn/engql/internal/db"
 	"github.com/rpattn/engql/internal/graphql"
+	"github.com/rpattn/engql/internal/ingestion"
 	"github.com/rpattn/engql/internal/middleware"
 	"github.com/rpattn/engql/internal/repository"
 
@@ -46,6 +47,8 @@ func main() {
 	entitySchemaRepo := repository.NewEntitySchemaRepository(queries)
 	entityRepo := repository.NewEntityRepository(queries)
 	entityJoinRepo := repository.NewEntityJoinRepository(queries, conn.Pool)
+	ingestionLogRepo := repository.NewIngestionLogRepository(conn.Pool)
+	ingestionService := ingestion.NewService(entitySchemaRepo, entityRepo, ingestionLogRepo)
 
 	// Create GraphQL resolver
 	resolver := graphql.NewResolver(orgRepo, entitySchemaRepo, entityRepo, entityJoinRepo)
@@ -67,8 +70,12 @@ func main() {
 	graphqlHandler := middleware.LoggingMiddleware(
 		middleware.DataLoaderMiddleware(entityRepo)(srv),
 	)
+	ingestionHandler := middleware.LoggingMiddleware(
+		ingestion.NewHTTPHandler(ingestionService),
+	)
 
 	http.Handle("/query", corsHandler.Handler(graphqlHandler))
+	http.Handle("/ingestion", corsHandler.Handler(ingestionHandler))
 	http.Handle("/", corsHandler.Handler(middleware.LoggingMiddleware(playground.Handler("GraphQL playground", "/query"))))
 
 	// Create HTTP server
