@@ -17,6 +17,8 @@ type PropertyFilter = {
   inArray?: string[]
 }
 
+type JoinType = 'REFERENCE' | 'CROSS'
+
 type JoinSortInput = {
   side: 'LEFT' | 'RIGHT'
   field: string
@@ -29,8 +31,9 @@ type JoinDefinition = {
   description?: string | null
   leftEntityType: string
   rightEntityType: string
-  joinField: string
-  joinFieldType: string
+  joinType: JoinType
+  joinField?: string | null
+  joinFieldType?: string | null
   createdAt: string
   updatedAt: string
   leftFilters?: PropertyFilter[]
@@ -95,6 +98,7 @@ const CREATE_JOIN_MUTATION = `
       id
       name
       description
+      joinType
       leftEntityType
       rightEntityType
       joinField
@@ -114,6 +118,7 @@ const LIST_JOIN_DEFINITIONS_QUERY = `
       id
       name
       description
+      joinType
       leftEntityType
       rightEntityType
       joinField
@@ -202,6 +207,7 @@ function JoinTestingPage() {
   const [createLeftType, setCreateLeftType] = useState('')
   const [createRightType, setCreateRightType] = useState('')
   const [createJoinField, setCreateJoinField] = useState('')
+  const [createJoinType, setCreateJoinType] = useState<JoinType>('REFERENCE')
   const [createLeftFilters, setCreateLeftFilters] = useState('[]')
   const [createRightFilters, setCreateRightFilters] = useState('[]')
   const [createSortCriteria, setCreateSortCriteria] = useState('[]')
@@ -240,9 +246,10 @@ function JoinTestingPage() {
       organizationId: string
       name: string
       description?: string
+      joinType: JoinType
       leftEntityType: string
       rightEntityType: string
-      joinField: string
+      joinField?: string
       leftFilters: PropertyFilter[]
       rightFilters: PropertyFilter[]
       sortCriteria: JoinSortInput[]
@@ -320,6 +327,10 @@ function JoinTestingPage() {
           <div className="font-medium text-slate-100">{info.getValue()}</div>
         ),
       }),
+      joinColumnHelper.accessor('joinType', {
+        header: 'Join Type',
+        cell: (info) => info.getValue(),
+      }),
       joinColumnHelper.accessor('leftEntityType', {
         header: 'Left Type',
         cell: (info) => info.getValue(),
@@ -330,7 +341,13 @@ function JoinTestingPage() {
       }),
       joinColumnHelper.accessor('joinField', {
         header: 'Join Field',
-        cell: (info) => info.getValue(),
+        cell: (info) => {
+          const value = info.getValue()
+          if (typeof value === 'string' && value.trim().length > 0) {
+            return value
+          }
+          return '—'
+        },
       }),
       joinColumnHelper.display({
         id: 'actions',
@@ -432,6 +449,16 @@ function JoinTestingPage() {
       return
     }
 
+    const trimmedJoinField = createJoinField.trim()
+    if (createJoinType === 'REFERENCE' && !trimmedJoinField) {
+      setCreateError('Join field is required for reference joins.')
+      return
+    }
+    if (createJoinType === 'CROSS' && trimmedJoinField) {
+      setCreateError('Remove the join field when creating a cross join.')
+      return
+    }
+
     const parsedLeftFilters = parseJSONInput<PropertyFilter[]>(
       createLeftFilters,
       [],
@@ -463,9 +490,10 @@ function JoinTestingPage() {
       organizationId: createOrgId,
       name: createName,
       description: createDescription || undefined,
+      joinType: createJoinType,
       leftEntityType: createLeftType,
       rightEntityType: createRightType,
-      joinField: createJoinField,
+      joinField: createJoinType === 'REFERENCE' ? trimmedJoinField : undefined,
       leftFilters: parsedLeftFilters,
       rightFilters: parsedRightFilters,
       sortCriteria: parsedSortCriteria,
@@ -600,14 +628,43 @@ function JoinTestingPage() {
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-200">
+              Join Type
+            </label>
+            <select
+              value={createJoinType}
+              onChange={(event) => {
+                const nextType = event.target.value as JoinType
+                setCreateJoinType(nextType)
+                if (nextType === 'CROSS') {
+                  setCreateJoinField('')
+                }
+              }}
+              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
+            >
+              <option value="REFERENCE">Reference (field match)</option>
+              <option value="CROSS">Cross (all combinations)</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-200">
               Join Field
             </label>
             <input
               value={createJoinField}
               onChange={(event) => setCreateJoinField(event.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
-              placeholder="owner"
+              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 disabled:cursor-not-allowed disabled:opacity-60"
+              placeholder={
+                createJoinType === 'REFERENCE'
+                  ? 'owner'
+                  : 'Not required for cross joins'
+              }
+              disabled={createJoinType === 'CROSS'}
             />
+            <p className="mt-1 text-xs text-slate-400">
+              {createJoinType === 'REFERENCE'
+                ? 'Name of the left-side field that references the right entity.'
+                : 'Cross joins ignore join fields and pair every left entity with every right entity.'}
+            </p>
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-200">
