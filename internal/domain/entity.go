@@ -9,24 +9,28 @@ import (
 
 // Entity represents a dynamic entity instance with hierarchical properties
 type Entity struct {
-	ID             uuid.UUID       `json:"id"`
-	OrganizationID uuid.UUID       `json:"organization_id"`
-	EntityType     string          `json:"entity_type"`
-	Path           string          `json:"path"` // ltree path as string
-	Properties     map[string]any  `json:"properties"`
-	CreatedAt      time.Time       `json:"created_at"`
-	UpdatedAt      time.Time       `json:"updated_at"`
+	ID             uuid.UUID      `json:"id"`
+	OrganizationID uuid.UUID      `json:"organization_id"`
+	SchemaID       uuid.UUID      `json:"schema_id"`
+	EntityType     string         `json:"entity_type"`
+	Path           string         `json:"path"` // ltree path as string
+	Properties     map[string]any `json:"properties"`
+	Version        int64          `json:"version"`
+	CreatedAt      time.Time      `json:"created_at"`
+	UpdatedAt      time.Time      `json:"updated_at"`
 }
 
 // NewEntity creates a new entity with immutable pattern
-func NewEntity(organizationID uuid.UUID, entityType, path string, properties map[string]any) Entity {
+func NewEntity(organizationID uuid.UUID, schemaID uuid.UUID, entityType, path string, properties map[string]any) Entity {
 	now := time.Now()
 	return Entity{
 		ID:             uuid.New(),
 		OrganizationID: organizationID,
+		SchemaID:       schemaID,
 		EntityType:     entityType,
 		Path:           path,
 		Properties:     copyProperties(properties), // Deep copy to ensure immutability
+		Version:        1,
 		CreatedAt:      now,
 		UpdatedAt:      now,
 	}
@@ -36,13 +40,15 @@ func NewEntity(organizationID uuid.UUID, entityType, path string, properties map
 func (e Entity) WithProperty(key string, value any) Entity {
 	newProperties := copyProperties(e.Properties)
 	newProperties[key] = value
-	
+
 	return Entity{
 		ID:             e.ID,
 		OrganizationID: e.OrganizationID,
+		SchemaID:       e.SchemaID,
 		EntityType:     e.EntityType,
 		Path:           e.Path,
 		Properties:     newProperties,
+		Version:        e.Version,
 		CreatedAt:      e.CreatedAt,
 		UpdatedAt:      time.Now(),
 	}
@@ -52,13 +58,15 @@ func (e Entity) WithProperty(key string, value any) Entity {
 func (e Entity) WithoutProperty(key string) Entity {
 	newProperties := copyProperties(e.Properties)
 	delete(newProperties, key)
-	
+
 	return Entity{
 		ID:             e.ID,
 		OrganizationID: e.OrganizationID,
+		SchemaID:       e.SchemaID,
 		EntityType:     e.EntityType,
 		Path:           e.Path,
 		Properties:     newProperties,
+		Version:        e.Version,
 		CreatedAt:      e.CreatedAt,
 		UpdatedAt:      time.Now(),
 	}
@@ -69,22 +77,26 @@ func (e Entity) WithPath(path string) Entity {
 	return Entity{
 		ID:             e.ID,
 		OrganizationID: e.OrganizationID,
+		SchemaID:       e.SchemaID,
 		EntityType:     e.EntityType,
 		Path:           path,
 		Properties:     copyProperties(e.Properties),
+		Version:        e.Version,
 		CreatedAt:      e.CreatedAt,
 		UpdatedAt:      time.Now(),
 	}
 }
 
-// WithEntityType returns a new entity with updated entity type
-func (e Entity) WithEntityType(entityType string) Entity {
+// WithEntitySchema returns a new entity with updated schema reference
+func (e Entity) WithEntitySchema(entityType string, schemaID uuid.UUID) Entity {
 	return Entity{
 		ID:             e.ID,
 		OrganizationID: e.OrganizationID,
+		SchemaID:       schemaID,
 		EntityType:     entityType,
 		Path:           e.Path,
 		Properties:     copyProperties(e.Properties),
+		Version:        e.Version,
 		CreatedAt:      e.CreatedAt,
 		UpdatedAt:      time.Now(),
 	}
@@ -95,9 +107,11 @@ func (e Entity) WithProperties(properties map[string]any) Entity {
 	return Entity{
 		ID:             e.ID,
 		OrganizationID: e.OrganizationID,
+		SchemaID:       e.SchemaID,
 		EntityType:     e.EntityType,
 		Path:           e.Path,
 		Properties:     copyProperties(properties),
+		Version:        e.Version,
 		CreatedAt:      e.CreatedAt,
 		UpdatedAt:      time.Now(),
 	}
@@ -122,7 +136,7 @@ func (e Entity) GetParentPath() string {
 	if e.Path == "" {
 		return ""
 	}
-	
+
 	// Simple implementation - in production you might want more sophisticated path handling
 	// For ltree format like "1.2.3", parent would be "1.2"
 	lastDot := -1
@@ -132,11 +146,11 @@ func (e Entity) GetParentPath() string {
 			break
 		}
 	}
-	
+
 	if lastDot == -1 {
 		return ""
 	}
-	
+
 	return e.Path[:lastDot]
 }
 
@@ -145,7 +159,7 @@ func (e Entity) IsDescendantOf(path string) bool {
 	if path == "" {
 		return true // Root path, all entities are descendants
 	}
-	
+
 	return len(e.Path) > len(path) && e.Path[:len(path)] == path
 }
 
@@ -154,7 +168,7 @@ func (e Entity) IsAncestorOf(path string) bool {
 	if e.Path == "" {
 		return false // No entity can be ancestor of root
 	}
-	
+
 	return len(path) > len(e.Path) && path[:len(e.Path)] == e.Path
 }
 

@@ -12,6 +12,22 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type EntitiesHistory struct {
+	ID             uuid.UUID          `json:"id"`
+	EntityID       uuid.UUID          `json:"entity_id"`
+	OrganizationID uuid.UUID          `json:"organization_id"`
+	SchemaID       uuid.UUID          `json:"schema_id"`
+	EntityType     string             `json:"entity_type"`
+	Path           string             `json:"path"`
+	Properties     json.RawMessage    `json:"properties"`
+	CreatedAt      time.Time          `json:"created_at"`
+	UpdatedAt      time.Time          `json:"updated_at"`
+	Version        int64              `json:"version"`
+	ChangeType     string             `json:"change_type"`
+	ChangedAt      pgtype.Timestamptz `json:"changed_at"`
+	Reason         pgtype.Text        `json:"reason"`
+}
+
 type Entity struct {
 	ID             uuid.UUID       `json:"id"`
 	OrganizationID uuid.UUID       `json:"organization_id"`
@@ -20,6 +36,8 @@ type Entity struct {
 	Properties     json.RawMessage `json:"properties"`
 	CreatedAt      time.Time       `json:"created_at"`
 	UpdatedAt      time.Time       `json:"updated_at"`
+	SchemaID       uuid.UUID       `json:"schema_id"`
+	Version        int64           `json:"version"`
 }
 
 type EntityJoin struct {
@@ -40,13 +58,26 @@ type EntityJoin struct {
 }
 
 type EntitySchema struct {
-	ID             uuid.UUID       `json:"id"`
-	OrganizationID uuid.UUID       `json:"organization_id"`
-	Name           string          `json:"name"`
-	Description    pgtype.Text     `json:"description"`
-	Fields         json.RawMessage `json:"fields"`
-	CreatedAt      time.Time       `json:"created_at"`
-	UpdatedAt      time.Time       `json:"updated_at"`
+	ID                uuid.UUID       `json:"id"`
+	OrganizationID    uuid.UUID       `json:"organization_id"`
+	Name              string          `json:"name"`
+	Description       pgtype.Text     `json:"description"`
+	Fields            json.RawMessage `json:"fields"`
+	CreatedAt         time.Time       `json:"created_at"`
+	UpdatedAt         time.Time       `json:"updated_at"`
+	Version           string          `json:"version"`
+	PreviousVersionID pgtype.UUID     `json:"previous_version_id"`
+	Status            string          `json:"status"`
+}
+
+type IngestionLog struct {
+	ID             uuid.UUID   `json:"id"`
+	OrganizationID uuid.UUID   `json:"organization_id"`
+	SchemaName     string      `json:"schema_name"`
+	FileName       string      `json:"file_name"`
+	RowNumber      pgtype.Int4 `json:"row_number"`
+	ErrorMessage   string      `json:"error_message"`
+	CreatedAt      time.Time   `json:"created_at"`
 }
 
 type Organization struct {

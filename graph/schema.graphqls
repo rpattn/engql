@@ -67,8 +67,18 @@ type EntitySchema {
   name: String!
   description: String
   fields: [FieldDefinition!]!
+  version: String!
+  status: SchemaStatus!
+  previousVersionId: String
   createdAt: String!
   updatedAt: String!
+}
+
+enum SchemaStatus {
+  ACTIVE
+  DEPRECATED
+  ARCHIVED
+  DRAFT
 }
 
 input CreateEntitySchemaInput {
@@ -99,9 +109,11 @@ input UpdateEntitySchemaInput {
 type Entity {
   id: String!
   organizationId: String!
+  schemaId: String!
   entityType: String!
   path: String!
   properties: String!
+  version: Int!
   createdAt: String!
   updatedAt: String!
 
@@ -249,6 +261,7 @@ type Query {
   entitySchemas(organizationId: String!): [EntitySchema!]!
   entitySchema(id: String!): EntitySchema
   entitySchemaByName(organizationId: String!, name: String!): EntitySchema
+  entitySchemaVersions(organizationId: String!, name: String!): [EntitySchema!]!
 
   # Entity queries
   entities(
@@ -314,6 +327,7 @@ type Mutation {
   deleteEntitySchema(id: String!): Boolean!
   addFieldToSchema(schemaId: String!, field: FieldDefinitionInput!): EntitySchema!
   removeFieldFromSchema(schemaId: String!, fieldName: String!): EntitySchema!
+  rollbackEntity(id: String!, toVersion: Int!, reason: String): Entity!
 
   # Entity mutations
   createEntity(input: CreateEntityInput!): Entity!

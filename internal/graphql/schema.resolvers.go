@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
 	"github.com/rpattn/engql/graph"
 )
 
@@ -68,6 +69,11 @@ func (r *mutationResolver) AddFieldToSchema(ctx context.Context, schemaID string
 // RemoveFieldFromSchema is the resolver for the removeFieldFromSchema field.
 func (r *mutationResolver) RemoveFieldFromSchema(ctx context.Context, schemaID string, fieldName string) (*graph.EntitySchema, error) {
 	return r.Resolver.RemoveFieldFromSchema(ctx, schemaID, fieldName)
+}
+
+// RollbackEntity is the resolver for the rollbackEntity field.
+func (r *mutationResolver) RollbackEntity(ctx context.Context, id string, toVersion int, reason *string) (*graph.Entity, error) {
+	return r.Resolver.RollbackEntity(ctx, id, toVersion, reason)
 }
 
 // CreateEntity is the resolver for the createEntity field.
@@ -142,6 +148,11 @@ func (r *queryResolver) EntitySchema(ctx context.Context, id string) (*graph.Ent
 // EntitySchemaByName is the resolver for the entitySchemaByName field.
 func (r *queryResolver) EntitySchemaByName(ctx context.Context, organizationID string, name string) (*graph.EntitySchema, error) {
 	return r.Resolver.EntitySchemaByName(ctx, organizationID, name)
+}
+
+// EntitySchemaVersions is the resolver for the entitySchemaVersions field.
+func (r *queryResolver) EntitySchemaVersions(ctx context.Context, organizationID string, name string) ([]*graph.EntitySchema, error) {
+	return r.Resolver.EntitySchemaVersions(ctx, organizationID, name)
 }
 
 // Entities is the resolver for the entities field.

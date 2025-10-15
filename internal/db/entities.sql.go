@@ -15,32 +15,48 @@ import (
 )
 
 const CreateEntity = `-- name: CreateEntity :one
-INSERT INTO entities (organization_id, entity_type, path, properties)
-VALUES ($1, $2, $3, $4)
-RETURNING id, organization_id, entity_type, path, properties, created_at, updated_at
+INSERT INTO entities (organization_id, schema_id, entity_type, path, properties)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, organization_id, schema_id, entity_type, path, properties, version, created_at, updated_at
 `
 
 type CreateEntityParams struct {
 	OrganizationID uuid.UUID       `json:"organization_id"`
+	SchemaID       uuid.UUID       `json:"schema_id"`
 	EntityType     string          `json:"entity_type"`
 	Path           string          `json:"path"`
 	Properties     json.RawMessage `json:"properties"`
 }
 
-func (q *Queries) CreateEntity(ctx context.Context, arg CreateEntityParams) (Entity, error) {
+type CreateEntityRow struct {
+	ID             uuid.UUID       `json:"id"`
+	OrganizationID uuid.UUID       `json:"organization_id"`
+	SchemaID       uuid.UUID       `json:"schema_id"`
+	EntityType     string          `json:"entity_type"`
+	Path           string          `json:"path"`
+	Properties     json.RawMessage `json:"properties"`
+	Version        int64           `json:"version"`
+	CreatedAt      time.Time       `json:"created_at"`
+	UpdatedAt      time.Time       `json:"updated_at"`
+}
+
+func (q *Queries) CreateEntity(ctx context.Context, arg CreateEntityParams) (CreateEntityRow, error) {
 	row := q.db.QueryRow(ctx, CreateEntity,
 		arg.OrganizationID,
+		arg.SchemaID,
 		arg.EntityType,
 		arg.Path,
 		arg.Properties,
 	)
-	var i Entity
+	var i CreateEntityRow
 	err := row.Scan(
 		&i.ID,
 		&i.OrganizationID,
+		&i.SchemaID,
 		&i.EntityType,
 		&i.Path,
 		&i.Properties,
+		&i.Version,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -58,7 +74,7 @@ func (q *Queries) DeleteEntity(ctx context.Context, id uuid.UUID) error {
 }
 
 const FilterEntitiesByProperty = `-- name: FilterEntitiesByProperty :many
-SELECT id, organization_id, entity_type, path, properties, created_at, updated_at
+SELECT id, organization_id, schema_id, entity_type, path, properties, version, created_at, updated_at
 FROM entities
 WHERE organization_id = $1 
 AND properties @> $2
@@ -69,21 +85,35 @@ type FilterEntitiesByPropertyParams struct {
 	Properties     json.RawMessage `json:"properties"`
 }
 
-func (q *Queries) FilterEntitiesByProperty(ctx context.Context, arg FilterEntitiesByPropertyParams) ([]Entity, error) {
+type FilterEntitiesByPropertyRow struct {
+	ID             uuid.UUID       `json:"id"`
+	OrganizationID uuid.UUID       `json:"organization_id"`
+	SchemaID       uuid.UUID       `json:"schema_id"`
+	EntityType     string          `json:"entity_type"`
+	Path           string          `json:"path"`
+	Properties     json.RawMessage `json:"properties"`
+	Version        int64           `json:"version"`
+	CreatedAt      time.Time       `json:"created_at"`
+	UpdatedAt      time.Time       `json:"updated_at"`
+}
+
+func (q *Queries) FilterEntitiesByProperty(ctx context.Context, arg FilterEntitiesByPropertyParams) ([]FilterEntitiesByPropertyRow, error) {
 	rows, err := q.db.Query(ctx, FilterEntitiesByProperty, arg.OrganizationID, arg.Properties)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Entity{}
+	items := []FilterEntitiesByPropertyRow{}
 	for rows.Next() {
-		var i Entity
+		var i FilterEntitiesByPropertyRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.OrganizationID,
+			&i.SchemaID,
 			&i.EntityType,
 			&i.Path,
 			&i.Properties,
+			&i.Version,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -98,26 +128,40 @@ func (q *Queries) FilterEntitiesByProperty(ctx context.Context, arg FilterEntiti
 }
 
 const GetEntitiesByIDs = `-- name: GetEntitiesByIDs :many
-SELECT id, organization_id, entity_type, path, properties, created_at, updated_at
+SELECT id, organization_id, schema_id, entity_type, path, properties, version, created_at, updated_at
 FROM entities
 WHERE id = ANY($1::uuid[])
 `
 
-func (q *Queries) GetEntitiesByIDs(ctx context.Context, ids []uuid.UUID) ([]Entity, error) {
+type GetEntitiesByIDsRow struct {
+	ID             uuid.UUID       `json:"id"`
+	OrganizationID uuid.UUID       `json:"organization_id"`
+	SchemaID       uuid.UUID       `json:"schema_id"`
+	EntityType     string          `json:"entity_type"`
+	Path           string          `json:"path"`
+	Properties     json.RawMessage `json:"properties"`
+	Version        int64           `json:"version"`
+	CreatedAt      time.Time       `json:"created_at"`
+	UpdatedAt      time.Time       `json:"updated_at"`
+}
+
+func (q *Queries) GetEntitiesByIDs(ctx context.Context, ids []uuid.UUID) ([]GetEntitiesByIDsRow, error) {
 	rows, err := q.db.Query(ctx, GetEntitiesByIDs, ids)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Entity{}
+	items := []GetEntitiesByIDsRow{}
 	for rows.Next() {
-		var i Entity
+		var i GetEntitiesByIDsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.OrganizationID,
+			&i.SchemaID,
 			&i.EntityType,
 			&i.Path,
 			&i.Properties,
+			&i.Version,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -132,20 +176,34 @@ func (q *Queries) GetEntitiesByIDs(ctx context.Context, ids []uuid.UUID) ([]Enti
 }
 
 const GetEntity = `-- name: GetEntity :one
-SELECT id, organization_id, entity_type, path, properties, created_at, updated_at
+SELECT id, organization_id, schema_id, entity_type, path, properties, version, created_at, updated_at
 FROM entities
 WHERE id = $1
 `
 
-func (q *Queries) GetEntity(ctx context.Context, id uuid.UUID) (Entity, error) {
+type GetEntityRow struct {
+	ID             uuid.UUID       `json:"id"`
+	OrganizationID uuid.UUID       `json:"organization_id"`
+	SchemaID       uuid.UUID       `json:"schema_id"`
+	EntityType     string          `json:"entity_type"`
+	Path           string          `json:"path"`
+	Properties     json.RawMessage `json:"properties"`
+	Version        int64           `json:"version"`
+	CreatedAt      time.Time       `json:"created_at"`
+	UpdatedAt      time.Time       `json:"updated_at"`
+}
+
+func (q *Queries) GetEntity(ctx context.Context, id uuid.UUID) (GetEntityRow, error) {
 	row := q.db.QueryRow(ctx, GetEntity, id)
-	var i Entity
+	var i GetEntityRow
 	err := row.Scan(
 		&i.ID,
 		&i.OrganizationID,
+		&i.SchemaID,
 		&i.EntityType,
 		&i.Path,
 		&i.Properties,
+		&i.Version,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -153,7 +211,7 @@ func (q *Queries) GetEntity(ctx context.Context, id uuid.UUID) (Entity, error) {
 }
 
 const GetEntityAncestors = `-- name: GetEntityAncestors :many
-SELECT id, organization_id, entity_type, path, properties, created_at, updated_at
+SELECT id, organization_id, schema_id, entity_type, path, properties, version, created_at, updated_at
 FROM entities
 WHERE organization_id = $1
   AND path @> $2::ltree
@@ -166,21 +224,35 @@ type GetEntityAncestorsParams struct {
 	Column2        string    `json:"column_2"`
 }
 
-func (q *Queries) GetEntityAncestors(ctx context.Context, arg GetEntityAncestorsParams) ([]Entity, error) {
+type GetEntityAncestorsRow struct {
+	ID             uuid.UUID       `json:"id"`
+	OrganizationID uuid.UUID       `json:"organization_id"`
+	SchemaID       uuid.UUID       `json:"schema_id"`
+	EntityType     string          `json:"entity_type"`
+	Path           string          `json:"path"`
+	Properties     json.RawMessage `json:"properties"`
+	Version        int64           `json:"version"`
+	CreatedAt      time.Time       `json:"created_at"`
+	UpdatedAt      time.Time       `json:"updated_at"`
+}
+
+func (q *Queries) GetEntityAncestors(ctx context.Context, arg GetEntityAncestorsParams) ([]GetEntityAncestorsRow, error) {
 	rows, err := q.db.Query(ctx, GetEntityAncestors, arg.OrganizationID, arg.Column2)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Entity{}
+	items := []GetEntityAncestorsRow{}
 	for rows.Next() {
-		var i Entity
+		var i GetEntityAncestorsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.OrganizationID,
+			&i.SchemaID,
 			&i.EntityType,
 			&i.Path,
 			&i.Properties,
+			&i.Version,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -195,7 +267,7 @@ func (q *Queries) GetEntityAncestors(ctx context.Context, arg GetEntityAncestors
 }
 
 const GetEntityChildren = `-- name: GetEntityChildren :many
-SELECT id, organization_id, entity_type, path, properties, created_at, updated_at
+SELECT id, organization_id, schema_id, entity_type, path, properties, version, created_at, updated_at
 FROM entities
 WHERE organization_id = $1 AND path ~ ($2 || '.*{1}')::lquery
 `
@@ -205,21 +277,35 @@ type GetEntityChildrenParams struct {
 	Column2        pgtype.Text `json:"column_2"`
 }
 
-func (q *Queries) GetEntityChildren(ctx context.Context, arg GetEntityChildrenParams) ([]Entity, error) {
+type GetEntityChildrenRow struct {
+	ID             uuid.UUID       `json:"id"`
+	OrganizationID uuid.UUID       `json:"organization_id"`
+	SchemaID       uuid.UUID       `json:"schema_id"`
+	EntityType     string          `json:"entity_type"`
+	Path           string          `json:"path"`
+	Properties     json.RawMessage `json:"properties"`
+	Version        int64           `json:"version"`
+	CreatedAt      time.Time       `json:"created_at"`
+	UpdatedAt      time.Time       `json:"updated_at"`
+}
+
+func (q *Queries) GetEntityChildren(ctx context.Context, arg GetEntityChildrenParams) ([]GetEntityChildrenRow, error) {
 	rows, err := q.db.Query(ctx, GetEntityChildren, arg.OrganizationID, arg.Column2)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Entity{}
+	items := []GetEntityChildrenRow{}
 	for rows.Next() {
-		var i Entity
+		var i GetEntityChildrenRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.OrganizationID,
+			&i.SchemaID,
 			&i.EntityType,
 			&i.Path,
 			&i.Properties,
+			&i.Version,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -265,7 +351,7 @@ func (q *Queries) GetEntityCountByType(ctx context.Context, arg GetEntityCountBy
 }
 
 const GetEntityDescendants = `-- name: GetEntityDescendants :many
-SELECT id, organization_id, entity_type, path, properties, created_at, updated_at
+SELECT id, organization_id, schema_id, entity_type, path, properties, version, created_at, updated_at
 FROM entities
 WHERE organization_id = $1 AND path ~ ($2 || '.*')::lquery
 `
@@ -275,21 +361,35 @@ type GetEntityDescendantsParams struct {
 	Column2        pgtype.Text `json:"column_2"`
 }
 
-func (q *Queries) GetEntityDescendants(ctx context.Context, arg GetEntityDescendantsParams) ([]Entity, error) {
+type GetEntityDescendantsRow struct {
+	ID             uuid.UUID       `json:"id"`
+	OrganizationID uuid.UUID       `json:"organization_id"`
+	SchemaID       uuid.UUID       `json:"schema_id"`
+	EntityType     string          `json:"entity_type"`
+	Path           string          `json:"path"`
+	Properties     json.RawMessage `json:"properties"`
+	Version        int64           `json:"version"`
+	CreatedAt      time.Time       `json:"created_at"`
+	UpdatedAt      time.Time       `json:"updated_at"`
+}
+
+func (q *Queries) GetEntityDescendants(ctx context.Context, arg GetEntityDescendantsParams) ([]GetEntityDescendantsRow, error) {
 	rows, err := q.db.Query(ctx, GetEntityDescendants, arg.OrganizationID, arg.Column2)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Entity{}
+	items := []GetEntityDescendantsRow{}
 	for rows.Next() {
-		var i Entity
+		var i GetEntityDescendantsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.OrganizationID,
+			&i.SchemaID,
 			&i.EntityType,
 			&i.Path,
 			&i.Properties,
+			&i.Version,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -303,8 +403,40 @@ func (q *Queries) GetEntityDescendants(ctx context.Context, arg GetEntityDescend
 	return items, nil
 }
 
+const GetEntityHistoryByVersion = `-- name: GetEntityHistoryByVersion :one
+SELECT id, entity_id, organization_id, schema_id, entity_type, path, properties, created_at, updated_at, version, change_type, changed_at, reason
+FROM entities_history
+WHERE entity_id = $1 AND version = $2
+`
+
+type GetEntityHistoryByVersionParams struct {
+	EntityID uuid.UUID `json:"entity_id"`
+	Version  int64     `json:"version"`
+}
+
+func (q *Queries) GetEntityHistoryByVersion(ctx context.Context, arg GetEntityHistoryByVersionParams) (EntitiesHistory, error) {
+	row := q.db.QueryRow(ctx, GetEntityHistoryByVersion, arg.EntityID, arg.Version)
+	var i EntitiesHistory
+	err := row.Scan(
+		&i.ID,
+		&i.EntityID,
+		&i.OrganizationID,
+		&i.SchemaID,
+		&i.EntityType,
+		&i.Path,
+		&i.Properties,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Version,
+		&i.ChangeType,
+		&i.ChangedAt,
+		&i.Reason,
+	)
+	return i, err
+}
+
 const GetEntitySiblings = `-- name: GetEntitySiblings :many
-SELECT id, organization_id, entity_type, path, properties, created_at, updated_at
+SELECT id, organization_id, schema_id, entity_type, path, properties, version, created_at, updated_at
 FROM entities
 WHERE organization_id = $1 AND path ~ ($2 || '.*{1}')::lquery
 `
@@ -314,21 +446,35 @@ type GetEntitySiblingsParams struct {
 	Column2        pgtype.Text `json:"column_2"`
 }
 
-func (q *Queries) GetEntitySiblings(ctx context.Context, arg GetEntitySiblingsParams) ([]Entity, error) {
+type GetEntitySiblingsRow struct {
+	ID             uuid.UUID       `json:"id"`
+	OrganizationID uuid.UUID       `json:"organization_id"`
+	SchemaID       uuid.UUID       `json:"schema_id"`
+	EntityType     string          `json:"entity_type"`
+	Path           string          `json:"path"`
+	Properties     json.RawMessage `json:"properties"`
+	Version        int64           `json:"version"`
+	CreatedAt      time.Time       `json:"created_at"`
+	UpdatedAt      time.Time       `json:"updated_at"`
+}
+
+func (q *Queries) GetEntitySiblings(ctx context.Context, arg GetEntitySiblingsParams) ([]GetEntitySiblingsRow, error) {
 	rows, err := q.db.Query(ctx, GetEntitySiblings, arg.OrganizationID, arg.Column2)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Entity{}
+	items := []GetEntitySiblingsRow{}
 	for rows.Next() {
-		var i Entity
+		var i GetEntitySiblingsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.OrganizationID,
+			&i.SchemaID,
 			&i.EntityType,
 			&i.Path,
 			&i.Properties,
+			&i.Version,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -342,8 +488,69 @@ func (q *Queries) GetEntitySiblings(ctx context.Context, arg GetEntitySiblingsPa
 	return items, nil
 }
 
+const GetMaxEntityHistoryVersion = `-- name: GetMaxEntityHistoryVersion :one
+SELECT COALESCE(MAX(version), 0)::BIGINT
+FROM entities_history
+WHERE entity_id = $1
+`
+
+func (q *Queries) GetMaxEntityHistoryVersion(ctx context.Context, entityID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, GetMaxEntityHistoryVersion, entityID)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const InsertEntityHistoryRecord = `-- name: InsertEntityHistoryRecord :exec
+INSERT INTO entities_history (
+    entity_id,
+    organization_id,
+    schema_id,
+    entity_type,
+    path,
+    properties,
+    created_at,
+    updated_at,
+    version,
+    change_type,
+    reason
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+`
+
+type InsertEntityHistoryRecordParams struct {
+	EntityID       uuid.UUID       `json:"entity_id"`
+	OrganizationID uuid.UUID       `json:"organization_id"`
+	SchemaID       uuid.UUID       `json:"schema_id"`
+	EntityType     string          `json:"entity_type"`
+	Path           string          `json:"path"`
+	Properties     json.RawMessage `json:"properties"`
+	CreatedAt      time.Time       `json:"created_at"`
+	UpdatedAt      time.Time       `json:"updated_at"`
+	Version        int64           `json:"version"`
+	ChangeType     string          `json:"change_type"`
+	Reason         pgtype.Text     `json:"reason"`
+}
+
+func (q *Queries) InsertEntityHistoryRecord(ctx context.Context, arg InsertEntityHistoryRecordParams) error {
+	_, err := q.db.Exec(ctx, InsertEntityHistoryRecord,
+		arg.EntityID,
+		arg.OrganizationID,
+		arg.SchemaID,
+		arg.EntityType,
+		arg.Path,
+		arg.Properties,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+		arg.Version,
+		arg.ChangeType,
+		arg.Reason,
+	)
+	return err
+}
+
 const ListEntities = `-- name: ListEntities :many
-SELECT id, organization_id, entity_type, path, properties, created_at, updated_at,
+SELECT id, organization_id, schema_id, entity_type, path, properties, version, created_at, updated_at,
        COUNT(*) OVER() AS total_count
 FROM entities
 WHERE organization_id = $1
@@ -360,9 +567,11 @@ type ListEntitiesParams struct {
 type ListEntitiesRow struct {
 	ID             uuid.UUID       `json:"id"`
 	OrganizationID uuid.UUID       `json:"organization_id"`
+	SchemaID       uuid.UUID       `json:"schema_id"`
 	EntityType     string          `json:"entity_type"`
 	Path           string          `json:"path"`
 	Properties     json.RawMessage `json:"properties"`
+	Version        int64           `json:"version"`
 	CreatedAt      time.Time       `json:"created_at"`
 	UpdatedAt      time.Time       `json:"updated_at"`
 	TotalCount     int64           `json:"total_count"`
@@ -380,9 +589,11 @@ func (q *Queries) ListEntities(ctx context.Context, arg ListEntitiesParams) ([]L
 		if err := rows.Scan(
 			&i.ID,
 			&i.OrganizationID,
+			&i.SchemaID,
 			&i.EntityType,
 			&i.Path,
 			&i.Properties,
+			&i.Version,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.TotalCount,
@@ -398,7 +609,7 @@ func (q *Queries) ListEntities(ctx context.Context, arg ListEntitiesParams) ([]L
 }
 
 const ListEntitiesByType = `-- name: ListEntitiesByType :many
-SELECT id, organization_id, entity_type, path, properties, created_at, updated_at
+SELECT id, organization_id, schema_id, entity_type, path, properties, version, created_at, updated_at
 FROM entities
 WHERE organization_id = $1 AND entity_type = $2
 ORDER BY created_at DESC
@@ -409,21 +620,35 @@ type ListEntitiesByTypeParams struct {
 	EntityType     string    `json:"entity_type"`
 }
 
-func (q *Queries) ListEntitiesByType(ctx context.Context, arg ListEntitiesByTypeParams) ([]Entity, error) {
+type ListEntitiesByTypeRow struct {
+	ID             uuid.UUID       `json:"id"`
+	OrganizationID uuid.UUID       `json:"organization_id"`
+	SchemaID       uuid.UUID       `json:"schema_id"`
+	EntityType     string          `json:"entity_type"`
+	Path           string          `json:"path"`
+	Properties     json.RawMessage `json:"properties"`
+	Version        int64           `json:"version"`
+	CreatedAt      time.Time       `json:"created_at"`
+	UpdatedAt      time.Time       `json:"updated_at"`
+}
+
+func (q *Queries) ListEntitiesByType(ctx context.Context, arg ListEntitiesByTypeParams) ([]ListEntitiesByTypeRow, error) {
 	rows, err := q.db.Query(ctx, ListEntitiesByType, arg.OrganizationID, arg.EntityType)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Entity{}
+	items := []ListEntitiesByTypeRow{}
 	for rows.Next() {
-		var i Entity
+		var i ListEntitiesByTypeRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.OrganizationID,
+			&i.SchemaID,
 			&i.EntityType,
 			&i.Path,
 			&i.Properties,
+			&i.Version,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -437,36 +662,129 @@ func (q *Queries) ListEntitiesByType(ctx context.Context, arg ListEntitiesByType
 	return items, nil
 }
 
+const ListEntityHistory = `-- name: ListEntityHistory :many
+SELECT id, entity_id, organization_id, schema_id, entity_type, path, properties, created_at, updated_at, version, change_type, changed_at, reason
+FROM entities_history
+WHERE entity_id = $1
+ORDER BY version DESC
+`
+
+func (q *Queries) ListEntityHistory(ctx context.Context, entityID uuid.UUID) ([]EntitiesHistory, error) {
+	rows, err := q.db.Query(ctx, ListEntityHistory, entityID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []EntitiesHistory{}
+	for rows.Next() {
+		var i EntitiesHistory
+		if err := rows.Scan(
+			&i.ID,
+			&i.EntityID,
+			&i.OrganizationID,
+			&i.SchemaID,
+			&i.EntityType,
+			&i.Path,
+			&i.Properties,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Version,
+			&i.ChangeType,
+			&i.ChangedAt,
+			&i.Reason,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const UpdateEntity = `-- name: UpdateEntity :one
 UPDATE entities
-SET entity_type = $2, path = $3, properties = $4, updated_at = NOW()
+SET schema_id = $2, entity_type = $3, path = $4, properties = $5, updated_at = NOW()
 WHERE id = $1
-RETURNING id, organization_id, entity_type, path, properties, created_at, updated_at
+RETURNING id, organization_id, schema_id, entity_type, path, properties, version, created_at, updated_at
 `
 
 type UpdateEntityParams struct {
 	ID         uuid.UUID       `json:"id"`
+	SchemaID   uuid.UUID       `json:"schema_id"`
 	EntityType string          `json:"entity_type"`
 	Path       string          `json:"path"`
 	Properties json.RawMessage `json:"properties"`
 }
 
-func (q *Queries) UpdateEntity(ctx context.Context, arg UpdateEntityParams) (Entity, error) {
+type UpdateEntityRow struct {
+	ID             uuid.UUID       `json:"id"`
+	OrganizationID uuid.UUID       `json:"organization_id"`
+	SchemaID       uuid.UUID       `json:"schema_id"`
+	EntityType     string          `json:"entity_type"`
+	Path           string          `json:"path"`
+	Properties     json.RawMessage `json:"properties"`
+	Version        int64           `json:"version"`
+	CreatedAt      time.Time       `json:"created_at"`
+	UpdatedAt      time.Time       `json:"updated_at"`
+}
+
+func (q *Queries) UpdateEntity(ctx context.Context, arg UpdateEntityParams) (UpdateEntityRow, error) {
 	row := q.db.QueryRow(ctx, UpdateEntity,
 		arg.ID,
+		arg.SchemaID,
 		arg.EntityType,
 		arg.Path,
 		arg.Properties,
 	)
-	var i Entity
+	var i UpdateEntityRow
 	err := row.Scan(
 		&i.ID,
 		&i.OrganizationID,
+		&i.SchemaID,
 		&i.EntityType,
 		&i.Path,
 		&i.Properties,
+		&i.Version,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const UpsertEntityFromHistory = `-- name: UpsertEntityFromHistory :exec
+INSERT INTO entities (id, organization_id, schema_id, entity_type, path, properties, version, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+ON CONFLICT (id) DO UPDATE
+SET schema_id = EXCLUDED.schema_id,
+    entity_type = EXCLUDED.entity_type,
+    path = EXCLUDED.path,
+    properties = EXCLUDED.properties,
+    updated_at = NOW()
+`
+
+type UpsertEntityFromHistoryParams struct {
+	ID             uuid.UUID       `json:"id"`
+	OrganizationID uuid.UUID       `json:"organization_id"`
+	SchemaID       uuid.UUID       `json:"schema_id"`
+	EntityType     string          `json:"entity_type"`
+	Path           string          `json:"path"`
+	Properties     json.RawMessage `json:"properties"`
+	Version        int64           `json:"version"`
+	CreatedAt      time.Time       `json:"created_at"`
+}
+
+func (q *Queries) UpsertEntityFromHistory(ctx context.Context, arg UpsertEntityFromHistoryParams) error {
+	_, err := q.db.Exec(ctx, UpsertEntityFromHistory,
+		arg.ID,
+		arg.OrganizationID,
+		arg.SchemaID,
+		arg.EntityType,
+		arg.Path,
+		arg.Properties,
+		arg.Version,
+		arg.CreatedAt,
+	)
+	return err
 }

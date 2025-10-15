@@ -46,9 +46,11 @@ type CreateOrganizationInput struct {
 type Entity struct {
 	ID             string    `json:"id"`
 	OrganizationID string    `json:"organizationId"`
+	SchemaID       string    `json:"schemaId"`
 	EntityType     string    `json:"entityType"`
 	Path           string    `json:"path"`
 	Properties     string    `json:"properties"`
+	Version        int       `json:"version"`
 	CreatedAt      string    `json:"createdAt"`
 	UpdatedAt      string    `json:"updatedAt"`
 	LinkedEntities []*Entity `json:"linkedEntities"`
@@ -101,13 +103,16 @@ type EntityJoinEdge struct {
 }
 
 type EntitySchema struct {
-	ID             string             `json:"id"`
-	OrganizationID string             `json:"organizationId"`
-	Name           string             `json:"name"`
-	Description    *string            `json:"description,omitempty"`
-	Fields         []*FieldDefinition `json:"fields"`
-	CreatedAt      string             `json:"createdAt"`
-	UpdatedAt      string             `json:"updatedAt"`
+	ID                string             `json:"id"`
+	OrganizationID    string             `json:"organizationId"`
+	Name              string             `json:"name"`
+	Description       *string            `json:"description,omitempty"`
+	Fields            []*FieldDefinition `json:"fields"`
+	Version           string             `json:"version"`
+	Status            SchemaStatus       `json:"status"`
+	PreviousVersionID *string            `json:"previousVersionId,omitempty"`
+	CreatedAt         string             `json:"createdAt"`
+	UpdatedAt         string             `json:"updatedAt"`
 }
 
 type ExecuteEntityJoinInput struct {
@@ -470,6 +475,65 @@ func (e *JoinType) UnmarshalJSON(b []byte) error {
 }
 
 func (e JoinType) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type SchemaStatus string
+
+const (
+	SchemaStatusActive     SchemaStatus = "ACTIVE"
+	SchemaStatusDeprecated SchemaStatus = "DEPRECATED"
+	SchemaStatusArchived   SchemaStatus = "ARCHIVED"
+	SchemaStatusDraft      SchemaStatus = "DRAFT"
+)
+
+var AllSchemaStatus = []SchemaStatus{
+	SchemaStatusActive,
+	SchemaStatusDeprecated,
+	SchemaStatusArchived,
+	SchemaStatusDraft,
+}
+
+func (e SchemaStatus) IsValid() bool {
+	switch e {
+	case SchemaStatusActive, SchemaStatusDeprecated, SchemaStatusArchived, SchemaStatusDraft:
+		return true
+	}
+	return false
+}
+
+func (e SchemaStatus) String() string {
+	return string(e)
+}
+
+func (e *SchemaStatus) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = SchemaStatus(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid SchemaStatus", str)
+	}
+	return nil
+}
+
+func (e SchemaStatus) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *SchemaStatus) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e SchemaStatus) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil

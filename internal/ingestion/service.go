@@ -165,6 +165,7 @@ func (s *Service) Ingest(ctx context.Context, req Request) (Summary, error) {
 		fieldMap[field.Name] = field
 	}
 
+	baseSchema := workingSchema
 	var schemaUpdated bool
 	for _, detected := range detectedFields {
 		existing, found := fieldMap[detected.Name]
@@ -201,11 +202,26 @@ func (s *Service) Ingest(ctx context.Context, req Request) (Summary, error) {
 	}
 
 	if schemaUpdated && !summary.SchemaCreated {
-		updatedSchema, err := s.schemaRepo.Update(ctx, workingSchema)
+		compatibility := domain.DetermineCompatibility(baseSchema.Fields, workingSchema.Fields)
+		nextVersion, err := domain.NewVersionFromExisting(baseSchema, workingSchema, compatibility, domain.SchemaStatusActive)
 		if err != nil {
-			return summary, fmt.Errorf("failed to update schema: %w", err)
+			return summary, fmt.Errorf("failed to prepare schema version: %w", err)
 		}
-		workingSchema = updatedSchema
+
+		persisted, err := s.schemaRepo.CreateVersion(ctx, nextVersion)
+		if err != nil {
+			return summary, fmt.Errorf("failed to persist schema version: %w", err)
+		}
+		workingSchema = persisted
+
+		fieldMap = make(map[string]domain.FieldDefinition)
+		for _, field := range workingSchema.Fields {
+			fieldMap[field.Name] = field
+		}
+
+		summary.SchemaChanges = append(summary.SchemaChanges, SchemaChange{
+			Message: fmt.Sprintf("schema %s updated to version %s (%s)", workingSchema.Name, workingSchema.Version, compatibility),
+		})
 	}
 
 	if summary.TotalRows == 0 {
@@ -270,7 +286,7 @@ func (s *Service) Ingest(ctx context.Context, req Request) (Summary, error) {
 		}
 
 		path := generatePath(workingSchema.Name, row, rowIdx, usedPaths)
-		entity := domain.NewEntity(req.OrganizationID, workingSchema.Name, path, properties)
+		entity := domain.NewEntity(req.OrganizationID, workingSchema.ID, workingSchema.Name, path, properties)
 
 		if _, err := s.entityRepo.Create(ctx, entity); err != nil {
 			s.summaryRowError(ctx, req, rowNumber, fmt.Errorf("failed to insert entity: %w", err))

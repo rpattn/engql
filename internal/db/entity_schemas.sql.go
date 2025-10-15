@@ -8,69 +8,106 @@ package db
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const CreateEntitySchema = `-- name: CreateEntitySchema :one
-INSERT INTO entity_schemas (organization_id, name, description, fields)
-VALUES ($1, $2, $3, $4)
-RETURNING id, organization_id, name, description, fields, created_at, updated_at
+INSERT INTO entity_schemas (
+    organization_id,
+    name,
+    description,
+    fields,
+    version,
+    previous_version_id,
+    status
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, organization_id, name, description, fields, version, previous_version_id, status, created_at, updated_at
 `
 
 type CreateEntitySchemaParams struct {
-	OrganizationID uuid.UUID       `json:"organization_id"`
-	Name           string          `json:"name"`
-	Description    pgtype.Text     `json:"description"`
-	Fields         json.RawMessage `json:"fields"`
+	OrganizationID    uuid.UUID       `json:"organization_id"`
+	Name              string          `json:"name"`
+	Description       pgtype.Text     `json:"description"`
+	Fields            json.RawMessage `json:"fields"`
+	Version           string          `json:"version"`
+	PreviousVersionID pgtype.UUID     `json:"previous_version_id"`
+	Status            string          `json:"status"`
 }
 
-func (q *Queries) CreateEntitySchema(ctx context.Context, arg CreateEntitySchemaParams) (EntitySchema, error) {
+type CreateEntitySchemaRow struct {
+	ID                uuid.UUID       `json:"id"`
+	OrganizationID    uuid.UUID       `json:"organization_id"`
+	Name              string          `json:"name"`
+	Description       pgtype.Text     `json:"description"`
+	Fields            json.RawMessage `json:"fields"`
+	Version           string          `json:"version"`
+	PreviousVersionID pgtype.UUID     `json:"previous_version_id"`
+	Status            string          `json:"status"`
+	CreatedAt         time.Time       `json:"created_at"`
+	UpdatedAt         time.Time       `json:"updated_at"`
+}
+
+func (q *Queries) CreateEntitySchema(ctx context.Context, arg CreateEntitySchemaParams) (CreateEntitySchemaRow, error) {
 	row := q.db.QueryRow(ctx, CreateEntitySchema,
 		arg.OrganizationID,
 		arg.Name,
 		arg.Description,
 		arg.Fields,
+		arg.Version,
+		arg.PreviousVersionID,
+		arg.Status,
 	)
-	var i EntitySchema
+	var i CreateEntitySchemaRow
 	err := row.Scan(
 		&i.ID,
 		&i.OrganizationID,
 		&i.Name,
 		&i.Description,
 		&i.Fields,
+		&i.Version,
+		&i.PreviousVersionID,
+		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return i, err
 }
 
-const DeleteEntitySchema = `-- name: DeleteEntitySchema :exec
-DELETE FROM entity_schemas
-WHERE id = $1
-`
-
-func (q *Queries) DeleteEntitySchema(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.Exec(ctx, DeleteEntitySchema, id)
-	return err
-}
-
 const GetEntitySchema = `-- name: GetEntitySchema :one
-SELECT id, organization_id, name, description, fields, created_at, updated_at
+SELECT id, organization_id, name, description, fields, version, previous_version_id, status, created_at, updated_at
 FROM entity_schemas
 WHERE id = $1
 `
 
-func (q *Queries) GetEntitySchema(ctx context.Context, id uuid.UUID) (EntitySchema, error) {
+type GetEntitySchemaRow struct {
+	ID                uuid.UUID       `json:"id"`
+	OrganizationID    uuid.UUID       `json:"organization_id"`
+	Name              string          `json:"name"`
+	Description       pgtype.Text     `json:"description"`
+	Fields            json.RawMessage `json:"fields"`
+	Version           string          `json:"version"`
+	PreviousVersionID pgtype.UUID     `json:"previous_version_id"`
+	Status            string          `json:"status"`
+	CreatedAt         time.Time       `json:"created_at"`
+	UpdatedAt         time.Time       `json:"updated_at"`
+}
+
+func (q *Queries) GetEntitySchema(ctx context.Context, id uuid.UUID) (GetEntitySchemaRow, error) {
 	row := q.db.QueryRow(ctx, GetEntitySchema, id)
-	var i EntitySchema
+	var i GetEntitySchemaRow
 	err := row.Scan(
 		&i.ID,
 		&i.OrganizationID,
 		&i.Name,
 		&i.Description,
 		&i.Fields,
+		&i.Version,
+		&i.PreviousVersionID,
+		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -78,9 +115,11 @@ func (q *Queries) GetEntitySchema(ctx context.Context, id uuid.UUID) (EntitySche
 }
 
 const GetEntitySchemaByName = `-- name: GetEntitySchemaByName :one
-SELECT id, organization_id, name, description, fields, created_at, updated_at
+SELECT id, organization_id, name, description, fields, version, previous_version_id, status, created_at, updated_at
 FROM entity_schemas
-WHERE organization_id = $1 AND name = $2
+WHERE organization_id = $1 AND name = $2 AND status <> 'ARCHIVED'
+ORDER BY created_at DESC
+LIMIT 1
 `
 
 type GetEntitySchemaByNameParams struct {
@@ -88,43 +127,186 @@ type GetEntitySchemaByNameParams struct {
 	Name           string    `json:"name"`
 }
 
-func (q *Queries) GetEntitySchemaByName(ctx context.Context, arg GetEntitySchemaByNameParams) (EntitySchema, error) {
+type GetEntitySchemaByNameRow struct {
+	ID                uuid.UUID       `json:"id"`
+	OrganizationID    uuid.UUID       `json:"organization_id"`
+	Name              string          `json:"name"`
+	Description       pgtype.Text     `json:"description"`
+	Fields            json.RawMessage `json:"fields"`
+	Version           string          `json:"version"`
+	PreviousVersionID pgtype.UUID     `json:"previous_version_id"`
+	Status            string          `json:"status"`
+	CreatedAt         time.Time       `json:"created_at"`
+	UpdatedAt         time.Time       `json:"updated_at"`
+}
+
+func (q *Queries) GetEntitySchemaByName(ctx context.Context, arg GetEntitySchemaByNameParams) (GetEntitySchemaByNameRow, error) {
 	row := q.db.QueryRow(ctx, GetEntitySchemaByName, arg.OrganizationID, arg.Name)
-	var i EntitySchema
+	var i GetEntitySchemaByNameRow
 	err := row.Scan(
 		&i.ID,
 		&i.OrganizationID,
 		&i.Name,
 		&i.Description,
 		&i.Fields,
+		&i.Version,
+		&i.PreviousVersionID,
+		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return i, err
 }
 
-const ListEntitySchemas = `-- name: ListEntitySchemas :many
-SELECT id, organization_id, name, description, fields, created_at, updated_at
+const GetEntitySchemaVersionByNumber = `-- name: GetEntitySchemaVersionByNumber :one
+SELECT id, organization_id, name, description, fields, version, previous_version_id, status, created_at, updated_at
 FROM entity_schemas
-WHERE organization_id = $1
-ORDER BY name
+WHERE organization_id = $1 AND name = $2 AND version = $3
+ORDER BY created_at DESC
+LIMIT 1
 `
 
-func (q *Queries) ListEntitySchemas(ctx context.Context, organizationID uuid.UUID) ([]EntitySchema, error) {
-	rows, err := q.db.Query(ctx, ListEntitySchemas, organizationID)
+type GetEntitySchemaVersionByNumberParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	Name           string    `json:"name"`
+	Version        string    `json:"version"`
+}
+
+type GetEntitySchemaVersionByNumberRow struct {
+	ID                uuid.UUID       `json:"id"`
+	OrganizationID    uuid.UUID       `json:"organization_id"`
+	Name              string          `json:"name"`
+	Description       pgtype.Text     `json:"description"`
+	Fields            json.RawMessage `json:"fields"`
+	Version           string          `json:"version"`
+	PreviousVersionID pgtype.UUID     `json:"previous_version_id"`
+	Status            string          `json:"status"`
+	CreatedAt         time.Time       `json:"created_at"`
+	UpdatedAt         time.Time       `json:"updated_at"`
+}
+
+func (q *Queries) GetEntitySchemaVersionByNumber(ctx context.Context, arg GetEntitySchemaVersionByNumberParams) (GetEntitySchemaVersionByNumberRow, error) {
+	row := q.db.QueryRow(ctx, GetEntitySchemaVersionByNumber, arg.OrganizationID, arg.Name, arg.Version)
+	var i GetEntitySchemaVersionByNumberRow
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.Name,
+		&i.Description,
+		&i.Fields,
+		&i.Version,
+		&i.PreviousVersionID,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const ListEntitySchemaVersions = `-- name: ListEntitySchemaVersions :many
+SELECT id, organization_id, name, description, fields, version, previous_version_id, status, created_at, updated_at
+FROM entity_schemas
+WHERE organization_id = $1 AND name = $2
+ORDER BY created_at DESC
+`
+
+type ListEntitySchemaVersionsParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	Name           string    `json:"name"`
+}
+
+type ListEntitySchemaVersionsRow struct {
+	ID                uuid.UUID       `json:"id"`
+	OrganizationID    uuid.UUID       `json:"organization_id"`
+	Name              string          `json:"name"`
+	Description       pgtype.Text     `json:"description"`
+	Fields            json.RawMessage `json:"fields"`
+	Version           string          `json:"version"`
+	PreviousVersionID pgtype.UUID     `json:"previous_version_id"`
+	Status            string          `json:"status"`
+	CreatedAt         time.Time       `json:"created_at"`
+	UpdatedAt         time.Time       `json:"updated_at"`
+}
+
+func (q *Queries) ListEntitySchemaVersions(ctx context.Context, arg ListEntitySchemaVersionsParams) ([]ListEntitySchemaVersionsRow, error) {
+	rows, err := q.db.Query(ctx, ListEntitySchemaVersions, arg.OrganizationID, arg.Name)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []EntitySchema{}
+	items := []ListEntitySchemaVersionsRow{}
 	for rows.Next() {
-		var i EntitySchema
+		var i ListEntitySchemaVersionsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.OrganizationID,
 			&i.Name,
 			&i.Description,
 			&i.Fields,
+			&i.Version,
+			&i.PreviousVersionID,
+			&i.Status,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const ListEntitySchemas = `-- name: ListEntitySchemas :many
+SELECT DISTINCT ON (organization_id, name)
+    id,
+    organization_id,
+    name,
+    description,
+    fields,
+    version,
+    previous_version_id,
+    status,
+    created_at,
+    updated_at
+FROM entity_schemas
+WHERE organization_id = $1 AND status <> 'ARCHIVED'
+ORDER BY organization_id, name, created_at DESC
+`
+
+type ListEntitySchemasRow struct {
+	ID                uuid.UUID       `json:"id"`
+	OrganizationID    uuid.UUID       `json:"organization_id"`
+	Name              string          `json:"name"`
+	Description       pgtype.Text     `json:"description"`
+	Fields            json.RawMessage `json:"fields"`
+	Version           string          `json:"version"`
+	PreviousVersionID pgtype.UUID     `json:"previous_version_id"`
+	Status            string          `json:"status"`
+	CreatedAt         time.Time       `json:"created_at"`
+	UpdatedAt         time.Time       `json:"updated_at"`
+}
+
+func (q *Queries) ListEntitySchemas(ctx context.Context, organizationID uuid.UUID) ([]ListEntitySchemasRow, error) {
+	rows, err := q.db.Query(ctx, ListEntitySchemas, organizationID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListEntitySchemasRow{}
+	for rows.Next() {
+		var i ListEntitySchemasRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrganizationID,
+			&i.Name,
+			&i.Description,
+			&i.Fields,
+			&i.Version,
+			&i.PreviousVersionID,
+			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -155,38 +337,4 @@ func (q *Queries) SchemaExists(ctx context.Context, arg SchemaExistsParams) (boo
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
-}
-
-const UpdateEntitySchema = `-- name: UpdateEntitySchema :one
-UPDATE entity_schemas
-SET name = $2, description = $3, fields = $4, updated_at = NOW()
-WHERE id = $1
-RETURNING id, organization_id, name, description, fields, created_at, updated_at
-`
-
-type UpdateEntitySchemaParams struct {
-	ID          uuid.UUID       `json:"id"`
-	Name        string          `json:"name"`
-	Description pgtype.Text     `json:"description"`
-	Fields      json.RawMessage `json:"fields"`
-}
-
-func (q *Queries) UpdateEntitySchema(ctx context.Context, arg UpdateEntitySchemaParams) (EntitySchema, error) {
-	row := q.db.QueryRow(ctx, UpdateEntitySchema,
-		arg.ID,
-		arg.Name,
-		arg.Description,
-		arg.Fields,
-	)
-	var i EntitySchema
-	err := row.Scan(
-		&i.ID,
-		&i.OrganizationID,
-		&i.Name,
-		&i.Description,
-		&i.Fields,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
 }

@@ -24,8 +24,8 @@ type EntitySchemaRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (domain.EntitySchema, error)
 	GetByName(ctx context.Context, organizationID uuid.UUID, name string) (domain.EntitySchema, error)
 	List(ctx context.Context, organizationID uuid.UUID) ([]domain.EntitySchema, error)
-	Update(ctx context.Context, schema domain.EntitySchema) (domain.EntitySchema, error)
-	Delete(ctx context.Context, id uuid.UUID) error
+	ListVersions(ctx context.Context, organizationID uuid.UUID, name string) ([]domain.EntitySchema, error)
+	CreateVersion(ctx context.Context, schema domain.EntitySchema) (domain.EntitySchema, error)
 	Exists(ctx context.Context, organizationID uuid.UUID, name string) (bool, error)
 }
 
@@ -38,6 +38,7 @@ type EntityRepository interface {
 	ListByType(ctx context.Context, organizationID uuid.UUID, entityType string) ([]domain.Entity, error)
 	Update(ctx context.Context, entity domain.Entity) (domain.Entity, error)
 	Delete(ctx context.Context, id uuid.UUID) error
+	RollbackEntity(ctx context.Context, id string, toVersion int64, reason string) error
 
 	// Hierarchical operations
 	GetAncestors(ctx context.Context, organizationID uuid.UUID, path string) ([]domain.Entity, error)

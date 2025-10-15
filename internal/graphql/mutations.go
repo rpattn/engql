@@ -41,6 +41,103 @@ func toGraphFieldDefinition(field domain.FieldDefinition) *graph.FieldDefinition
 	}
 }
 
+func toGraphEntitySchema(schema domain.EntitySchema) *graph.EntitySchema {
+	fields := make([]*graph.FieldDefinition, 0, len(schema.Fields))
+	for _, field := range schema.Fields {
+		fields = append(fields, toGraphFieldDefinition(field))
+	}
+
+	var description *string
+	if schema.Description != "" {
+		desc := schema.Description
+		description = &desc
+	}
+
+	var previousVersion *string
+	if schema.PreviousVersionID != nil {
+		prev := schema.PreviousVersionID.String()
+		previousVersion = &prev
+	}
+
+	status := graph.SchemaStatus(schema.Status)
+	if status == "" {
+		status = graph.SchemaStatusActive
+	}
+
+	return &graph.EntitySchema{
+		ID:                schema.ID.String(),
+		OrganizationID:    schema.OrganizationID.String(),
+		Name:              schema.Name,
+		Description:       description,
+		Fields:            fields,
+		Version:           schema.Version,
+		Status:            status,
+		PreviousVersionID: previousVersion,
+		CreatedAt:         schema.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:         schema.UpdatedAt.Format(time.RFC3339),
+	}
+}
+
+func buildFieldDefinitionsFromInput(inputs []graph.FieldDefinitionInput) []domain.FieldDefinition {
+	defs := make([]domain.FieldDefinition, 0, len(inputs))
+	for _, input := range inputs {
+		required := false
+		if input.Required != nil {
+			required = *input.Required
+		}
+
+		desc := ""
+		if input.Description != nil {
+			desc = *input.Description
+		}
+
+		def := ""
+		if input.Default != nil {
+			def = *input.Default
+		}
+
+		validation := ""
+		if input.Validation != nil {
+			validation = *input.Validation
+		}
+
+		refType := ""
+		if input.ReferenceEntityType != nil {
+			refType = *input.ReferenceEntityType
+		}
+
+		defs = append(defs, domain.FieldDefinition{
+			Name:                input.Name,
+			Type:                domain.FieldType(input.Type),
+			Required:            required,
+			Description:         desc,
+			Default:             def,
+			Validation:          validation,
+			ReferenceEntityType: refType,
+		})
+	}
+	return defs
+}
+
+func (r *Resolver) createSchemaVersion(
+	ctx context.Context,
+	previous domain.EntitySchema,
+	updated domain.EntitySchema,
+	status domain.SchemaStatus,
+) (domain.EntitySchema, domain.CompatibilityLevel, error) {
+	compatibility := domain.DetermineCompatibility(previous.Fields, updated.Fields)
+	nextVersion, err := domain.NewVersionFromExisting(previous, updated, compatibility, status)
+	if err != nil {
+		return domain.EntitySchema{}, "", fmt.Errorf("failed to determine next schema version: %w", err)
+	}
+
+	saved, err := r.entitySchemaRepo.CreateVersion(ctx, nextVersion)
+	if err != nil {
+		return domain.EntitySchema{}, "", fmt.Errorf("failed to persist schema version: %w", err)
+	}
+	return saved, compatibility, nil
+}
+
 var linkedFieldCandidates = []string{
 	"linked_ids",
 	"linkedIds",
@@ -300,26 +397,20 @@ func (r *Resolver) CreateEntitySchema(ctx context.Context, input graph.CreateEnt
 
 	schema := domain.NewEntitySchema(orgID, input.Name, description, fields)
 
+	exists, err := r.entitySchemaRepo.Exists(ctx, orgID, input.Name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to verify schema existence: %w", err)
+	}
+	if exists {
+		return nil, fmt.Errorf("schema %s already exists", input.Name)
+	}
+
 	createdSchema, err := r.entitySchemaRepo.Create(ctx, schema)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create entity schema: %w", err)
 	}
 
-	// Convert back to GraphQL format
-	gqlFields := make([]*graph.FieldDefinition, 0, len(createdSchema.Fields))
-	for _, field := range createdSchema.Fields {
-		gqlFields = append(gqlFields, toGraphFieldDefinition(field))
-	}
-
-	return &graph.EntitySchema{
-		ID:             createdSchema.ID.String(),
-		OrganizationID: createdSchema.OrganizationID.String(),
-		Name:           createdSchema.Name,
-		Description:    &createdSchema.Description,
-		Fields:         gqlFields,
-		CreatedAt:      createdSchema.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:      createdSchema.UpdatedAt.Format(time.RFC3339),
-	}, nil
+	return toGraphEntitySchema(createdSchema), nil
 }
 
 // UpdateEntitySchema updates an existing entity schema
@@ -337,76 +428,40 @@ func (r *Resolver) UpdateEntitySchema(ctx context.Context, input graph.UpdateEnt
 
 	// Apply updates using immutable pattern
 	updatedSchema := existingSchema
+	changed := false
 	if input.Name != nil {
 		updatedSchema = updatedSchema.WithName(*input.Name)
+		changed = true
 	}
 	if input.Description != nil {
 		updatedSchema = updatedSchema.WithDescription(*input.Description)
+		changed = true
 	}
 	if input.Fields != nil {
-		// Replace all fields
-		newFields := make([]domain.FieldDefinition, 0, len(input.Fields))
-		for _, fieldInput := range input.Fields {
-			fieldDesc := ""
-			if fieldInput.Description != nil {
-				fieldDesc = *fieldInput.Description
+		fieldInputs := make([]graph.FieldDefinitionInput, 0, len(input.Fields))
+		for _, f := range input.Fields {
+			if f == nil {
+				continue
 			}
-
-			required := false
-			if fieldInput.Required != nil {
-				required = *fieldInput.Required
-			}
-
-			defaultValue := ""
-			if fieldInput.Default != nil {
-				defaultValue = *fieldInput.Default
-			}
-
-			validation := ""
-			if fieldInput.Validation != nil {
-				validation = *fieldInput.Validation
-			}
-
-			refEntityType := ""
-			if fieldInput.ReferenceEntityType != nil {
-				refEntityType = *fieldInput.ReferenceEntityType
-			}
-
-			newFields = append(newFields, domain.FieldDefinition{
-				Name:                fieldInput.Name,
-				Type:                domain.FieldType(fieldInput.Type),
-				Required:            required,
-				Description:         fieldDesc,
-				Default:             defaultValue,
-				Validation:          validation,
-				ReferenceEntityType: refEntityType,
-			})
+			fieldInputs = append(fieldInputs, *f)
 		}
-		updatedSchema = domain.NewEntitySchema(updatedSchema.OrganizationID, updatedSchema.Name, updatedSchema.Description, newFields)
-		updatedSchema.ID = schemaID // Preserve the ID
+		newFields := buildFieldDefinitionsFromInput(fieldInputs)
+		updatedSchema.Fields = newFields
+		if len(fieldInputs) > 0 {
+			changed = true
+		}
 	}
 
-	// Save updated schema
-	savedSchema, err := r.entitySchemaRepo.Update(ctx, updatedSchema)
+	if !changed {
+		return toGraphEntitySchema(existingSchema), nil
+	}
+
+	savedSchema, _, err := r.createSchemaVersion(ctx, existingSchema, updatedSchema, domain.SchemaStatusActive)
 	if err != nil {
-		return nil, fmt.Errorf("failed to update entity schema: %w", err)
+		return nil, err
 	}
 
-	// Convert back to GraphQL format
-	gqlFields := make([]*graph.FieldDefinition, 0, len(savedSchema.Fields))
-	for _, field := range savedSchema.Fields {
-		gqlFields = append(gqlFields, toGraphFieldDefinition(field))
-	}
-
-	return &graph.EntitySchema{
-		ID:             savedSchema.ID.String(),
-		OrganizationID: savedSchema.OrganizationID.String(),
-		Name:           savedSchema.Name,
-		Description:    &savedSchema.Description,
-		Fields:         gqlFields,
-		CreatedAt:      savedSchema.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:      savedSchema.UpdatedAt.Format(time.RFC3339),
-	}, nil
+	return toGraphEntitySchema(savedSchema), nil
 }
 
 // DeleteEntitySchema deletes an entity schema
@@ -416,8 +471,19 @@ func (r *Resolver) DeleteEntitySchema(ctx context.Context, id string) (*bool, er
 		return nil, fmt.Errorf("invalid schema ID: %w", err)
 	}
 
-	if err := r.entitySchemaRepo.Delete(ctx, schemaID); err != nil {
-		return nil, fmt.Errorf("failed to delete entity schema: %w", err)
+	existingSchema, err := r.entitySchemaRepo.GetByID(ctx, schemaID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get entity schema: %w", err)
+	}
+
+	if existingSchema.Status == domain.SchemaStatusArchived {
+		result := true
+		return &result, nil
+	}
+
+	updated := existingSchema.WithStatus(domain.SchemaStatusArchived)
+	if _, _, err := r.createSchemaVersion(ctx, existingSchema, updated, domain.SchemaStatusArchived); err != nil {
+		return nil, err
 	}
 
 	result := true
@@ -469,27 +535,12 @@ func (r *Resolver) AddFieldToSchema(ctx context.Context, schemaID string, field 
 
 	updatedSchema := existingSchema.WithField(fieldDef)
 
-	// Save updated schema
-	savedSchema, err := r.entitySchemaRepo.Update(ctx, updatedSchema)
+	savedSchema, _, err := r.createSchemaVersion(ctx, existingSchema, updatedSchema, domain.SchemaStatusActive)
 	if err != nil {
-		return nil, fmt.Errorf("failed to update entity schema: %w", err)
+		return nil, err
 	}
 
-	// Convert back to GraphQL format
-	gqlFields := make([]*graph.FieldDefinition, 0, len(savedSchema.Fields))
-	for _, field := range savedSchema.Fields {
-		gqlFields = append(gqlFields, toGraphFieldDefinition(field))
-	}
-
-	return &graph.EntitySchema{
-		ID:             savedSchema.ID.String(),
-		OrganizationID: savedSchema.OrganizationID.String(),
-		Name:           savedSchema.Name,
-		Description:    &savedSchema.Description,
-		Fields:         gqlFields,
-		CreatedAt:      savedSchema.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:      savedSchema.UpdatedAt.Format(time.RFC3339),
-	}, nil
+	return toGraphEntitySchema(savedSchema), nil
 }
 
 // RemoveFieldFromSchema removes a field from an existing entity schema
@@ -508,27 +559,16 @@ func (r *Resolver) RemoveFieldFromSchema(ctx context.Context, schemaID, fieldNam
 	// Remove the field
 	updatedSchema := existingSchema.WithoutField(fieldName)
 
-	// Save updated schema
-	savedSchema, err := r.entitySchemaRepo.Update(ctx, updatedSchema)
+	if len(updatedSchema.Fields) == len(existingSchema.Fields) {
+		return toGraphEntitySchema(existingSchema), nil
+	}
+
+	savedSchema, _, err := r.createSchemaVersion(ctx, existingSchema, updatedSchema, domain.SchemaStatusActive)
 	if err != nil {
-		return nil, fmt.Errorf("failed to update entity schema: %w", err)
+		return nil, err
 	}
 
-	// Convert back to GraphQL format
-	gqlFields := make([]*graph.FieldDefinition, 0, len(savedSchema.Fields))
-	for _, field := range savedSchema.Fields {
-		gqlFields = append(gqlFields, toGraphFieldDefinition(field))
-	}
-
-	return &graph.EntitySchema{
-		ID:             savedSchema.ID.String(),
-		OrganizationID: savedSchema.OrganizationID.String(),
-		Name:           savedSchema.Name,
-		Description:    &savedSchema.Description,
-		Fields:         gqlFields,
-		CreatedAt:      savedSchema.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:      savedSchema.UpdatedAt.Format(time.RFC3339),
-	}, nil
+	return toGraphEntitySchema(savedSchema), nil
 }
 
 // CreateEntity creates a new entity
@@ -552,14 +592,14 @@ func (r *Resolver) CreateEntity(ctx context.Context, input graph.CreateEntityInp
 		path = *input.Path
 	}
 
-	fieldDefinitions, err := r.entitySchemaRepo.GetByName(ctx, orgID, input.EntityType)
+	schemaVersion, err := r.entitySchemaRepo.GetByName(ctx, orgID, input.EntityType)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load schema for entity type %s: %w", input.EntityType, err)
 	}
 
 	requestedLinkedIDs := gatherRequestedLinkedIDs(input)
 	if len(requestedLinkedIDs) > 0 {
-		if fieldName, fieldType, found := findLinkedFieldDefinition(fieldDefinitions.Fields); found {
+		if fieldName, fieldType, found := findLinkedFieldDefinition(schemaVersion.Fields); found {
 			if err := ensureLinkedEntityProperties(properties, fieldName, fieldType, requestedLinkedIDs); err != nil {
 				return nil, err
 			}
@@ -569,7 +609,7 @@ func (r *Resolver) CreateEntity(ctx context.Context, input graph.CreateEntityInp
 
 	// Convert schema fields slice -> map[string]FieldDefinition
 	fieldDefsMap := make(map[string]validator.FieldDefinition)
-	for _, f := range fieldDefinitions.Fields {
+	for _, f := range schemaVersion.Fields {
 		var refType *string
 		if f.ReferenceEntityType != "" {
 			ref := f.ReferenceEntityType
@@ -601,27 +641,14 @@ func (r *Resolver) CreateEntity(ctx context.Context, input graph.CreateEntityInp
 		return nil, fmt.Errorf("validation failed: %s", result.Errors)
 	}
 
-	entity := domain.NewEntity(orgID, input.EntityType, path, properties)
+	entity := domain.NewEntity(orgID, schemaVersion.ID, input.EntityType, path, properties)
 
 	createdEntity, err := r.entityRepo.Create(ctx, entity)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create entity: %w", err)
 	}
 
-	propertiesJSON, err := createdEntity.GetPropertiesAsJSONB()
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal properties: %w", err)
-	}
-
-	return &graph.Entity{
-		ID:             createdEntity.ID.String(),
-		OrganizationID: createdEntity.OrganizationID.String(),
-		EntityType:     createdEntity.EntityType,
-		Path:           createdEntity.Path,
-		Properties:     string(propertiesJSON),
-		CreatedAt:      createdEntity.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:      createdEntity.UpdatedAt.Format(time.RFC3339),
-	}, nil
+	return mapDomainEntity(createdEntity)
 }
 
 // UpdateEntity updates an existing entity
@@ -640,7 +667,11 @@ func (r *Resolver) UpdateEntity(ctx context.Context, input graph.UpdateEntityInp
 	// Apply updates using immutable pattern
 	updatedEntity := existingEntity
 	if input.EntityType != nil {
-		updatedEntity = updatedEntity.WithEntityType(*input.EntityType)
+		schemaVersion, err := r.entitySchemaRepo.GetByName(ctx, existingEntity.OrganizationID, *input.EntityType)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load schema for entity type %s: %w", *input.EntityType, err)
+		}
+		updatedEntity = updatedEntity.WithEntitySchema(*input.EntityType, schemaVersion.ID)
 	}
 	if input.Path != nil {
 		updatedEntity = updatedEntity.WithPath(*input.Path)
@@ -660,20 +691,31 @@ func (r *Resolver) UpdateEntity(ctx context.Context, input graph.UpdateEntityInp
 		return nil, fmt.Errorf("failed to update entity: %w", err)
 	}
 
-	propertiesJSON, err := savedEntity.GetPropertiesAsJSONB()
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal properties: %w", err)
+	return mapDomainEntity(savedEntity)
+}
+
+// RollbackEntity restores an entity to a previous version and returns the new state
+func (r *Resolver) RollbackEntity(ctx context.Context, id string, toVersion int, reason *string) (*graph.Entity, error) {
+	rollbackReason := ""
+	if reason != nil {
+		rollbackReason = *reason
 	}
 
-	return &graph.Entity{
-		ID:             savedEntity.ID.String(),
-		OrganizationID: savedEntity.OrganizationID.String(),
-		EntityType:     savedEntity.EntityType,
-		Path:           savedEntity.Path,
-		Properties:     string(propertiesJSON),
-		CreatedAt:      savedEntity.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:      savedEntity.UpdatedAt.Format(time.RFC3339),
-	}, nil
+	if err := r.entityRepo.RollbackEntity(ctx, id, int64(toVersion), rollbackReason); err != nil {
+		return nil, fmt.Errorf("failed to rollback entity: %w", err)
+	}
+
+	entityID, err := uuid.Parse(id)
+	if err != nil {
+		return nil, fmt.Errorf("invalid entity ID: %w", err)
+	}
+
+	entity, err := r.entityRepo.GetByID(ctx, entityID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load rolled back entity: %w", err)
+	}
+
+	return mapDomainEntity(entity)
 }
 
 // DeleteEntity deletes an entity

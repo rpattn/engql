@@ -108,27 +108,7 @@ func (r *Resolver) EntitySchemas(ctx context.Context, organizationID string) ([]
 
 	result := make([]*graph.EntitySchema, len(schemas))
 	for i, schema := range schemas {
-		fields := make([]*graph.FieldDefinition, 0, len(schema.Fields))
-		for _, field := range schema.Fields {
-			fieldType := graph.FieldType(field.Type)
-			fields = append(fields, &graph.FieldDefinition{
-				Type:        fieldType,
-				Required:    field.Required,
-				Description: &field.Description,
-				Default:     &field.Default,
-				Validation:  &field.Validation,
-			})
-		}
-
-		result[i] = &graph.EntitySchema{
-			ID:             schema.ID.String(),
-			OrganizationID: schema.OrganizationID.String(),
-			Name:           schema.Name,
-			Description:    &schema.Description,
-			Fields:         fields,
-			CreatedAt:      schema.CreatedAt.Format(time.RFC3339),
-			UpdatedAt:      schema.UpdatedAt.Format(time.RFC3339),
-		}
+		result[i] = toGraphEntitySchema(schema)
 	}
 
 	return result, nil
@@ -146,20 +126,7 @@ func (r *Resolver) EntitySchema(ctx context.Context, id string) (*graph.EntitySc
 		return nil, fmt.Errorf("failed to get entity schema: %w", err)
 	}
 
-	fields := make([]*graph.FieldDefinition, 0, len(schema.Fields))
-	for _, field := range schema.Fields {
-		fields = append(fields, toGraphFieldDefinition(field))
-	}
-
-	return &graph.EntitySchema{
-		ID:             schema.ID.String(),
-		OrganizationID: schema.OrganizationID.String(),
-		Name:           schema.Name,
-		Description:    &schema.Description,
-		Fields:         fields,
-		CreatedAt:      schema.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:      schema.UpdatedAt.Format(time.RFC3339),
-	}, nil
+	return toGraphEntitySchema(schema), nil
 }
 
 // EntitySchemaByName returns a specific entity schema by organization ID and name
@@ -174,20 +141,26 @@ func (r *Resolver) EntitySchemaByName(ctx context.Context, organizationID, name 
 		return nil, fmt.Errorf("failed to get entity schema by name: %w", err)
 	}
 
-	fields := make([]*graph.FieldDefinition, 0, len(schema.Fields))
-	for _, field := range schema.Fields {
-		fields = append(fields, toGraphFieldDefinition(field))
+	return toGraphEntitySchema(schema), nil
+}
+
+// EntitySchemaVersions lists all schema versions for a given name
+func (r *Resolver) EntitySchemaVersions(ctx context.Context, organizationID, name string) ([]*graph.EntitySchema, error) {
+	orgID, err := uuid.Parse(organizationID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid organization ID: %w", err)
 	}
 
-	return &graph.EntitySchema{
-		ID:             schema.ID.String(),
-		OrganizationID: schema.OrganizationID.String(),
-		Name:           schema.Name,
-		Description:    &schema.Description,
-		Fields:         fields,
-		CreatedAt:      schema.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:      schema.UpdatedAt.Format(time.RFC3339),
-	}, nil
+	versions, err := r.entitySchemaRepo.ListVersions(ctx, orgID, name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list schema versions: %w", err)
+	}
+
+	result := make([]*graph.EntitySchema, len(versions))
+	for i, schema := range versions {
+		result[i] = toGraphEntitySchema(schema)
+	}
+	return result, nil
 }
 
 // Entities returns entities with filtering and pagination
@@ -218,20 +191,11 @@ func (r *Resolver) Entities(ctx context.Context, organizationID string, filter *
 	// Convert to GraphQL type
 	result := make([]*graph.Entity, len(entities))
 	for i, entity := range entities {
-		propertiesJSON, err := entity.GetPropertiesAsJSONB()
+		mapped, err := mapDomainEntity(entity)
 		if err != nil {
-			return nil, fmt.Errorf("failed to marshal properties: %w", err)
+			return nil, err
 		}
-
-		result[i] = &graph.Entity{
-			ID:             entity.ID.String(),
-			OrganizationID: entity.OrganizationID.String(),
-			EntityType:     entity.EntityType,
-			Path:           entity.Path,
-			Properties:     string(propertiesJSON),
-			CreatedAt:      entity.CreatedAt.Format(time.RFC3339),
-			UpdatedAt:      entity.UpdatedAt.Format(time.RFC3339),
-		}
+		result[i] = mapped
 	}
 
 	hasNextPage := offset+limit < totalCount

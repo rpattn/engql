@@ -55,7 +55,9 @@ type ComplexityRoot struct {
 		OrganizationID func(childComplexity int) int
 		Path           func(childComplexity int) int
 		Properties     func(childComplexity int) int
+		SchemaID       func(childComplexity int) int
 		UpdatedAt      func(childComplexity int) int
+		Version        func(childComplexity int) int
 	}
 
 	EntityConnection struct {
@@ -98,13 +100,16 @@ type ComplexityRoot struct {
 	}
 
 	EntitySchema struct {
-		CreatedAt      func(childComplexity int) int
-		Description    func(childComplexity int) int
-		Fields         func(childComplexity int) int
-		ID             func(childComplexity int) int
-		Name           func(childComplexity int) int
-		OrganizationID func(childComplexity int) int
-		UpdatedAt      func(childComplexity int) int
+		CreatedAt         func(childComplexity int) int
+		Description       func(childComplexity int) int
+		Fields            func(childComplexity int) int
+		ID                func(childComplexity int) int
+		Name              func(childComplexity int) int
+		OrganizationID    func(childComplexity int) int
+		PreviousVersionID func(childComplexity int) int
+		Status            func(childComplexity int) int
+		UpdatedAt         func(childComplexity int) int
+		Version           func(childComplexity int) int
 	}
 
 	FieldDefinition struct {
@@ -134,6 +139,7 @@ type ComplexityRoot struct {
 		DeleteEntitySchema         func(childComplexity int, id string) int
 		DeleteOrganization         func(childComplexity int, id string) int
 		RemoveFieldFromSchema      func(childComplexity int, schemaID string, fieldName string) int
+		RollbackEntity             func(childComplexity int, id string, toVersion int, reason *string) int
 		UpdateEntity               func(childComplexity int, input UpdateEntityInput) int
 		UpdateEntityJoinDefinition func(childComplexity int, input UpdateEntityJoinDefinitionInput) int
 		UpdateEntitySchema         func(childComplexity int, input UpdateEntitySchemaInput) int
@@ -170,6 +176,7 @@ type ComplexityRoot struct {
 		EntityJoinDefinitions              func(childComplexity int, organizationID string) int
 		EntitySchema                       func(childComplexity int, id string) int
 		EntitySchemaByName                 func(childComplexity int, organizationID string, name string) int
+		EntitySchemaVersions               func(childComplexity int, organizationID string, name string) int
 		EntitySchemas                      func(childComplexity int, organizationID string) int
 		ExecuteEntityJoin                  func(childComplexity int, input ExecuteEntityJoinInput) int
 		GetEntityAncestors                 func(childComplexity int, entityID string) int
@@ -207,6 +214,7 @@ type MutationResolver interface {
 	DeleteEntitySchema(ctx context.Context, id string) (bool, error)
 	AddFieldToSchema(ctx context.Context, schemaID string, field FieldDefinitionInput) (*EntitySchema, error)
 	RemoveFieldFromSchema(ctx context.Context, schemaID string, fieldName string) (*EntitySchema, error)
+	RollbackEntity(ctx context.Context, id string, toVersion int, reason *string) (*Entity, error)
 	CreateEntity(ctx context.Context, input CreateEntityInput) (*Entity, error)
 	UpdateEntity(ctx context.Context, input UpdateEntityInput) (*Entity, error)
 	DeleteEntity(ctx context.Context, id string) (bool, error)
@@ -221,6 +229,7 @@ type QueryResolver interface {
 	EntitySchemas(ctx context.Context, organizationID string) ([]*EntitySchema, error)
 	EntitySchema(ctx context.Context, id string) (*EntitySchema, error)
 	EntitySchemaByName(ctx context.Context, organizationID string, name string) (*EntitySchema, error)
+	EntitySchemaVersions(ctx context.Context, organizationID string, name string) ([]*EntitySchema, error)
 	Entities(ctx context.Context, organizationID string, filter *EntityFilter, pagination *PaginationInput) (*EntityConnection, error)
 	Entity(ctx context.Context, id string) (*Entity, error)
 	EntitiesByType(ctx context.Context, organizationID string, entityType string) ([]*Entity, error)
@@ -302,12 +311,24 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Entity.Properties(childComplexity), true
+	case "Entity.schemaId":
+		if e.complexity.Entity.SchemaID == nil {
+			break
+		}
+
+		return e.complexity.Entity.SchemaID(childComplexity), true
 	case "Entity.updatedAt":
 		if e.complexity.Entity.UpdatedAt == nil {
 			break
 		}
 
 		return e.complexity.Entity.UpdatedAt(childComplexity), true
+	case "Entity.version":
+		if e.complexity.Entity.Version == nil {
+			break
+		}
+
+		return e.complexity.Entity.Version(childComplexity), true
 
 	case "EntityConnection.entities":
 		if e.complexity.EntityConnection.Entities == nil {
@@ -494,12 +515,30 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.EntitySchema.OrganizationID(childComplexity), true
+	case "EntitySchema.previousVersionId":
+		if e.complexity.EntitySchema.PreviousVersionID == nil {
+			break
+		}
+
+		return e.complexity.EntitySchema.PreviousVersionID(childComplexity), true
+	case "EntitySchema.status":
+		if e.complexity.EntitySchema.Status == nil {
+			break
+		}
+
+		return e.complexity.EntitySchema.Status(childComplexity), true
 	case "EntitySchema.updatedAt":
 		if e.complexity.EntitySchema.UpdatedAt == nil {
 			break
 		}
 
 		return e.complexity.EntitySchema.UpdatedAt(childComplexity), true
+	case "EntitySchema.version":
+		if e.complexity.EntitySchema.Version == nil {
+			break
+		}
+
+		return e.complexity.EntitySchema.Version(childComplexity), true
 
 	case "FieldDefinition.default":
 		if e.complexity.FieldDefinition.Default == nil {
@@ -673,6 +712,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Mutation.RemoveFieldFromSchema(childComplexity, args["schemaId"].(string), args["fieldName"].(string)), true
+	case "Mutation.rollbackEntity":
+		if e.complexity.Mutation.RollbackEntity == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_rollbackEntity_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.RollbackEntity(childComplexity, args["id"].(string), args["toVersion"].(int), args["reason"].(*string)), true
 	case "Mutation.updateEntity":
 		if e.complexity.Mutation.UpdateEntity == nil {
 			break
@@ -881,6 +931,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Query.EntitySchemaByName(childComplexity, args["organizationId"].(string), args["name"].(string)), true
+	case "Query.entitySchemaVersions":
+		if e.complexity.Query.EntitySchemaVersions == nil {
+			break
+		}
+
+		args, err := ec.field_Query_entitySchemaVersions_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.EntitySchemaVersions(childComplexity, args["organizationId"].(string), args["name"].(string)), true
 	case "Query.entitySchemas":
 		if e.complexity.Query.EntitySchemas == nil {
 			break
@@ -1219,7 +1280,7 @@ func (ec *executionContext) field_Mutation_addFieldToSchema_args(ctx context.Con
 		return nil, err
 	}
 	args["schemaId"] = arg0
-	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "field", ec.unmarshalNFieldDefinitionInput2graphqlᚑengineeringᚑapiᚋgraphᚐFieldDefinitionInput)
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "field", ec.unmarshalNFieldDefinitionInput2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐFieldDefinitionInput)
 	if err != nil {
 		return nil, err
 	}
@@ -1230,7 +1291,7 @@ func (ec *executionContext) field_Mutation_addFieldToSchema_args(ctx context.Con
 func (ec *executionContext) field_Mutation_createEntityJoinDefinition_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateEntityJoinDefinitionInput2graphqlᚑengineeringᚑapiᚋgraphᚐCreateEntityJoinDefinitionInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateEntityJoinDefinitionInput2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐCreateEntityJoinDefinitionInput)
 	if err != nil {
 		return nil, err
 	}
@@ -1241,7 +1302,7 @@ func (ec *executionContext) field_Mutation_createEntityJoinDefinition_args(ctx c
 func (ec *executionContext) field_Mutation_createEntitySchema_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateEntitySchemaInput2graphqlᚑengineeringᚑapiᚋgraphᚐCreateEntitySchemaInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateEntitySchemaInput2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐCreateEntitySchemaInput)
 	if err != nil {
 		return nil, err
 	}
@@ -1252,7 +1313,7 @@ func (ec *executionContext) field_Mutation_createEntitySchema_args(ctx context.C
 func (ec *executionContext) field_Mutation_createEntity_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateEntityInput2graphqlᚑengineeringᚑapiᚋgraphᚐCreateEntityInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateEntityInput2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐCreateEntityInput)
 	if err != nil {
 		return nil, err
 	}
@@ -1263,7 +1324,7 @@ func (ec *executionContext) field_Mutation_createEntity_args(ctx context.Context
 func (ec *executionContext) field_Mutation_createOrganization_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateOrganizationInput2graphqlᚑengineeringᚑapiᚋgraphᚐCreateOrganizationInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateOrganizationInput2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐCreateOrganizationInput)
 	if err != nil {
 		return nil, err
 	}
@@ -1331,10 +1392,31 @@ func (ec *executionContext) field_Mutation_removeFieldFromSchema_args(ctx contex
 	return args, nil
 }
 
+func (ec *executionContext) field_Mutation_rollbackEntity_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id", ec.unmarshalNString2string)
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "toVersion", ec.unmarshalNInt2int)
+	if err != nil {
+		return nil, err
+	}
+	args["toVersion"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "reason", ec.unmarshalOString2ᚖstring)
+	if err != nil {
+		return nil, err
+	}
+	args["reason"] = arg2
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_updateEntityJoinDefinition_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateEntityJoinDefinitionInput2graphqlᚑengineeringᚑapiᚋgraphᚐUpdateEntityJoinDefinitionInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateEntityJoinDefinitionInput2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐUpdateEntityJoinDefinitionInput)
 	if err != nil {
 		return nil, err
 	}
@@ -1345,7 +1427,7 @@ func (ec *executionContext) field_Mutation_updateEntityJoinDefinition_args(ctx c
 func (ec *executionContext) field_Mutation_updateEntitySchema_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateEntitySchemaInput2graphqlᚑengineeringᚑapiᚋgraphᚐUpdateEntitySchemaInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateEntitySchemaInput2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐUpdateEntitySchemaInput)
 	if err != nil {
 		return nil, err
 	}
@@ -1356,7 +1438,7 @@ func (ec *executionContext) field_Mutation_updateEntitySchema_args(ctx context.C
 func (ec *executionContext) field_Mutation_updateEntity_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateEntityInput2graphqlᚑengineeringᚑapiᚋgraphᚐUpdateEntityInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateEntityInput2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐUpdateEntityInput)
 	if err != nil {
 		return nil, err
 	}
@@ -1367,7 +1449,7 @@ func (ec *executionContext) field_Mutation_updateEntity_args(ctx context.Context
 func (ec *executionContext) field_Mutation_updateOrganization_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateOrganizationInput2graphqlᚑengineeringᚑapiᚋgraphᚐUpdateOrganizationInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateOrganizationInput2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐUpdateOrganizationInput)
 	if err != nil {
 		return nil, err
 	}
@@ -1421,12 +1503,12 @@ func (ec *executionContext) field_Query_entities_args(ctx context.Context, rawAr
 		return nil, err
 	}
 	args["organizationId"] = arg0
-	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "filter", ec.unmarshalOEntityFilter2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityFilter)
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "filter", ec.unmarshalOEntityFilter2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityFilter)
 	if err != nil {
 		return nil, err
 	}
 	args["filter"] = arg1
-	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "pagination", ec.unmarshalOPaginationInput2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐPaginationInput)
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "pagination", ec.unmarshalOPaginationInput2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐPaginationInput)
 	if err != nil {
 		return nil, err
 	}
@@ -1457,6 +1539,22 @@ func (ec *executionContext) field_Query_entityJoinDefinitions_args(ctx context.C
 }
 
 func (ec *executionContext) field_Query_entitySchemaByName_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "organizationId", ec.unmarshalNString2string)
+	if err != nil {
+		return nil, err
+	}
+	args["organizationId"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "name", ec.unmarshalNString2string)
+	if err != nil {
+		return nil, err
+	}
+	args["name"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_entitySchemaVersions_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "organizationId", ec.unmarshalNString2string)
@@ -1508,7 +1606,7 @@ func (ec *executionContext) field_Query_entity_args(ctx context.Context, rawArgs
 func (ec *executionContext) field_Query_executeEntityJoin_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNExecuteEntityJoinInput2graphqlᚑengineeringᚑapiᚋgraphᚐExecuteEntityJoinInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNExecuteEntityJoinInput2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐExecuteEntityJoinInput)
 	if err != nil {
 		return nil, err
 	}
@@ -1814,6 +1912,35 @@ func (ec *executionContext) fieldContext_Entity_organizationId(_ context.Context
 	return fc, nil
 }
 
+func (ec *executionContext) _Entity_schemaId(ctx context.Context, field graphql.CollectedField, obj *Entity) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Entity_schemaId,
+		func(ctx context.Context) (any, error) {
+			return obj.SchemaID, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Entity_schemaId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Entity",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Entity_entityType(ctx context.Context, field graphql.CollectedField, obj *Entity) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -1901,6 +2028,35 @@ func (ec *executionContext) fieldContext_Entity_properties(_ context.Context, fi
 	return fc, nil
 }
 
+func (ec *executionContext) _Entity_version(ctx context.Context, field graphql.CollectedField, obj *Entity) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Entity_version,
+		func(ctx context.Context) (any, error) {
+			return obj.Version, nil
+		},
+		nil,
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Entity_version(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Entity",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Entity_createdAt(ctx context.Context, field graphql.CollectedField, obj *Entity) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -1969,7 +2125,7 @@ func (ec *executionContext) _Entity_linkedEntities(ctx context.Context, field gr
 			return ec.resolvers.Entity().LinkedEntities(ctx, obj)
 		},
 		nil,
-		ec.marshalNEntity2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityᚄ,
+		ec.marshalNEntity2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityᚄ,
 		true,
 		true,
 	)
@@ -1987,12 +2143,16 @@ func (ec *executionContext) fieldContext_Entity_linkedEntities(_ context.Context
 				return ec.fieldContext_Entity_id(ctx, field)
 			case "organizationId":
 				return ec.fieldContext_Entity_organizationId(ctx, field)
+			case "schemaId":
+				return ec.fieldContext_Entity_schemaId(ctx, field)
 			case "entityType":
 				return ec.fieldContext_Entity_entityType(ctx, field)
 			case "path":
 				return ec.fieldContext_Entity_path(ctx, field)
 			case "properties":
 				return ec.fieldContext_Entity_properties(ctx, field)
+			case "version":
+				return ec.fieldContext_Entity_version(ctx, field)
 			case "createdAt":
 				return ec.fieldContext_Entity_createdAt(ctx, field)
 			case "updatedAt":
@@ -2016,7 +2176,7 @@ func (ec *executionContext) _EntityConnection_entities(ctx context.Context, fiel
 			return obj.Entities, nil
 		},
 		nil,
-		ec.marshalNEntity2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityᚄ,
+		ec.marshalNEntity2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityᚄ,
 		true,
 		true,
 	)
@@ -2034,12 +2194,16 @@ func (ec *executionContext) fieldContext_EntityConnection_entities(_ context.Con
 				return ec.fieldContext_Entity_id(ctx, field)
 			case "organizationId":
 				return ec.fieldContext_Entity_organizationId(ctx, field)
+			case "schemaId":
+				return ec.fieldContext_Entity_schemaId(ctx, field)
 			case "entityType":
 				return ec.fieldContext_Entity_entityType(ctx, field)
 			case "path":
 				return ec.fieldContext_Entity_path(ctx, field)
 			case "properties":
 				return ec.fieldContext_Entity_properties(ctx, field)
+			case "version":
+				return ec.fieldContext_Entity_version(ctx, field)
 			case "createdAt":
 				return ec.fieldContext_Entity_createdAt(ctx, field)
 			case "updatedAt":
@@ -2063,7 +2227,7 @@ func (ec *executionContext) _EntityConnection_pageInfo(ctx context.Context, fiel
 			return obj.PageInfo, nil
 		},
 		nil,
-		ec.marshalNPageInfo2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐPageInfo,
+		ec.marshalNPageInfo2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐPageInfo,
 		true,
 		true,
 	)
@@ -2100,7 +2264,7 @@ func (ec *executionContext) _EntityHierarchy_current(ctx context.Context, field 
 			return obj.Current, nil
 		},
 		nil,
-		ec.marshalNEntity2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntity,
+		ec.marshalNEntity2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntity,
 		true,
 		true,
 	)
@@ -2118,12 +2282,16 @@ func (ec *executionContext) fieldContext_EntityHierarchy_current(_ context.Conte
 				return ec.fieldContext_Entity_id(ctx, field)
 			case "organizationId":
 				return ec.fieldContext_Entity_organizationId(ctx, field)
+			case "schemaId":
+				return ec.fieldContext_Entity_schemaId(ctx, field)
 			case "entityType":
 				return ec.fieldContext_Entity_entityType(ctx, field)
 			case "path":
 				return ec.fieldContext_Entity_path(ctx, field)
 			case "properties":
 				return ec.fieldContext_Entity_properties(ctx, field)
+			case "version":
+				return ec.fieldContext_Entity_version(ctx, field)
 			case "createdAt":
 				return ec.fieldContext_Entity_createdAt(ctx, field)
 			case "updatedAt":
@@ -2147,7 +2315,7 @@ func (ec *executionContext) _EntityHierarchy_ancestors(ctx context.Context, fiel
 			return obj.Ancestors, nil
 		},
 		nil,
-		ec.marshalNEntity2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityᚄ,
+		ec.marshalNEntity2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityᚄ,
 		true,
 		true,
 	)
@@ -2165,12 +2333,16 @@ func (ec *executionContext) fieldContext_EntityHierarchy_ancestors(_ context.Con
 				return ec.fieldContext_Entity_id(ctx, field)
 			case "organizationId":
 				return ec.fieldContext_Entity_organizationId(ctx, field)
+			case "schemaId":
+				return ec.fieldContext_Entity_schemaId(ctx, field)
 			case "entityType":
 				return ec.fieldContext_Entity_entityType(ctx, field)
 			case "path":
 				return ec.fieldContext_Entity_path(ctx, field)
 			case "properties":
 				return ec.fieldContext_Entity_properties(ctx, field)
+			case "version":
+				return ec.fieldContext_Entity_version(ctx, field)
 			case "createdAt":
 				return ec.fieldContext_Entity_createdAt(ctx, field)
 			case "updatedAt":
@@ -2194,7 +2366,7 @@ func (ec *executionContext) _EntityHierarchy_children(ctx context.Context, field
 			return obj.Children, nil
 		},
 		nil,
-		ec.marshalNEntity2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityᚄ,
+		ec.marshalNEntity2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityᚄ,
 		true,
 		true,
 	)
@@ -2212,12 +2384,16 @@ func (ec *executionContext) fieldContext_EntityHierarchy_children(_ context.Cont
 				return ec.fieldContext_Entity_id(ctx, field)
 			case "organizationId":
 				return ec.fieldContext_Entity_organizationId(ctx, field)
+			case "schemaId":
+				return ec.fieldContext_Entity_schemaId(ctx, field)
 			case "entityType":
 				return ec.fieldContext_Entity_entityType(ctx, field)
 			case "path":
 				return ec.fieldContext_Entity_path(ctx, field)
 			case "properties":
 				return ec.fieldContext_Entity_properties(ctx, field)
+			case "version":
+				return ec.fieldContext_Entity_version(ctx, field)
 			case "createdAt":
 				return ec.fieldContext_Entity_createdAt(ctx, field)
 			case "updatedAt":
@@ -2241,7 +2417,7 @@ func (ec *executionContext) _EntityHierarchy_siblings(ctx context.Context, field
 			return obj.Siblings, nil
 		},
 		nil,
-		ec.marshalNEntity2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityᚄ,
+		ec.marshalNEntity2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityᚄ,
 		true,
 		true,
 	)
@@ -2259,12 +2435,16 @@ func (ec *executionContext) fieldContext_EntityHierarchy_siblings(_ context.Cont
 				return ec.fieldContext_Entity_id(ctx, field)
 			case "organizationId":
 				return ec.fieldContext_Entity_organizationId(ctx, field)
+			case "schemaId":
+				return ec.fieldContext_Entity_schemaId(ctx, field)
 			case "entityType":
 				return ec.fieldContext_Entity_entityType(ctx, field)
 			case "path":
 				return ec.fieldContext_Entity_path(ctx, field)
 			case "properties":
 				return ec.fieldContext_Entity_properties(ctx, field)
+			case "version":
+				return ec.fieldContext_Entity_version(ctx, field)
 			case "createdAt":
 				return ec.fieldContext_Entity_createdAt(ctx, field)
 			case "updatedAt":
@@ -2288,7 +2468,7 @@ func (ec *executionContext) _EntityJoinConnection_edges(ctx context.Context, fie
 			return obj.Edges, nil
 		},
 		nil,
-		ec.marshalNEntityJoinEdge2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityJoinEdgeᚄ,
+		ec.marshalNEntityJoinEdge2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityJoinEdgeᚄ,
 		true,
 		true,
 	)
@@ -2323,7 +2503,7 @@ func (ec *executionContext) _EntityJoinConnection_pageInfo(ctx context.Context, 
 			return obj.PageInfo, nil
 		},
 		nil,
-		ec.marshalNPageInfo2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐPageInfo,
+		ec.marshalNPageInfo2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐPageInfo,
 		true,
 		true,
 	)
@@ -2534,7 +2714,7 @@ func (ec *executionContext) _EntityJoinDefinition_joinType(ctx context.Context, 
 			return obj.JoinType, nil
 		},
 		nil,
-		ec.marshalNJoinType2graphqlᚑengineeringᚑapiᚋgraphᚐJoinType,
+		ec.marshalNJoinType2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐJoinType,
 		true,
 		true,
 	)
@@ -2592,7 +2772,7 @@ func (ec *executionContext) _EntityJoinDefinition_joinFieldType(ctx context.Cont
 			return obj.JoinFieldType, nil
 		},
 		nil,
-		ec.marshalOFieldType2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐFieldType,
+		ec.marshalOFieldType2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐFieldType,
 		true,
 		false,
 	)
@@ -2621,7 +2801,7 @@ func (ec *executionContext) _EntityJoinDefinition_leftFilters(ctx context.Contex
 			return obj.LeftFilters, nil
 		},
 		nil,
-		ec.marshalNPropertyFilterConfig2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐPropertyFilterConfigᚄ,
+		ec.marshalNPropertyFilterConfig2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐPropertyFilterConfigᚄ,
 		true,
 		true,
 	)
@@ -2660,7 +2840,7 @@ func (ec *executionContext) _EntityJoinDefinition_rightFilters(ctx context.Conte
 			return obj.RightFilters, nil
 		},
 		nil,
-		ec.marshalNPropertyFilterConfig2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐPropertyFilterConfigᚄ,
+		ec.marshalNPropertyFilterConfig2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐPropertyFilterConfigᚄ,
 		true,
 		true,
 	)
@@ -2699,7 +2879,7 @@ func (ec *executionContext) _EntityJoinDefinition_sortCriteria(ctx context.Conte
 			return obj.SortCriteria, nil
 		},
 		nil,
-		ec.marshalNJoinSortCriterion2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐJoinSortCriterionᚄ,
+		ec.marshalNJoinSortCriterion2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐJoinSortCriterionᚄ,
 		true,
 		true,
 	)
@@ -2794,7 +2974,7 @@ func (ec *executionContext) _EntityJoinEdge_left(ctx context.Context, field grap
 			return obj.Left, nil
 		},
 		nil,
-		ec.marshalNEntity2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntity,
+		ec.marshalNEntity2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntity,
 		true,
 		true,
 	)
@@ -2812,12 +2992,16 @@ func (ec *executionContext) fieldContext_EntityJoinEdge_left(_ context.Context, 
 				return ec.fieldContext_Entity_id(ctx, field)
 			case "organizationId":
 				return ec.fieldContext_Entity_organizationId(ctx, field)
+			case "schemaId":
+				return ec.fieldContext_Entity_schemaId(ctx, field)
 			case "entityType":
 				return ec.fieldContext_Entity_entityType(ctx, field)
 			case "path":
 				return ec.fieldContext_Entity_path(ctx, field)
 			case "properties":
 				return ec.fieldContext_Entity_properties(ctx, field)
+			case "version":
+				return ec.fieldContext_Entity_version(ctx, field)
 			case "createdAt":
 				return ec.fieldContext_Entity_createdAt(ctx, field)
 			case "updatedAt":
@@ -2841,7 +3025,7 @@ func (ec *executionContext) _EntityJoinEdge_right(ctx context.Context, field gra
 			return obj.Right, nil
 		},
 		nil,
-		ec.marshalNEntity2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntity,
+		ec.marshalNEntity2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntity,
 		true,
 		true,
 	)
@@ -2859,12 +3043,16 @@ func (ec *executionContext) fieldContext_EntityJoinEdge_right(_ context.Context,
 				return ec.fieldContext_Entity_id(ctx, field)
 			case "organizationId":
 				return ec.fieldContext_Entity_organizationId(ctx, field)
+			case "schemaId":
+				return ec.fieldContext_Entity_schemaId(ctx, field)
 			case "entityType":
 				return ec.fieldContext_Entity_entityType(ctx, field)
 			case "path":
 				return ec.fieldContext_Entity_path(ctx, field)
 			case "properties":
 				return ec.fieldContext_Entity_properties(ctx, field)
+			case "version":
+				return ec.fieldContext_Entity_version(ctx, field)
 			case "createdAt":
 				return ec.fieldContext_Entity_createdAt(ctx, field)
 			case "updatedAt":
@@ -3004,7 +3192,7 @@ func (ec *executionContext) _EntitySchema_fields(ctx context.Context, field grap
 			return obj.Fields, nil
 		},
 		nil,
-		ec.marshalNFieldDefinition2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐFieldDefinitionᚄ,
+		ec.marshalNFieldDefinition2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐFieldDefinitionᚄ,
 		true,
 		true,
 	)
@@ -3034,6 +3222,93 @@ func (ec *executionContext) fieldContext_EntitySchema_fields(_ context.Context, 
 				return ec.fieldContext_FieldDefinition_referenceEntityType(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type FieldDefinition", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntitySchema_version(ctx context.Context, field graphql.CollectedField, obj *EntitySchema) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntitySchema_version,
+		func(ctx context.Context) (any, error) {
+			return obj.Version, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntitySchema_version(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntitySchema",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntitySchema_status(ctx context.Context, field graphql.CollectedField, obj *EntitySchema) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntitySchema_status,
+		func(ctx context.Context) (any, error) {
+			return obj.Status, nil
+		},
+		nil,
+		ec.marshalNSchemaStatus2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐSchemaStatus,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntitySchema_status(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntitySchema",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type SchemaStatus does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntitySchema_previousVersionId(ctx context.Context, field graphql.CollectedField, obj *EntitySchema) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntitySchema_previousVersionId,
+		func(ctx context.Context) (any, error) {
+			return obj.PreviousVersionID, nil
+		},
+		nil,
+		ec.marshalOString2ᚖstring,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntitySchema_previousVersionId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntitySchema",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
 		},
 	}
 	return fc, nil
@@ -3136,7 +3411,7 @@ func (ec *executionContext) _FieldDefinition_type(ctx context.Context, field gra
 			return obj.Type, nil
 		},
 		nil,
-		ec.marshalNFieldType2graphqlᚑengineeringᚑapiᚋgraphᚐFieldType,
+		ec.marshalNFieldType2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐFieldType,
 		true,
 		true,
 	)
@@ -3310,7 +3585,7 @@ func (ec *executionContext) _JoinSortCriterion_side(ctx context.Context, field g
 			return obj.Side, nil
 		},
 		nil,
-		ec.marshalNJoinSide2graphqlᚑengineeringᚑapiᚋgraphᚐJoinSide,
+		ec.marshalNJoinSide2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐJoinSide,
 		true,
 		true,
 	)
@@ -3368,7 +3643,7 @@ func (ec *executionContext) _JoinSortCriterion_direction(ctx context.Context, fi
 			return obj.Direction, nil
 		},
 		nil,
-		ec.marshalNJoinSortDirection2graphqlᚑengineeringᚑapiᚋgraphᚐJoinSortDirection,
+		ec.marshalNJoinSortDirection2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐJoinSortDirection,
 		true,
 		true,
 	)
@@ -3398,7 +3673,7 @@ func (ec *executionContext) _Mutation_createOrganization(ctx context.Context, fi
 			return ec.resolvers.Mutation().CreateOrganization(ctx, fc.Args["input"].(CreateOrganizationInput))
 		},
 		nil,
-		ec.marshalNOrganization2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐOrganization,
+		ec.marshalNOrganization2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐOrganization,
 		true,
 		true,
 	)
@@ -3451,7 +3726,7 @@ func (ec *executionContext) _Mutation_updateOrganization(ctx context.Context, fi
 			return ec.resolvers.Mutation().UpdateOrganization(ctx, fc.Args["input"].(UpdateOrganizationInput))
 		},
 		nil,
-		ec.marshalNOrganization2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐOrganization,
+		ec.marshalNOrganization2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐOrganization,
 		true,
 		true,
 	)
@@ -3545,7 +3820,7 @@ func (ec *executionContext) _Mutation_createEntitySchema(ctx context.Context, fi
 			return ec.resolvers.Mutation().CreateEntitySchema(ctx, fc.Args["input"].(CreateEntitySchemaInput))
 		},
 		nil,
-		ec.marshalNEntitySchema2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntitySchema,
+		ec.marshalNEntitySchema2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntitySchema,
 		true,
 		true,
 	)
@@ -3569,6 +3844,12 @@ func (ec *executionContext) fieldContext_Mutation_createEntitySchema(ctx context
 				return ec.fieldContext_EntitySchema_description(ctx, field)
 			case "fields":
 				return ec.fieldContext_EntitySchema_fields(ctx, field)
+			case "version":
+				return ec.fieldContext_EntitySchema_version(ctx, field)
+			case "status":
+				return ec.fieldContext_EntitySchema_status(ctx, field)
+			case "previousVersionId":
+				return ec.fieldContext_EntitySchema_previousVersionId(ctx, field)
 			case "createdAt":
 				return ec.fieldContext_EntitySchema_createdAt(ctx, field)
 			case "updatedAt":
@@ -3602,7 +3883,7 @@ func (ec *executionContext) _Mutation_updateEntitySchema(ctx context.Context, fi
 			return ec.resolvers.Mutation().UpdateEntitySchema(ctx, fc.Args["input"].(UpdateEntitySchemaInput))
 		},
 		nil,
-		ec.marshalNEntitySchema2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntitySchema,
+		ec.marshalNEntitySchema2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntitySchema,
 		true,
 		true,
 	)
@@ -3626,6 +3907,12 @@ func (ec *executionContext) fieldContext_Mutation_updateEntitySchema(ctx context
 				return ec.fieldContext_EntitySchema_description(ctx, field)
 			case "fields":
 				return ec.fieldContext_EntitySchema_fields(ctx, field)
+			case "version":
+				return ec.fieldContext_EntitySchema_version(ctx, field)
+			case "status":
+				return ec.fieldContext_EntitySchema_status(ctx, field)
+			case "previousVersionId":
+				return ec.fieldContext_EntitySchema_previousVersionId(ctx, field)
 			case "createdAt":
 				return ec.fieldContext_EntitySchema_createdAt(ctx, field)
 			case "updatedAt":
@@ -3700,7 +3987,7 @@ func (ec *executionContext) _Mutation_addFieldToSchema(ctx context.Context, fiel
 			return ec.resolvers.Mutation().AddFieldToSchema(ctx, fc.Args["schemaId"].(string), fc.Args["field"].(FieldDefinitionInput))
 		},
 		nil,
-		ec.marshalNEntitySchema2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntitySchema,
+		ec.marshalNEntitySchema2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntitySchema,
 		true,
 		true,
 	)
@@ -3724,6 +4011,12 @@ func (ec *executionContext) fieldContext_Mutation_addFieldToSchema(ctx context.C
 				return ec.fieldContext_EntitySchema_description(ctx, field)
 			case "fields":
 				return ec.fieldContext_EntitySchema_fields(ctx, field)
+			case "version":
+				return ec.fieldContext_EntitySchema_version(ctx, field)
+			case "status":
+				return ec.fieldContext_EntitySchema_status(ctx, field)
+			case "previousVersionId":
+				return ec.fieldContext_EntitySchema_previousVersionId(ctx, field)
 			case "createdAt":
 				return ec.fieldContext_EntitySchema_createdAt(ctx, field)
 			case "updatedAt":
@@ -3757,7 +4050,7 @@ func (ec *executionContext) _Mutation_removeFieldFromSchema(ctx context.Context,
 			return ec.resolvers.Mutation().RemoveFieldFromSchema(ctx, fc.Args["schemaId"].(string), fc.Args["fieldName"].(string))
 		},
 		nil,
-		ec.marshalNEntitySchema2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntitySchema,
+		ec.marshalNEntitySchema2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntitySchema,
 		true,
 		true,
 	)
@@ -3781,6 +4074,12 @@ func (ec *executionContext) fieldContext_Mutation_removeFieldFromSchema(ctx cont
 				return ec.fieldContext_EntitySchema_description(ctx, field)
 			case "fields":
 				return ec.fieldContext_EntitySchema_fields(ctx, field)
+			case "version":
+				return ec.fieldContext_EntitySchema_version(ctx, field)
+			case "status":
+				return ec.fieldContext_EntitySchema_status(ctx, field)
+			case "previousVersionId":
+				return ec.fieldContext_EntitySchema_previousVersionId(ctx, field)
 			case "createdAt":
 				return ec.fieldContext_EntitySchema_createdAt(ctx, field)
 			case "updatedAt":
@@ -3803,6 +4102,69 @@ func (ec *executionContext) fieldContext_Mutation_removeFieldFromSchema(ctx cont
 	return fc, nil
 }
 
+func (ec *executionContext) _Mutation_rollbackEntity(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Mutation_rollbackEntity,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Mutation().RollbackEntity(ctx, fc.Args["id"].(string), fc.Args["toVersion"].(int), fc.Args["reason"].(*string))
+		},
+		nil,
+		ec.marshalNEntity2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntity,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Mutation_rollbackEntity(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Entity_id(ctx, field)
+			case "organizationId":
+				return ec.fieldContext_Entity_organizationId(ctx, field)
+			case "schemaId":
+				return ec.fieldContext_Entity_schemaId(ctx, field)
+			case "entityType":
+				return ec.fieldContext_Entity_entityType(ctx, field)
+			case "path":
+				return ec.fieldContext_Entity_path(ctx, field)
+			case "properties":
+				return ec.fieldContext_Entity_properties(ctx, field)
+			case "version":
+				return ec.fieldContext_Entity_version(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_Entity_createdAt(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_Entity_updatedAt(ctx, field)
+			case "linkedEntities":
+				return ec.fieldContext_Entity_linkedEntities(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Entity", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_rollbackEntity_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Mutation_createEntity(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -3814,7 +4176,7 @@ func (ec *executionContext) _Mutation_createEntity(ctx context.Context, field gr
 			return ec.resolvers.Mutation().CreateEntity(ctx, fc.Args["input"].(CreateEntityInput))
 		},
 		nil,
-		ec.marshalNEntity2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntity,
+		ec.marshalNEntity2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntity,
 		true,
 		true,
 	)
@@ -3832,12 +4194,16 @@ func (ec *executionContext) fieldContext_Mutation_createEntity(ctx context.Conte
 				return ec.fieldContext_Entity_id(ctx, field)
 			case "organizationId":
 				return ec.fieldContext_Entity_organizationId(ctx, field)
+			case "schemaId":
+				return ec.fieldContext_Entity_schemaId(ctx, field)
 			case "entityType":
 				return ec.fieldContext_Entity_entityType(ctx, field)
 			case "path":
 				return ec.fieldContext_Entity_path(ctx, field)
 			case "properties":
 				return ec.fieldContext_Entity_properties(ctx, field)
+			case "version":
+				return ec.fieldContext_Entity_version(ctx, field)
 			case "createdAt":
 				return ec.fieldContext_Entity_createdAt(ctx, field)
 			case "updatedAt":
@@ -3873,7 +4239,7 @@ func (ec *executionContext) _Mutation_updateEntity(ctx context.Context, field gr
 			return ec.resolvers.Mutation().UpdateEntity(ctx, fc.Args["input"].(UpdateEntityInput))
 		},
 		nil,
-		ec.marshalNEntity2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntity,
+		ec.marshalNEntity2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntity,
 		true,
 		true,
 	)
@@ -3891,12 +4257,16 @@ func (ec *executionContext) fieldContext_Mutation_updateEntity(ctx context.Conte
 				return ec.fieldContext_Entity_id(ctx, field)
 			case "organizationId":
 				return ec.fieldContext_Entity_organizationId(ctx, field)
+			case "schemaId":
+				return ec.fieldContext_Entity_schemaId(ctx, field)
 			case "entityType":
 				return ec.fieldContext_Entity_entityType(ctx, field)
 			case "path":
 				return ec.fieldContext_Entity_path(ctx, field)
 			case "properties":
 				return ec.fieldContext_Entity_properties(ctx, field)
+			case "version":
+				return ec.fieldContext_Entity_version(ctx, field)
 			case "createdAt":
 				return ec.fieldContext_Entity_createdAt(ctx, field)
 			case "updatedAt":
@@ -3973,7 +4343,7 @@ func (ec *executionContext) _Mutation_createEntityJoinDefinition(ctx context.Con
 			return ec.resolvers.Mutation().CreateEntityJoinDefinition(ctx, fc.Args["input"].(CreateEntityJoinDefinitionInput))
 		},
 		nil,
-		ec.marshalNEntityJoinDefinition2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityJoinDefinition,
+		ec.marshalNEntityJoinDefinition2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityJoinDefinition,
 		true,
 		true,
 	)
@@ -4044,7 +4414,7 @@ func (ec *executionContext) _Mutation_updateEntityJoinDefinition(ctx context.Con
 			return ec.resolvers.Mutation().UpdateEntityJoinDefinition(ctx, fc.Args["input"].(UpdateEntityJoinDefinitionInput))
 		},
 		nil,
-		ec.marshalNEntityJoinDefinition2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityJoinDefinition,
+		ec.marshalNEntityJoinDefinition2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityJoinDefinition,
 		true,
 		true,
 	)
@@ -4503,7 +4873,7 @@ func (ec *executionContext) _Query_organizations(ctx context.Context, field grap
 			return ec.resolvers.Query().Organizations(ctx)
 		},
 		nil,
-		ec.marshalNOrganization2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐOrganizationᚄ,
+		ec.marshalNOrganization2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐOrganizationᚄ,
 		true,
 		true,
 	)
@@ -4545,7 +4915,7 @@ func (ec *executionContext) _Query_organization(ctx context.Context, field graph
 			return ec.resolvers.Query().Organization(ctx, fc.Args["id"].(string))
 		},
 		nil,
-		ec.marshalOOrganization2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐOrganization,
+		ec.marshalOOrganization2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐOrganization,
 		true,
 		false,
 	)
@@ -4598,7 +4968,7 @@ func (ec *executionContext) _Query_organizationByName(ctx context.Context, field
 			return ec.resolvers.Query().OrganizationByName(ctx, fc.Args["name"].(string))
 		},
 		nil,
-		ec.marshalOOrganization2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐOrganization,
+		ec.marshalOOrganization2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐOrganization,
 		true,
 		false,
 	)
@@ -4651,7 +5021,7 @@ func (ec *executionContext) _Query_entitySchemas(ctx context.Context, field grap
 			return ec.resolvers.Query().EntitySchemas(ctx, fc.Args["organizationId"].(string))
 		},
 		nil,
-		ec.marshalNEntitySchema2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntitySchemaᚄ,
+		ec.marshalNEntitySchema2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntitySchemaᚄ,
 		true,
 		true,
 	)
@@ -4675,6 +5045,12 @@ func (ec *executionContext) fieldContext_Query_entitySchemas(ctx context.Context
 				return ec.fieldContext_EntitySchema_description(ctx, field)
 			case "fields":
 				return ec.fieldContext_EntitySchema_fields(ctx, field)
+			case "version":
+				return ec.fieldContext_EntitySchema_version(ctx, field)
+			case "status":
+				return ec.fieldContext_EntitySchema_status(ctx, field)
+			case "previousVersionId":
+				return ec.fieldContext_EntitySchema_previousVersionId(ctx, field)
 			case "createdAt":
 				return ec.fieldContext_EntitySchema_createdAt(ctx, field)
 			case "updatedAt":
@@ -4708,7 +5084,7 @@ func (ec *executionContext) _Query_entitySchema(ctx context.Context, field graph
 			return ec.resolvers.Query().EntitySchema(ctx, fc.Args["id"].(string))
 		},
 		nil,
-		ec.marshalOEntitySchema2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntitySchema,
+		ec.marshalOEntitySchema2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntitySchema,
 		true,
 		false,
 	)
@@ -4732,6 +5108,12 @@ func (ec *executionContext) fieldContext_Query_entitySchema(ctx context.Context,
 				return ec.fieldContext_EntitySchema_description(ctx, field)
 			case "fields":
 				return ec.fieldContext_EntitySchema_fields(ctx, field)
+			case "version":
+				return ec.fieldContext_EntitySchema_version(ctx, field)
+			case "status":
+				return ec.fieldContext_EntitySchema_status(ctx, field)
+			case "previousVersionId":
+				return ec.fieldContext_EntitySchema_previousVersionId(ctx, field)
 			case "createdAt":
 				return ec.fieldContext_EntitySchema_createdAt(ctx, field)
 			case "updatedAt":
@@ -4765,7 +5147,7 @@ func (ec *executionContext) _Query_entitySchemaByName(ctx context.Context, field
 			return ec.resolvers.Query().EntitySchemaByName(ctx, fc.Args["organizationId"].(string), fc.Args["name"].(string))
 		},
 		nil,
-		ec.marshalOEntitySchema2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntitySchema,
+		ec.marshalOEntitySchema2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntitySchema,
 		true,
 		false,
 	)
@@ -4789,6 +5171,12 @@ func (ec *executionContext) fieldContext_Query_entitySchemaByName(ctx context.Co
 				return ec.fieldContext_EntitySchema_description(ctx, field)
 			case "fields":
 				return ec.fieldContext_EntitySchema_fields(ctx, field)
+			case "version":
+				return ec.fieldContext_EntitySchema_version(ctx, field)
+			case "status":
+				return ec.fieldContext_EntitySchema_status(ctx, field)
+			case "previousVersionId":
+				return ec.fieldContext_EntitySchema_previousVersionId(ctx, field)
 			case "createdAt":
 				return ec.fieldContext_EntitySchema_createdAt(ctx, field)
 			case "updatedAt":
@@ -4811,6 +5199,69 @@ func (ec *executionContext) fieldContext_Query_entitySchemaByName(ctx context.Co
 	return fc, nil
 }
 
+func (ec *executionContext) _Query_entitySchemaVersions(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Query_entitySchemaVersions,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Query().EntitySchemaVersions(ctx, fc.Args["organizationId"].(string), fc.Args["name"].(string))
+		},
+		nil,
+		ec.marshalNEntitySchema2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntitySchemaᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Query_entitySchemaVersions(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_EntitySchema_id(ctx, field)
+			case "organizationId":
+				return ec.fieldContext_EntitySchema_organizationId(ctx, field)
+			case "name":
+				return ec.fieldContext_EntitySchema_name(ctx, field)
+			case "description":
+				return ec.fieldContext_EntitySchema_description(ctx, field)
+			case "fields":
+				return ec.fieldContext_EntitySchema_fields(ctx, field)
+			case "version":
+				return ec.fieldContext_EntitySchema_version(ctx, field)
+			case "status":
+				return ec.fieldContext_EntitySchema_status(ctx, field)
+			case "previousVersionId":
+				return ec.fieldContext_EntitySchema_previousVersionId(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_EntitySchema_createdAt(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_EntitySchema_updatedAt(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type EntitySchema", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_entitySchemaVersions_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Query_entities(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -4822,7 +5273,7 @@ func (ec *executionContext) _Query_entities(ctx context.Context, field graphql.C
 			return ec.resolvers.Query().Entities(ctx, fc.Args["organizationId"].(string), fc.Args["filter"].(*EntityFilter), fc.Args["pagination"].(*PaginationInput))
 		},
 		nil,
-		ec.marshalNEntityConnection2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityConnection,
+		ec.marshalNEntityConnection2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityConnection,
 		true,
 		true,
 	)
@@ -4869,7 +5320,7 @@ func (ec *executionContext) _Query_entity(ctx context.Context, field graphql.Col
 			return ec.resolvers.Query().Entity(ctx, fc.Args["id"].(string))
 		},
 		nil,
-		ec.marshalOEntity2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntity,
+		ec.marshalOEntity2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntity,
 		true,
 		false,
 	)
@@ -4887,12 +5338,16 @@ func (ec *executionContext) fieldContext_Query_entity(ctx context.Context, field
 				return ec.fieldContext_Entity_id(ctx, field)
 			case "organizationId":
 				return ec.fieldContext_Entity_organizationId(ctx, field)
+			case "schemaId":
+				return ec.fieldContext_Entity_schemaId(ctx, field)
 			case "entityType":
 				return ec.fieldContext_Entity_entityType(ctx, field)
 			case "path":
 				return ec.fieldContext_Entity_path(ctx, field)
 			case "properties":
 				return ec.fieldContext_Entity_properties(ctx, field)
+			case "version":
+				return ec.fieldContext_Entity_version(ctx, field)
 			case "createdAt":
 				return ec.fieldContext_Entity_createdAt(ctx, field)
 			case "updatedAt":
@@ -4928,7 +5383,7 @@ func (ec *executionContext) _Query_entitiesByType(ctx context.Context, field gra
 			return ec.resolvers.Query().EntitiesByType(ctx, fc.Args["organizationId"].(string), fc.Args["entityType"].(string))
 		},
 		nil,
-		ec.marshalNEntity2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityᚄ,
+		ec.marshalNEntity2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityᚄ,
 		true,
 		true,
 	)
@@ -4946,12 +5401,16 @@ func (ec *executionContext) fieldContext_Query_entitiesByType(ctx context.Contex
 				return ec.fieldContext_Entity_id(ctx, field)
 			case "organizationId":
 				return ec.fieldContext_Entity_organizationId(ctx, field)
+			case "schemaId":
+				return ec.fieldContext_Entity_schemaId(ctx, field)
 			case "entityType":
 				return ec.fieldContext_Entity_entityType(ctx, field)
 			case "path":
 				return ec.fieldContext_Entity_path(ctx, field)
 			case "properties":
 				return ec.fieldContext_Entity_properties(ctx, field)
+			case "version":
+				return ec.fieldContext_Entity_version(ctx, field)
 			case "createdAt":
 				return ec.fieldContext_Entity_createdAt(ctx, field)
 			case "updatedAt":
@@ -4987,7 +5446,7 @@ func (ec *executionContext) _Query_entitiesByIDs(ctx context.Context, field grap
 			return ec.resolvers.Query().EntitiesByIDs(ctx, fc.Args["ids"].([]string))
 		},
 		nil,
-		ec.marshalNEntity2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityᚄ,
+		ec.marshalNEntity2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityᚄ,
 		true,
 		true,
 	)
@@ -5005,12 +5464,16 @@ func (ec *executionContext) fieldContext_Query_entitiesByIDs(ctx context.Context
 				return ec.fieldContext_Entity_id(ctx, field)
 			case "organizationId":
 				return ec.fieldContext_Entity_organizationId(ctx, field)
+			case "schemaId":
+				return ec.fieldContext_Entity_schemaId(ctx, field)
 			case "entityType":
 				return ec.fieldContext_Entity_entityType(ctx, field)
 			case "path":
 				return ec.fieldContext_Entity_path(ctx, field)
 			case "properties":
 				return ec.fieldContext_Entity_properties(ctx, field)
+			case "version":
+				return ec.fieldContext_Entity_version(ctx, field)
 			case "createdAt":
 				return ec.fieldContext_Entity_createdAt(ctx, field)
 			case "updatedAt":
@@ -5046,7 +5509,7 @@ func (ec *executionContext) _Query_getEntityAncestors(ctx context.Context, field
 			return ec.resolvers.Query().GetEntityAncestors(ctx, fc.Args["entityId"].(string))
 		},
 		nil,
-		ec.marshalNEntity2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityᚄ,
+		ec.marshalNEntity2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityᚄ,
 		true,
 		true,
 	)
@@ -5064,12 +5527,16 @@ func (ec *executionContext) fieldContext_Query_getEntityAncestors(ctx context.Co
 				return ec.fieldContext_Entity_id(ctx, field)
 			case "organizationId":
 				return ec.fieldContext_Entity_organizationId(ctx, field)
+			case "schemaId":
+				return ec.fieldContext_Entity_schemaId(ctx, field)
 			case "entityType":
 				return ec.fieldContext_Entity_entityType(ctx, field)
 			case "path":
 				return ec.fieldContext_Entity_path(ctx, field)
 			case "properties":
 				return ec.fieldContext_Entity_properties(ctx, field)
+			case "version":
+				return ec.fieldContext_Entity_version(ctx, field)
 			case "createdAt":
 				return ec.fieldContext_Entity_createdAt(ctx, field)
 			case "updatedAt":
@@ -5105,7 +5572,7 @@ func (ec *executionContext) _Query_getEntityDescendants(ctx context.Context, fie
 			return ec.resolvers.Query().GetEntityDescendants(ctx, fc.Args["entityId"].(string))
 		},
 		nil,
-		ec.marshalNEntity2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityᚄ,
+		ec.marshalNEntity2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityᚄ,
 		true,
 		true,
 	)
@@ -5123,12 +5590,16 @@ func (ec *executionContext) fieldContext_Query_getEntityDescendants(ctx context.
 				return ec.fieldContext_Entity_id(ctx, field)
 			case "organizationId":
 				return ec.fieldContext_Entity_organizationId(ctx, field)
+			case "schemaId":
+				return ec.fieldContext_Entity_schemaId(ctx, field)
 			case "entityType":
 				return ec.fieldContext_Entity_entityType(ctx, field)
 			case "path":
 				return ec.fieldContext_Entity_path(ctx, field)
 			case "properties":
 				return ec.fieldContext_Entity_properties(ctx, field)
+			case "version":
+				return ec.fieldContext_Entity_version(ctx, field)
 			case "createdAt":
 				return ec.fieldContext_Entity_createdAt(ctx, field)
 			case "updatedAt":
@@ -5164,7 +5635,7 @@ func (ec *executionContext) _Query_getEntityChildren(ctx context.Context, field 
 			return ec.resolvers.Query().GetEntityChildren(ctx, fc.Args["entityId"].(string))
 		},
 		nil,
-		ec.marshalNEntity2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityᚄ,
+		ec.marshalNEntity2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityᚄ,
 		true,
 		true,
 	)
@@ -5182,12 +5653,16 @@ func (ec *executionContext) fieldContext_Query_getEntityChildren(ctx context.Con
 				return ec.fieldContext_Entity_id(ctx, field)
 			case "organizationId":
 				return ec.fieldContext_Entity_organizationId(ctx, field)
+			case "schemaId":
+				return ec.fieldContext_Entity_schemaId(ctx, field)
 			case "entityType":
 				return ec.fieldContext_Entity_entityType(ctx, field)
 			case "path":
 				return ec.fieldContext_Entity_path(ctx, field)
 			case "properties":
 				return ec.fieldContext_Entity_properties(ctx, field)
+			case "version":
+				return ec.fieldContext_Entity_version(ctx, field)
 			case "createdAt":
 				return ec.fieldContext_Entity_createdAt(ctx, field)
 			case "updatedAt":
@@ -5223,7 +5698,7 @@ func (ec *executionContext) _Query_getEntitySiblings(ctx context.Context, field 
 			return ec.resolvers.Query().GetEntitySiblings(ctx, fc.Args["entityId"].(string))
 		},
 		nil,
-		ec.marshalNEntity2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityᚄ,
+		ec.marshalNEntity2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityᚄ,
 		true,
 		true,
 	)
@@ -5241,12 +5716,16 @@ func (ec *executionContext) fieldContext_Query_getEntitySiblings(ctx context.Con
 				return ec.fieldContext_Entity_id(ctx, field)
 			case "organizationId":
 				return ec.fieldContext_Entity_organizationId(ctx, field)
+			case "schemaId":
+				return ec.fieldContext_Entity_schemaId(ctx, field)
 			case "entityType":
 				return ec.fieldContext_Entity_entityType(ctx, field)
 			case "path":
 				return ec.fieldContext_Entity_path(ctx, field)
 			case "properties":
 				return ec.fieldContext_Entity_properties(ctx, field)
+			case "version":
+				return ec.fieldContext_Entity_version(ctx, field)
 			case "createdAt":
 				return ec.fieldContext_Entity_createdAt(ctx, field)
 			case "updatedAt":
@@ -5282,7 +5761,7 @@ func (ec *executionContext) _Query_getEntityHierarchy(ctx context.Context, field
 			return ec.resolvers.Query().GetEntityHierarchy(ctx, fc.Args["entityId"].(string))
 		},
 		nil,
-		ec.marshalNEntityHierarchy2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityHierarchy,
+		ec.marshalNEntityHierarchy2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityHierarchy,
 		true,
 		true,
 	)
@@ -5333,7 +5812,7 @@ func (ec *executionContext) _Query_searchEntitiesByProperty(ctx context.Context,
 			return ec.resolvers.Query().SearchEntitiesByProperty(ctx, fc.Args["organizationId"].(string), fc.Args["propertyKey"].(string), fc.Args["propertyValue"].(string))
 		},
 		nil,
-		ec.marshalNEntity2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityᚄ,
+		ec.marshalNEntity2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityᚄ,
 		true,
 		true,
 	)
@@ -5351,12 +5830,16 @@ func (ec *executionContext) fieldContext_Query_searchEntitiesByProperty(ctx cont
 				return ec.fieldContext_Entity_id(ctx, field)
 			case "organizationId":
 				return ec.fieldContext_Entity_organizationId(ctx, field)
+			case "schemaId":
+				return ec.fieldContext_Entity_schemaId(ctx, field)
 			case "entityType":
 				return ec.fieldContext_Entity_entityType(ctx, field)
 			case "path":
 				return ec.fieldContext_Entity_path(ctx, field)
 			case "properties":
 				return ec.fieldContext_Entity_properties(ctx, field)
+			case "version":
+				return ec.fieldContext_Entity_version(ctx, field)
 			case "createdAt":
 				return ec.fieldContext_Entity_createdAt(ctx, field)
 			case "updatedAt":
@@ -5392,7 +5875,7 @@ func (ec *executionContext) _Query_searchEntitiesByMultipleProperties(ctx contex
 			return ec.resolvers.Query().SearchEntitiesByMultipleProperties(ctx, fc.Args["organizationId"].(string), fc.Args["filters"].(string))
 		},
 		nil,
-		ec.marshalNEntity2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityᚄ,
+		ec.marshalNEntity2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityᚄ,
 		true,
 		true,
 	)
@@ -5410,12 +5893,16 @@ func (ec *executionContext) fieldContext_Query_searchEntitiesByMultiplePropertie
 				return ec.fieldContext_Entity_id(ctx, field)
 			case "organizationId":
 				return ec.fieldContext_Entity_organizationId(ctx, field)
+			case "schemaId":
+				return ec.fieldContext_Entity_schemaId(ctx, field)
 			case "entityType":
 				return ec.fieldContext_Entity_entityType(ctx, field)
 			case "path":
 				return ec.fieldContext_Entity_path(ctx, field)
 			case "properties":
 				return ec.fieldContext_Entity_properties(ctx, field)
+			case "version":
+				return ec.fieldContext_Entity_version(ctx, field)
 			case "createdAt":
 				return ec.fieldContext_Entity_createdAt(ctx, field)
 			case "updatedAt":
@@ -5451,7 +5938,7 @@ func (ec *executionContext) _Query_searchEntitiesByPropertyRange(ctx context.Con
 			return ec.resolvers.Query().SearchEntitiesByPropertyRange(ctx, fc.Args["organizationId"].(string), fc.Args["propertyKey"].(string), fc.Args["minValue"].(*float64), fc.Args["maxValue"].(*float64))
 		},
 		nil,
-		ec.marshalNEntity2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityᚄ,
+		ec.marshalNEntity2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityᚄ,
 		true,
 		true,
 	)
@@ -5469,12 +5956,16 @@ func (ec *executionContext) fieldContext_Query_searchEntitiesByPropertyRange(ctx
 				return ec.fieldContext_Entity_id(ctx, field)
 			case "organizationId":
 				return ec.fieldContext_Entity_organizationId(ctx, field)
+			case "schemaId":
+				return ec.fieldContext_Entity_schemaId(ctx, field)
 			case "entityType":
 				return ec.fieldContext_Entity_entityType(ctx, field)
 			case "path":
 				return ec.fieldContext_Entity_path(ctx, field)
 			case "properties":
 				return ec.fieldContext_Entity_properties(ctx, field)
+			case "version":
+				return ec.fieldContext_Entity_version(ctx, field)
 			case "createdAt":
 				return ec.fieldContext_Entity_createdAt(ctx, field)
 			case "updatedAt":
@@ -5510,7 +6001,7 @@ func (ec *executionContext) _Query_searchEntitiesByPropertyExists(ctx context.Co
 			return ec.resolvers.Query().SearchEntitiesByPropertyExists(ctx, fc.Args["organizationId"].(string), fc.Args["propertyKey"].(string))
 		},
 		nil,
-		ec.marshalNEntity2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityᚄ,
+		ec.marshalNEntity2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityᚄ,
 		true,
 		true,
 	)
@@ -5528,12 +6019,16 @@ func (ec *executionContext) fieldContext_Query_searchEntitiesByPropertyExists(ct
 				return ec.fieldContext_Entity_id(ctx, field)
 			case "organizationId":
 				return ec.fieldContext_Entity_organizationId(ctx, field)
+			case "schemaId":
+				return ec.fieldContext_Entity_schemaId(ctx, field)
 			case "entityType":
 				return ec.fieldContext_Entity_entityType(ctx, field)
 			case "path":
 				return ec.fieldContext_Entity_path(ctx, field)
 			case "properties":
 				return ec.fieldContext_Entity_properties(ctx, field)
+			case "version":
+				return ec.fieldContext_Entity_version(ctx, field)
 			case "createdAt":
 				return ec.fieldContext_Entity_createdAt(ctx, field)
 			case "updatedAt":
@@ -5569,7 +6064,7 @@ func (ec *executionContext) _Query_searchEntitiesByPropertyContains(ctx context.
 			return ec.resolvers.Query().SearchEntitiesByPropertyContains(ctx, fc.Args["organizationId"].(string), fc.Args["propertyKey"].(string), fc.Args["searchTerm"].(string))
 		},
 		nil,
-		ec.marshalNEntity2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityᚄ,
+		ec.marshalNEntity2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityᚄ,
 		true,
 		true,
 	)
@@ -5587,12 +6082,16 @@ func (ec *executionContext) fieldContext_Query_searchEntitiesByPropertyContains(
 				return ec.fieldContext_Entity_id(ctx, field)
 			case "organizationId":
 				return ec.fieldContext_Entity_organizationId(ctx, field)
+			case "schemaId":
+				return ec.fieldContext_Entity_schemaId(ctx, field)
 			case "entityType":
 				return ec.fieldContext_Entity_entityType(ctx, field)
 			case "path":
 				return ec.fieldContext_Entity_path(ctx, field)
 			case "properties":
 				return ec.fieldContext_Entity_properties(ctx, field)
+			case "version":
+				return ec.fieldContext_Entity_version(ctx, field)
 			case "createdAt":
 				return ec.fieldContext_Entity_createdAt(ctx, field)
 			case "updatedAt":
@@ -5628,7 +6127,7 @@ func (ec *executionContext) _Query_validateEntityAgainstSchema(ctx context.Conte
 			return ec.resolvers.Query().ValidateEntityAgainstSchema(ctx, fc.Args["entityId"].(string))
 		},
 		nil,
-		ec.marshalNValidationResult2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐValidationResult,
+		ec.marshalNValidationResult2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐValidationResult,
 		true,
 		true,
 	)
@@ -5677,7 +6176,7 @@ func (ec *executionContext) _Query_entityJoinDefinition(ctx context.Context, fie
 			return ec.resolvers.Query().EntityJoinDefinition(ctx, fc.Args["id"].(string))
 		},
 		nil,
-		ec.marshalOEntityJoinDefinition2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityJoinDefinition,
+		ec.marshalOEntityJoinDefinition2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityJoinDefinition,
 		true,
 		false,
 	)
@@ -5748,7 +6247,7 @@ func (ec *executionContext) _Query_entityJoinDefinitions(ctx context.Context, fi
 			return ec.resolvers.Query().EntityJoinDefinitions(ctx, fc.Args["organizationId"].(string))
 		},
 		nil,
-		ec.marshalNEntityJoinDefinition2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityJoinDefinitionᚄ,
+		ec.marshalNEntityJoinDefinition2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityJoinDefinitionᚄ,
 		true,
 		true,
 	)
@@ -5819,7 +6318,7 @@ func (ec *executionContext) _Query_executeEntityJoin(ctx context.Context, field 
 			return ec.resolvers.Query().ExecuteEntityJoin(ctx, fc.Args["input"].(ExecuteEntityJoinInput))
 		},
 		nil,
-		ec.marshalNEntityJoinConnection2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityJoinConnection,
+		ec.marshalNEntityJoinConnection2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityJoinConnection,
 		true,
 		true,
 	)
@@ -7599,7 +8098,7 @@ func (ec *executionContext) unmarshalInputCreateEntityJoinDefinitionInput(ctx co
 			it.Description = data
 		case "joinType":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("joinType"))
-			data, err := ec.unmarshalOJoinType2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐJoinType(ctx, v)
+			data, err := ec.unmarshalOJoinType2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐJoinType(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -7627,21 +8126,21 @@ func (ec *executionContext) unmarshalInputCreateEntityJoinDefinitionInput(ctx co
 			it.JoinField = data
 		case "leftFilters":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("leftFilters"))
-			data, err := ec.unmarshalOPropertyFilter2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐPropertyFilterᚄ(ctx, v)
+			data, err := ec.unmarshalOPropertyFilter2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐPropertyFilterᚄ(ctx, v)
 			if err != nil {
 				return it, err
 			}
 			it.LeftFilters = data
 		case "rightFilters":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("rightFilters"))
-			data, err := ec.unmarshalOPropertyFilter2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐPropertyFilterᚄ(ctx, v)
+			data, err := ec.unmarshalOPropertyFilter2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐPropertyFilterᚄ(ctx, v)
 			if err != nil {
 				return it, err
 			}
 			it.RightFilters = data
 		case "sortCriteria":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("sortCriteria"))
-			data, err := ec.unmarshalOJoinSortInput2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐJoinSortInputᚄ(ctx, v)
+			data, err := ec.unmarshalOJoinSortInput2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐJoinSortInputᚄ(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -7689,7 +8188,7 @@ func (ec *executionContext) unmarshalInputCreateEntitySchemaInput(ctx context.Co
 			it.Description = data
 		case "fields":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("fields"))
-			data, err := ec.unmarshalNFieldDefinitionInput2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐFieldDefinitionInputᚄ(ctx, v)
+			data, err := ec.unmarshalNFieldDefinitionInput2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐFieldDefinitionInputᚄ(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -7757,7 +8256,7 @@ func (ec *executionContext) unmarshalInputEntityFilter(ctx context.Context, obj 
 			it.EntityType = data
 		case "propertyFilters":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("propertyFilters"))
-			data, err := ec.unmarshalOPropertyFilter2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐPropertyFilterᚄ(ctx, v)
+			data, err := ec.unmarshalOPropertyFilter2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐPropertyFilterᚄ(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -7771,7 +8270,7 @@ func (ec *executionContext) unmarshalInputEntityFilter(ctx context.Context, obj 
 			it.TextSearch = data
 		case "pathFilter":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("pathFilter"))
-			data, err := ec.unmarshalOPathFilter2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐPathFilter(ctx, v)
+			data, err := ec.unmarshalOPathFilter2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐPathFilter(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -7805,28 +8304,28 @@ func (ec *executionContext) unmarshalInputExecuteEntityJoinInput(ctx context.Con
 			it.JoinID = data
 		case "leftFilters":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("leftFilters"))
-			data, err := ec.unmarshalOPropertyFilter2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐPropertyFilterᚄ(ctx, v)
+			data, err := ec.unmarshalOPropertyFilter2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐPropertyFilterᚄ(ctx, v)
 			if err != nil {
 				return it, err
 			}
 			it.LeftFilters = data
 		case "rightFilters":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("rightFilters"))
-			data, err := ec.unmarshalOPropertyFilter2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐPropertyFilterᚄ(ctx, v)
+			data, err := ec.unmarshalOPropertyFilter2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐPropertyFilterᚄ(ctx, v)
 			if err != nil {
 				return it, err
 			}
 			it.RightFilters = data
 		case "sortCriteria":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("sortCriteria"))
-			data, err := ec.unmarshalOJoinSortInput2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐJoinSortInputᚄ(ctx, v)
+			data, err := ec.unmarshalOJoinSortInput2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐJoinSortInputᚄ(ctx, v)
 			if err != nil {
 				return it, err
 			}
 			it.SortCriteria = data
 		case "pagination":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("pagination"))
-			data, err := ec.unmarshalOPaginationInput2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐPaginationInput(ctx, v)
+			data, err := ec.unmarshalOPaginationInput2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐPaginationInput(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -7864,7 +8363,7 @@ func (ec *executionContext) unmarshalInputFieldDefinitionInput(ctx context.Conte
 			it.Name = data
 		case "type":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("type"))
-			data, err := ec.unmarshalNFieldType2graphqlᚑengineeringᚑapiᚋgraphᚐFieldType(ctx, v)
+			data, err := ec.unmarshalNFieldType2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐFieldType(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -7930,7 +8429,7 @@ func (ec *executionContext) unmarshalInputJoinSortInput(ctx context.Context, obj
 		switch k {
 		case "side":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("side"))
-			data, err := ec.unmarshalNJoinSide2graphqlᚑengineeringᚑapiᚋgraphᚐJoinSide(ctx, v)
+			data, err := ec.unmarshalNJoinSide2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐJoinSide(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -7944,7 +8443,7 @@ func (ec *executionContext) unmarshalInputJoinSortInput(ctx context.Context, obj
 			it.Field = data
 		case "direction":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("direction"))
-			data, err := ec.unmarshalOJoinSortDirection2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐJoinSortDirection(ctx, v)
+			data, err := ec.unmarshalOJoinSortDirection2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐJoinSortDirection(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -8177,7 +8676,7 @@ func (ec *executionContext) unmarshalInputUpdateEntityJoinDefinitionInput(ctx co
 			it.Description = data
 		case "joinType":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("joinType"))
-			data, err := ec.unmarshalOJoinType2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐJoinType(ctx, v)
+			data, err := ec.unmarshalOJoinType2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐJoinType(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -8205,21 +8704,21 @@ func (ec *executionContext) unmarshalInputUpdateEntityJoinDefinitionInput(ctx co
 			it.JoinField = data
 		case "leftFilters":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("leftFilters"))
-			data, err := ec.unmarshalOPropertyFilter2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐPropertyFilterᚄ(ctx, v)
+			data, err := ec.unmarshalOPropertyFilter2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐPropertyFilterᚄ(ctx, v)
 			if err != nil {
 				return it, err
 			}
 			it.LeftFilters = data
 		case "rightFilters":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("rightFilters"))
-			data, err := ec.unmarshalOPropertyFilter2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐPropertyFilterᚄ(ctx, v)
+			data, err := ec.unmarshalOPropertyFilter2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐPropertyFilterᚄ(ctx, v)
 			if err != nil {
 				return it, err
 			}
 			it.RightFilters = data
 		case "sortCriteria":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("sortCriteria"))
-			data, err := ec.unmarshalOJoinSortInput2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐJoinSortInputᚄ(ctx, v)
+			data, err := ec.unmarshalOJoinSortInput2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐJoinSortInputᚄ(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -8267,7 +8766,7 @@ func (ec *executionContext) unmarshalInputUpdateEntitySchemaInput(ctx context.Co
 			it.Description = data
 		case "fields":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("fields"))
-			data, err := ec.unmarshalOFieldDefinitionInput2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐFieldDefinitionInputᚄ(ctx, v)
+			data, err := ec.unmarshalOFieldDefinitionInput2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐFieldDefinitionInputᚄ(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -8348,6 +8847,11 @@ func (ec *executionContext) _Entity(ctx context.Context, sel ast.SelectionSet, o
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
+		case "schemaId":
+			out.Values[i] = ec._Entity_schemaId(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
 		case "entityType":
 			out.Values[i] = ec._Entity_entityType(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -8360,6 +8864,11 @@ func (ec *executionContext) _Entity(ctx context.Context, sel ast.SelectionSet, o
 			}
 		case "properties":
 			out.Values[i] = ec._Entity_properties(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "version":
+			out.Values[i] = ec._Entity_version(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
@@ -8746,6 +9255,18 @@ func (ec *executionContext) _EntitySchema(ctx context.Context, sel ast.Selection
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "version":
+			out.Values[i] = ec._EntitySchema_version(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "status":
+			out.Values[i] = ec._EntitySchema_status(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "previousVersionId":
+			out.Values[i] = ec._EntitySchema_previousVersionId(ctx, field, obj)
 		case "createdAt":
 			out.Values[i] = ec._EntitySchema_createdAt(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -8956,6 +9477,13 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		case "removeFieldFromSchema":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_removeFieldFromSchema(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "rollbackEntity":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_rollbackEntity(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
@@ -9305,6 +9833,28 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 					}
 				}()
 				res = ec._Query_entitySchemaByName(ctx, field)
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "entitySchemaVersions":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_entitySchemaVersions(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
 				return res
 			}
 
@@ -10135,31 +10685,31 @@ func (ec *executionContext) marshalNBoolean2bool(ctx context.Context, sel ast.Se
 	return res
 }
 
-func (ec *executionContext) unmarshalNCreateEntityInput2graphqlᚑengineeringᚑapiᚋgraphᚐCreateEntityInput(ctx context.Context, v any) (CreateEntityInput, error) {
+func (ec *executionContext) unmarshalNCreateEntityInput2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐCreateEntityInput(ctx context.Context, v any) (CreateEntityInput, error) {
 	res, err := ec.unmarshalInputCreateEntityInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNCreateEntityJoinDefinitionInput2graphqlᚑengineeringᚑapiᚋgraphᚐCreateEntityJoinDefinitionInput(ctx context.Context, v any) (CreateEntityJoinDefinitionInput, error) {
+func (ec *executionContext) unmarshalNCreateEntityJoinDefinitionInput2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐCreateEntityJoinDefinitionInput(ctx context.Context, v any) (CreateEntityJoinDefinitionInput, error) {
 	res, err := ec.unmarshalInputCreateEntityJoinDefinitionInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNCreateEntitySchemaInput2graphqlᚑengineeringᚑapiᚋgraphᚐCreateEntitySchemaInput(ctx context.Context, v any) (CreateEntitySchemaInput, error) {
+func (ec *executionContext) unmarshalNCreateEntitySchemaInput2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐCreateEntitySchemaInput(ctx context.Context, v any) (CreateEntitySchemaInput, error) {
 	res, err := ec.unmarshalInputCreateEntitySchemaInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNCreateOrganizationInput2graphqlᚑengineeringᚑapiᚋgraphᚐCreateOrganizationInput(ctx context.Context, v any) (CreateOrganizationInput, error) {
+func (ec *executionContext) unmarshalNCreateOrganizationInput2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐCreateOrganizationInput(ctx context.Context, v any) (CreateOrganizationInput, error) {
 	res, err := ec.unmarshalInputCreateOrganizationInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNEntity2graphqlᚑengineeringᚑapiᚋgraphᚐEntity(ctx context.Context, sel ast.SelectionSet, v Entity) graphql.Marshaler {
+func (ec *executionContext) marshalNEntity2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntity(ctx context.Context, sel ast.SelectionSet, v Entity) graphql.Marshaler {
 	return ec._Entity(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNEntity2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityᚄ(ctx context.Context, sel ast.SelectionSet, v []*Entity) graphql.Marshaler {
+func (ec *executionContext) marshalNEntity2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityᚄ(ctx context.Context, sel ast.SelectionSet, v []*Entity) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -10183,7 +10733,7 @@ func (ec *executionContext) marshalNEntity2ᚕᚖgraphqlᚑengineeringᚑapiᚋg
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNEntity2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntity(ctx, sel, v[i])
+			ret[i] = ec.marshalNEntity2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntity(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -10203,7 +10753,7 @@ func (ec *executionContext) marshalNEntity2ᚕᚖgraphqlᚑengineeringᚑapiᚋg
 	return ret
 }
 
-func (ec *executionContext) marshalNEntity2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntity(ctx context.Context, sel ast.SelectionSet, v *Entity) graphql.Marshaler {
+func (ec *executionContext) marshalNEntity2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntity(ctx context.Context, sel ast.SelectionSet, v *Entity) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -10213,11 +10763,11 @@ func (ec *executionContext) marshalNEntity2ᚖgraphqlᚑengineeringᚑapiᚋgrap
 	return ec._Entity(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNEntityConnection2graphqlᚑengineeringᚑapiᚋgraphᚐEntityConnection(ctx context.Context, sel ast.SelectionSet, v EntityConnection) graphql.Marshaler {
+func (ec *executionContext) marshalNEntityConnection2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityConnection(ctx context.Context, sel ast.SelectionSet, v EntityConnection) graphql.Marshaler {
 	return ec._EntityConnection(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNEntityConnection2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityConnection(ctx context.Context, sel ast.SelectionSet, v *EntityConnection) graphql.Marshaler {
+func (ec *executionContext) marshalNEntityConnection2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityConnection(ctx context.Context, sel ast.SelectionSet, v *EntityConnection) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -10227,11 +10777,11 @@ func (ec *executionContext) marshalNEntityConnection2ᚖgraphqlᚑengineeringᚑ
 	return ec._EntityConnection(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNEntityHierarchy2graphqlᚑengineeringᚑapiᚋgraphᚐEntityHierarchy(ctx context.Context, sel ast.SelectionSet, v EntityHierarchy) graphql.Marshaler {
+func (ec *executionContext) marshalNEntityHierarchy2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityHierarchy(ctx context.Context, sel ast.SelectionSet, v EntityHierarchy) graphql.Marshaler {
 	return ec._EntityHierarchy(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNEntityHierarchy2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityHierarchy(ctx context.Context, sel ast.SelectionSet, v *EntityHierarchy) graphql.Marshaler {
+func (ec *executionContext) marshalNEntityHierarchy2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityHierarchy(ctx context.Context, sel ast.SelectionSet, v *EntityHierarchy) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -10241,11 +10791,11 @@ func (ec *executionContext) marshalNEntityHierarchy2ᚖgraphqlᚑengineeringᚑa
 	return ec._EntityHierarchy(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNEntityJoinConnection2graphqlᚑengineeringᚑapiᚋgraphᚐEntityJoinConnection(ctx context.Context, sel ast.SelectionSet, v EntityJoinConnection) graphql.Marshaler {
+func (ec *executionContext) marshalNEntityJoinConnection2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityJoinConnection(ctx context.Context, sel ast.SelectionSet, v EntityJoinConnection) graphql.Marshaler {
 	return ec._EntityJoinConnection(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNEntityJoinConnection2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityJoinConnection(ctx context.Context, sel ast.SelectionSet, v *EntityJoinConnection) graphql.Marshaler {
+func (ec *executionContext) marshalNEntityJoinConnection2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityJoinConnection(ctx context.Context, sel ast.SelectionSet, v *EntityJoinConnection) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -10255,11 +10805,11 @@ func (ec *executionContext) marshalNEntityJoinConnection2ᚖgraphqlᚑengineerin
 	return ec._EntityJoinConnection(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNEntityJoinDefinition2graphqlᚑengineeringᚑapiᚋgraphᚐEntityJoinDefinition(ctx context.Context, sel ast.SelectionSet, v EntityJoinDefinition) graphql.Marshaler {
+func (ec *executionContext) marshalNEntityJoinDefinition2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityJoinDefinition(ctx context.Context, sel ast.SelectionSet, v EntityJoinDefinition) graphql.Marshaler {
 	return ec._EntityJoinDefinition(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNEntityJoinDefinition2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityJoinDefinitionᚄ(ctx context.Context, sel ast.SelectionSet, v []*EntityJoinDefinition) graphql.Marshaler {
+func (ec *executionContext) marshalNEntityJoinDefinition2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityJoinDefinitionᚄ(ctx context.Context, sel ast.SelectionSet, v []*EntityJoinDefinition) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -10283,7 +10833,7 @@ func (ec *executionContext) marshalNEntityJoinDefinition2ᚕᚖgraphqlᚑenginee
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNEntityJoinDefinition2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityJoinDefinition(ctx, sel, v[i])
+			ret[i] = ec.marshalNEntityJoinDefinition2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityJoinDefinition(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -10303,7 +10853,7 @@ func (ec *executionContext) marshalNEntityJoinDefinition2ᚕᚖgraphqlᚑenginee
 	return ret
 }
 
-func (ec *executionContext) marshalNEntityJoinDefinition2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityJoinDefinition(ctx context.Context, sel ast.SelectionSet, v *EntityJoinDefinition) graphql.Marshaler {
+func (ec *executionContext) marshalNEntityJoinDefinition2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityJoinDefinition(ctx context.Context, sel ast.SelectionSet, v *EntityJoinDefinition) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -10313,7 +10863,7 @@ func (ec *executionContext) marshalNEntityJoinDefinition2ᚖgraphqlᚑengineerin
 	return ec._EntityJoinDefinition(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNEntityJoinEdge2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityJoinEdgeᚄ(ctx context.Context, sel ast.SelectionSet, v []*EntityJoinEdge) graphql.Marshaler {
+func (ec *executionContext) marshalNEntityJoinEdge2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityJoinEdgeᚄ(ctx context.Context, sel ast.SelectionSet, v []*EntityJoinEdge) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -10337,7 +10887,7 @@ func (ec *executionContext) marshalNEntityJoinEdge2ᚕᚖgraphqlᚑengineering�
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNEntityJoinEdge2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityJoinEdge(ctx, sel, v[i])
+			ret[i] = ec.marshalNEntityJoinEdge2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityJoinEdge(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -10357,7 +10907,7 @@ func (ec *executionContext) marshalNEntityJoinEdge2ᚕᚖgraphqlᚑengineering�
 	return ret
 }
 
-func (ec *executionContext) marshalNEntityJoinEdge2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityJoinEdge(ctx context.Context, sel ast.SelectionSet, v *EntityJoinEdge) graphql.Marshaler {
+func (ec *executionContext) marshalNEntityJoinEdge2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityJoinEdge(ctx context.Context, sel ast.SelectionSet, v *EntityJoinEdge) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -10367,11 +10917,11 @@ func (ec *executionContext) marshalNEntityJoinEdge2ᚖgraphqlᚑengineeringᚑap
 	return ec._EntityJoinEdge(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNEntitySchema2graphqlᚑengineeringᚑapiᚋgraphᚐEntitySchema(ctx context.Context, sel ast.SelectionSet, v EntitySchema) graphql.Marshaler {
+func (ec *executionContext) marshalNEntitySchema2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntitySchema(ctx context.Context, sel ast.SelectionSet, v EntitySchema) graphql.Marshaler {
 	return ec._EntitySchema(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNEntitySchema2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntitySchemaᚄ(ctx context.Context, sel ast.SelectionSet, v []*EntitySchema) graphql.Marshaler {
+func (ec *executionContext) marshalNEntitySchema2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntitySchemaᚄ(ctx context.Context, sel ast.SelectionSet, v []*EntitySchema) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -10395,7 +10945,7 @@ func (ec *executionContext) marshalNEntitySchema2ᚕᚖgraphqlᚑengineeringᚑa
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNEntitySchema2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntitySchema(ctx, sel, v[i])
+			ret[i] = ec.marshalNEntitySchema2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntitySchema(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -10415,7 +10965,7 @@ func (ec *executionContext) marshalNEntitySchema2ᚕᚖgraphqlᚑengineeringᚑa
 	return ret
 }
 
-func (ec *executionContext) marshalNEntitySchema2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntitySchema(ctx context.Context, sel ast.SelectionSet, v *EntitySchema) graphql.Marshaler {
+func (ec *executionContext) marshalNEntitySchema2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntitySchema(ctx context.Context, sel ast.SelectionSet, v *EntitySchema) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -10425,12 +10975,12 @@ func (ec *executionContext) marshalNEntitySchema2ᚖgraphqlᚑengineeringᚑapi�
 	return ec._EntitySchema(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNExecuteEntityJoinInput2graphqlᚑengineeringᚑapiᚋgraphᚐExecuteEntityJoinInput(ctx context.Context, v any) (ExecuteEntityJoinInput, error) {
+func (ec *executionContext) unmarshalNExecuteEntityJoinInput2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐExecuteEntityJoinInput(ctx context.Context, v any) (ExecuteEntityJoinInput, error) {
 	res, err := ec.unmarshalInputExecuteEntityJoinInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNFieldDefinition2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐFieldDefinitionᚄ(ctx context.Context, sel ast.SelectionSet, v []*FieldDefinition) graphql.Marshaler {
+func (ec *executionContext) marshalNFieldDefinition2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐFieldDefinitionᚄ(ctx context.Context, sel ast.SelectionSet, v []*FieldDefinition) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -10454,7 +11004,7 @@ func (ec *executionContext) marshalNFieldDefinition2ᚕᚖgraphqlᚑengineering�
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNFieldDefinition2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐFieldDefinition(ctx, sel, v[i])
+			ret[i] = ec.marshalNFieldDefinition2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐFieldDefinition(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -10474,7 +11024,7 @@ func (ec *executionContext) marshalNFieldDefinition2ᚕᚖgraphqlᚑengineering�
 	return ret
 }
 
-func (ec *executionContext) marshalNFieldDefinition2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐFieldDefinition(ctx context.Context, sel ast.SelectionSet, v *FieldDefinition) graphql.Marshaler {
+func (ec *executionContext) marshalNFieldDefinition2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐFieldDefinition(ctx context.Context, sel ast.SelectionSet, v *FieldDefinition) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -10484,19 +11034,19 @@ func (ec *executionContext) marshalNFieldDefinition2ᚖgraphqlᚑengineeringᚑa
 	return ec._FieldDefinition(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNFieldDefinitionInput2graphqlᚑengineeringᚑapiᚋgraphᚐFieldDefinitionInput(ctx context.Context, v any) (FieldDefinitionInput, error) {
+func (ec *executionContext) unmarshalNFieldDefinitionInput2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐFieldDefinitionInput(ctx context.Context, v any) (FieldDefinitionInput, error) {
 	res, err := ec.unmarshalInputFieldDefinitionInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFieldDefinitionInput2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐFieldDefinitionInputᚄ(ctx context.Context, v any) ([]*FieldDefinitionInput, error) {
+func (ec *executionContext) unmarshalNFieldDefinitionInput2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐFieldDefinitionInputᚄ(ctx context.Context, v any) ([]*FieldDefinitionInput, error) {
 	var vSlice []any
 	vSlice = graphql.CoerceList(v)
 	var err error
 	res := make([]*FieldDefinitionInput, len(vSlice))
 	for i := range vSlice {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
-		res[i], err = ec.unmarshalNFieldDefinitionInput2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐFieldDefinitionInput(ctx, vSlice[i])
+		res[i], err = ec.unmarshalNFieldDefinitionInput2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐFieldDefinitionInput(ctx, vSlice[i])
 		if err != nil {
 			return nil, err
 		}
@@ -10504,18 +11054,18 @@ func (ec *executionContext) unmarshalNFieldDefinitionInput2ᚕᚖgraphqlᚑengin
 	return res, nil
 }
 
-func (ec *executionContext) unmarshalNFieldDefinitionInput2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐFieldDefinitionInput(ctx context.Context, v any) (*FieldDefinitionInput, error) {
+func (ec *executionContext) unmarshalNFieldDefinitionInput2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐFieldDefinitionInput(ctx context.Context, v any) (*FieldDefinitionInput, error) {
 	res, err := ec.unmarshalInputFieldDefinitionInput(ctx, v)
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFieldType2graphqlᚑengineeringᚑapiᚋgraphᚐFieldType(ctx context.Context, v any) (FieldType, error) {
+func (ec *executionContext) unmarshalNFieldType2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐFieldType(ctx context.Context, v any) (FieldType, error) {
 	var res FieldType
 	err := res.UnmarshalGQL(v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNFieldType2graphqlᚑengineeringᚑapiᚋgraphᚐFieldType(ctx context.Context, sel ast.SelectionSet, v FieldType) graphql.Marshaler {
+func (ec *executionContext) marshalNFieldType2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐFieldType(ctx context.Context, sel ast.SelectionSet, v FieldType) graphql.Marshaler {
 	return v
 }
 
@@ -10535,17 +11085,17 @@ func (ec *executionContext) marshalNInt2int(ctx context.Context, sel ast.Selecti
 	return res
 }
 
-func (ec *executionContext) unmarshalNJoinSide2graphqlᚑengineeringᚑapiᚋgraphᚐJoinSide(ctx context.Context, v any) (JoinSide, error) {
+func (ec *executionContext) unmarshalNJoinSide2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐJoinSide(ctx context.Context, v any) (JoinSide, error) {
 	var res JoinSide
 	err := res.UnmarshalGQL(v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNJoinSide2graphqlᚑengineeringᚑapiᚋgraphᚐJoinSide(ctx context.Context, sel ast.SelectionSet, v JoinSide) graphql.Marshaler {
+func (ec *executionContext) marshalNJoinSide2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐJoinSide(ctx context.Context, sel ast.SelectionSet, v JoinSide) graphql.Marshaler {
 	return v
 }
 
-func (ec *executionContext) marshalNJoinSortCriterion2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐJoinSortCriterionᚄ(ctx context.Context, sel ast.SelectionSet, v []*JoinSortCriterion) graphql.Marshaler {
+func (ec *executionContext) marshalNJoinSortCriterion2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐJoinSortCriterionᚄ(ctx context.Context, sel ast.SelectionSet, v []*JoinSortCriterion) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -10569,7 +11119,7 @@ func (ec *executionContext) marshalNJoinSortCriterion2ᚕᚖgraphqlᚑengineerin
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNJoinSortCriterion2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐJoinSortCriterion(ctx, sel, v[i])
+			ret[i] = ec.marshalNJoinSortCriterion2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐJoinSortCriterion(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -10589,7 +11139,7 @@ func (ec *executionContext) marshalNJoinSortCriterion2ᚕᚖgraphqlᚑengineerin
 	return ret
 }
 
-func (ec *executionContext) marshalNJoinSortCriterion2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐJoinSortCriterion(ctx context.Context, sel ast.SelectionSet, v *JoinSortCriterion) graphql.Marshaler {
+func (ec *executionContext) marshalNJoinSortCriterion2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐJoinSortCriterion(ctx context.Context, sel ast.SelectionSet, v *JoinSortCriterion) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -10599,36 +11149,36 @@ func (ec *executionContext) marshalNJoinSortCriterion2ᚖgraphqlᚑengineering�
 	return ec._JoinSortCriterion(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNJoinSortDirection2graphqlᚑengineeringᚑapiᚋgraphᚐJoinSortDirection(ctx context.Context, v any) (JoinSortDirection, error) {
+func (ec *executionContext) unmarshalNJoinSortDirection2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐJoinSortDirection(ctx context.Context, v any) (JoinSortDirection, error) {
 	var res JoinSortDirection
 	err := res.UnmarshalGQL(v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNJoinSortDirection2graphqlᚑengineeringᚑapiᚋgraphᚐJoinSortDirection(ctx context.Context, sel ast.SelectionSet, v JoinSortDirection) graphql.Marshaler {
+func (ec *executionContext) marshalNJoinSortDirection2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐJoinSortDirection(ctx context.Context, sel ast.SelectionSet, v JoinSortDirection) graphql.Marshaler {
 	return v
 }
 
-func (ec *executionContext) unmarshalNJoinSortInput2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐJoinSortInput(ctx context.Context, v any) (*JoinSortInput, error) {
+func (ec *executionContext) unmarshalNJoinSortInput2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐJoinSortInput(ctx context.Context, v any) (*JoinSortInput, error) {
 	res, err := ec.unmarshalInputJoinSortInput(ctx, v)
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNJoinType2graphqlᚑengineeringᚑapiᚋgraphᚐJoinType(ctx context.Context, v any) (JoinType, error) {
+func (ec *executionContext) unmarshalNJoinType2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐJoinType(ctx context.Context, v any) (JoinType, error) {
 	var res JoinType
 	err := res.UnmarshalGQL(v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNJoinType2graphqlᚑengineeringᚑapiᚋgraphᚐJoinType(ctx context.Context, sel ast.SelectionSet, v JoinType) graphql.Marshaler {
+func (ec *executionContext) marshalNJoinType2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐJoinType(ctx context.Context, sel ast.SelectionSet, v JoinType) graphql.Marshaler {
 	return v
 }
 
-func (ec *executionContext) marshalNOrganization2graphqlᚑengineeringᚑapiᚋgraphᚐOrganization(ctx context.Context, sel ast.SelectionSet, v Organization) graphql.Marshaler {
+func (ec *executionContext) marshalNOrganization2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐOrganization(ctx context.Context, sel ast.SelectionSet, v Organization) graphql.Marshaler {
 	return ec._Organization(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNOrganization2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐOrganizationᚄ(ctx context.Context, sel ast.SelectionSet, v []*Organization) graphql.Marshaler {
+func (ec *executionContext) marshalNOrganization2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐOrganizationᚄ(ctx context.Context, sel ast.SelectionSet, v []*Organization) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -10652,7 +11202,7 @@ func (ec *executionContext) marshalNOrganization2ᚕᚖgraphqlᚑengineeringᚑa
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNOrganization2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐOrganization(ctx, sel, v[i])
+			ret[i] = ec.marshalNOrganization2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐOrganization(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -10672,7 +11222,7 @@ func (ec *executionContext) marshalNOrganization2ᚕᚖgraphqlᚑengineeringᚑa
 	return ret
 }
 
-func (ec *executionContext) marshalNOrganization2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐOrganization(ctx context.Context, sel ast.SelectionSet, v *Organization) graphql.Marshaler {
+func (ec *executionContext) marshalNOrganization2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐOrganization(ctx context.Context, sel ast.SelectionSet, v *Organization) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -10682,7 +11232,7 @@ func (ec *executionContext) marshalNOrganization2ᚖgraphqlᚑengineeringᚑapi�
 	return ec._Organization(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNPageInfo2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐPageInfo(ctx context.Context, sel ast.SelectionSet, v *PageInfo) graphql.Marshaler {
+func (ec *executionContext) marshalNPageInfo2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐPageInfo(ctx context.Context, sel ast.SelectionSet, v *PageInfo) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -10692,12 +11242,12 @@ func (ec *executionContext) marshalNPageInfo2ᚖgraphqlᚑengineeringᚑapiᚋgr
 	return ec._PageInfo(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNPropertyFilter2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐPropertyFilter(ctx context.Context, v any) (*PropertyFilter, error) {
+func (ec *executionContext) unmarshalNPropertyFilter2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐPropertyFilter(ctx context.Context, v any) (*PropertyFilter, error) {
 	res, err := ec.unmarshalInputPropertyFilter(ctx, v)
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNPropertyFilterConfig2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐPropertyFilterConfigᚄ(ctx context.Context, sel ast.SelectionSet, v []*PropertyFilterConfig) graphql.Marshaler {
+func (ec *executionContext) marshalNPropertyFilterConfig2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐPropertyFilterConfigᚄ(ctx context.Context, sel ast.SelectionSet, v []*PropertyFilterConfig) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -10721,7 +11271,7 @@ func (ec *executionContext) marshalNPropertyFilterConfig2ᚕᚖgraphqlᚑenginee
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNPropertyFilterConfig2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐPropertyFilterConfig(ctx, sel, v[i])
+			ret[i] = ec.marshalNPropertyFilterConfig2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐPropertyFilterConfig(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -10741,7 +11291,7 @@ func (ec *executionContext) marshalNPropertyFilterConfig2ᚕᚖgraphqlᚑenginee
 	return ret
 }
 
-func (ec *executionContext) marshalNPropertyFilterConfig2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐPropertyFilterConfig(ctx context.Context, sel ast.SelectionSet, v *PropertyFilterConfig) graphql.Marshaler {
+func (ec *executionContext) marshalNPropertyFilterConfig2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐPropertyFilterConfig(ctx context.Context, sel ast.SelectionSet, v *PropertyFilterConfig) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -10749,6 +11299,16 @@ func (ec *executionContext) marshalNPropertyFilterConfig2ᚖgraphqlᚑengineerin
 		return graphql.Null
 	}
 	return ec._PropertyFilterConfig(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNSchemaStatus2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐSchemaStatus(ctx context.Context, v any) (SchemaStatus, error) {
+	var res SchemaStatus
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNSchemaStatus2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐSchemaStatus(ctx context.Context, sel ast.SelectionSet, v SchemaStatus) graphql.Marshaler {
+	return v
 }
 
 func (ec *executionContext) unmarshalNString2string(ctx context.Context, v any) (string, error) {
@@ -10797,31 +11357,31 @@ func (ec *executionContext) marshalNString2ᚕstringᚄ(ctx context.Context, sel
 	return ret
 }
 
-func (ec *executionContext) unmarshalNUpdateEntityInput2graphqlᚑengineeringᚑapiᚋgraphᚐUpdateEntityInput(ctx context.Context, v any) (UpdateEntityInput, error) {
+func (ec *executionContext) unmarshalNUpdateEntityInput2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐUpdateEntityInput(ctx context.Context, v any) (UpdateEntityInput, error) {
 	res, err := ec.unmarshalInputUpdateEntityInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNUpdateEntityJoinDefinitionInput2graphqlᚑengineeringᚑapiᚋgraphᚐUpdateEntityJoinDefinitionInput(ctx context.Context, v any) (UpdateEntityJoinDefinitionInput, error) {
+func (ec *executionContext) unmarshalNUpdateEntityJoinDefinitionInput2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐUpdateEntityJoinDefinitionInput(ctx context.Context, v any) (UpdateEntityJoinDefinitionInput, error) {
 	res, err := ec.unmarshalInputUpdateEntityJoinDefinitionInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNUpdateEntitySchemaInput2graphqlᚑengineeringᚑapiᚋgraphᚐUpdateEntitySchemaInput(ctx context.Context, v any) (UpdateEntitySchemaInput, error) {
+func (ec *executionContext) unmarshalNUpdateEntitySchemaInput2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐUpdateEntitySchemaInput(ctx context.Context, v any) (UpdateEntitySchemaInput, error) {
 	res, err := ec.unmarshalInputUpdateEntitySchemaInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNUpdateOrganizationInput2graphqlᚑengineeringᚑapiᚋgraphᚐUpdateOrganizationInput(ctx context.Context, v any) (UpdateOrganizationInput, error) {
+func (ec *executionContext) unmarshalNUpdateOrganizationInput2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐUpdateOrganizationInput(ctx context.Context, v any) (UpdateOrganizationInput, error) {
 	res, err := ec.unmarshalInputUpdateOrganizationInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNValidationResult2graphqlᚑengineeringᚑapiᚋgraphᚐValidationResult(ctx context.Context, sel ast.SelectionSet, v ValidationResult) graphql.Marshaler {
+func (ec *executionContext) marshalNValidationResult2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐValidationResult(ctx context.Context, sel ast.SelectionSet, v ValidationResult) graphql.Marshaler {
 	return ec._ValidationResult(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNValidationResult2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐValidationResult(ctx context.Context, sel ast.SelectionSet, v *ValidationResult) graphql.Marshaler {
+func (ec *executionContext) marshalNValidationResult2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐValidationResult(ctx context.Context, sel ast.SelectionSet, v *ValidationResult) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -11114,14 +11674,14 @@ func (ec *executionContext) marshalOBoolean2ᚖbool(ctx context.Context, sel ast
 	return res
 }
 
-func (ec *executionContext) marshalOEntity2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntity(ctx context.Context, sel ast.SelectionSet, v *Entity) graphql.Marshaler {
+func (ec *executionContext) marshalOEntity2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntity(ctx context.Context, sel ast.SelectionSet, v *Entity) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._Entity(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalOEntityFilter2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityFilter(ctx context.Context, v any) (*EntityFilter, error) {
+func (ec *executionContext) unmarshalOEntityFilter2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityFilter(ctx context.Context, v any) (*EntityFilter, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -11129,21 +11689,21 @@ func (ec *executionContext) unmarshalOEntityFilter2ᚖgraphqlᚑengineeringᚑap
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalOEntityJoinDefinition2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntityJoinDefinition(ctx context.Context, sel ast.SelectionSet, v *EntityJoinDefinition) graphql.Marshaler {
+func (ec *executionContext) marshalOEntityJoinDefinition2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityJoinDefinition(ctx context.Context, sel ast.SelectionSet, v *EntityJoinDefinition) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._EntityJoinDefinition(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOEntitySchema2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐEntitySchema(ctx context.Context, sel ast.SelectionSet, v *EntitySchema) graphql.Marshaler {
+func (ec *executionContext) marshalOEntitySchema2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntitySchema(ctx context.Context, sel ast.SelectionSet, v *EntitySchema) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._EntitySchema(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalOFieldDefinitionInput2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐFieldDefinitionInputᚄ(ctx context.Context, v any) ([]*FieldDefinitionInput, error) {
+func (ec *executionContext) unmarshalOFieldDefinitionInput2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐFieldDefinitionInputᚄ(ctx context.Context, v any) ([]*FieldDefinitionInput, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -11153,7 +11713,7 @@ func (ec *executionContext) unmarshalOFieldDefinitionInput2ᚕᚖgraphqlᚑengin
 	res := make([]*FieldDefinitionInput, len(vSlice))
 	for i := range vSlice {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
-		res[i], err = ec.unmarshalNFieldDefinitionInput2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐFieldDefinitionInput(ctx, vSlice[i])
+		res[i], err = ec.unmarshalNFieldDefinitionInput2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐFieldDefinitionInput(ctx, vSlice[i])
 		if err != nil {
 			return nil, err
 		}
@@ -11161,7 +11721,7 @@ func (ec *executionContext) unmarshalOFieldDefinitionInput2ᚕᚖgraphqlᚑengin
 	return res, nil
 }
 
-func (ec *executionContext) unmarshalOFieldType2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐFieldType(ctx context.Context, v any) (*FieldType, error) {
+func (ec *executionContext) unmarshalOFieldType2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐFieldType(ctx context.Context, v any) (*FieldType, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -11170,7 +11730,7 @@ func (ec *executionContext) unmarshalOFieldType2ᚖgraphqlᚑengineeringᚑapi�
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalOFieldType2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐFieldType(ctx context.Context, sel ast.SelectionSet, v *FieldType) graphql.Marshaler {
+func (ec *executionContext) marshalOFieldType2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐFieldType(ctx context.Context, sel ast.SelectionSet, v *FieldType) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -11212,7 +11772,7 @@ func (ec *executionContext) marshalOInt2ᚖint(ctx context.Context, sel ast.Sele
 	return res
 }
 
-func (ec *executionContext) unmarshalOJoinSortDirection2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐJoinSortDirection(ctx context.Context, v any) (*JoinSortDirection, error) {
+func (ec *executionContext) unmarshalOJoinSortDirection2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐJoinSortDirection(ctx context.Context, v any) (*JoinSortDirection, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -11221,14 +11781,14 @@ func (ec *executionContext) unmarshalOJoinSortDirection2ᚖgraphqlᚑengineering
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalOJoinSortDirection2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐJoinSortDirection(ctx context.Context, sel ast.SelectionSet, v *JoinSortDirection) graphql.Marshaler {
+func (ec *executionContext) marshalOJoinSortDirection2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐJoinSortDirection(ctx context.Context, sel ast.SelectionSet, v *JoinSortDirection) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return v
 }
 
-func (ec *executionContext) unmarshalOJoinSortInput2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐJoinSortInputᚄ(ctx context.Context, v any) ([]*JoinSortInput, error) {
+func (ec *executionContext) unmarshalOJoinSortInput2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐJoinSortInputᚄ(ctx context.Context, v any) ([]*JoinSortInput, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -11238,7 +11798,7 @@ func (ec *executionContext) unmarshalOJoinSortInput2ᚕᚖgraphqlᚑengineering�
 	res := make([]*JoinSortInput, len(vSlice))
 	for i := range vSlice {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
-		res[i], err = ec.unmarshalNJoinSortInput2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐJoinSortInput(ctx, vSlice[i])
+		res[i], err = ec.unmarshalNJoinSortInput2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐJoinSortInput(ctx, vSlice[i])
 		if err != nil {
 			return nil, err
 		}
@@ -11246,7 +11806,7 @@ func (ec *executionContext) unmarshalOJoinSortInput2ᚕᚖgraphqlᚑengineering�
 	return res, nil
 }
 
-func (ec *executionContext) unmarshalOJoinType2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐJoinType(ctx context.Context, v any) (*JoinType, error) {
+func (ec *executionContext) unmarshalOJoinType2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐJoinType(ctx context.Context, v any) (*JoinType, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -11255,21 +11815,21 @@ func (ec *executionContext) unmarshalOJoinType2ᚖgraphqlᚑengineeringᚑapiᚋ
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalOJoinType2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐJoinType(ctx context.Context, sel ast.SelectionSet, v *JoinType) graphql.Marshaler {
+func (ec *executionContext) marshalOJoinType2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐJoinType(ctx context.Context, sel ast.SelectionSet, v *JoinType) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return v
 }
 
-func (ec *executionContext) marshalOOrganization2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐOrganization(ctx context.Context, sel ast.SelectionSet, v *Organization) graphql.Marshaler {
+func (ec *executionContext) marshalOOrganization2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐOrganization(ctx context.Context, sel ast.SelectionSet, v *Organization) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._Organization(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalOPaginationInput2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐPaginationInput(ctx context.Context, v any) (*PaginationInput, error) {
+func (ec *executionContext) unmarshalOPaginationInput2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐPaginationInput(ctx context.Context, v any) (*PaginationInput, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -11277,7 +11837,7 @@ func (ec *executionContext) unmarshalOPaginationInput2ᚖgraphqlᚑengineering�
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalOPathFilter2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐPathFilter(ctx context.Context, v any) (*PathFilter, error) {
+func (ec *executionContext) unmarshalOPathFilter2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐPathFilter(ctx context.Context, v any) (*PathFilter, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -11285,7 +11845,7 @@ func (ec *executionContext) unmarshalOPathFilter2ᚖgraphqlᚑengineeringᚑapi�
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalOPropertyFilter2ᚕᚖgraphqlᚑengineeringᚑapiᚋgraphᚐPropertyFilterᚄ(ctx context.Context, v any) ([]*PropertyFilter, error) {
+func (ec *executionContext) unmarshalOPropertyFilter2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐPropertyFilterᚄ(ctx context.Context, v any) ([]*PropertyFilter, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -11295,7 +11855,7 @@ func (ec *executionContext) unmarshalOPropertyFilter2ᚕᚖgraphqlᚑengineering
 	res := make([]*PropertyFilter, len(vSlice))
 	for i := range vSlice {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
-		res[i], err = ec.unmarshalNPropertyFilter2ᚖgraphqlᚑengineeringᚑapiᚋgraphᚐPropertyFilter(ctx, vSlice[i])
+		res[i], err = ec.unmarshalNPropertyFilter2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐPropertyFilter(ctx, vSlice[i])
 		if err != nil {
 			return nil, err
 		}

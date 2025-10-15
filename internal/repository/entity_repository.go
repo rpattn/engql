@@ -3,25 +3,36 @@ package repository
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/rpattn/engql/internal/db"
 	"github.com/rpattn/engql/internal/domain"
-
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // entityRepository implements EntityRepository interface
 type entityRepository struct {
 	queries *db.Queries
+	pool    *pgxpool.Pool
 }
 
 // NewEntityRepository creates a new entity repository
-func NewEntityRepository(queries *db.Queries) EntityRepository {
+func NewEntityRepository(queries *db.Queries, pool *pgxpool.Pool) EntityRepository {
 	return &entityRepository{
 		queries: queries,
+		pool:    pool,
 	}
+}
+
+func quoteLiteral(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", "''") + "'"
 }
 
 // Create creates a new entity
@@ -33,6 +44,7 @@ func (r *entityRepository) Create(ctx context.Context, entity domain.Entity) (do
 
 	row, err := r.queries.CreateEntity(ctx, db.CreateEntityParams{
 		OrganizationID: entity.OrganizationID,
+		SchemaID:       entity.SchemaID,
 		EntityType:     entity.EntityType,
 		Path:           entity.Path,
 		Properties:     propertiesJSON,
@@ -41,20 +53,7 @@ func (r *entityRepository) Create(ctx context.Context, entity domain.Entity) (do
 		return domain.Entity{}, fmt.Errorf("failed to create entity: %w", err)
 	}
 
-	properties, err := domain.FromJSONBProperties(row.Properties)
-	if err != nil {
-		return domain.Entity{}, fmt.Errorf("failed to unmarshal properties: %w", err)
-	}
-
-	return domain.Entity{
-		ID:             row.ID,
-		OrganizationID: row.OrganizationID,
-		EntityType:     row.EntityType,
-		Path:           row.Path,
-		Properties:     properties,
-		CreatedAt:      row.CreatedAt,
-		UpdatedAt:      row.UpdatedAt,
-	}, nil
+	return buildEntity(row.ID, row.OrganizationID, row.SchemaID, row.EntityType, row.Path, row.Properties, row.Version, row.CreatedAt, row.UpdatedAt)
 }
 
 // GetByID retrieves an entity by ID
@@ -64,20 +63,7 @@ func (r *entityRepository) GetByID(ctx context.Context, id uuid.UUID) (domain.En
 		return domain.Entity{}, fmt.Errorf("failed to get entity: %w", err)
 	}
 
-	properties, err := domain.FromJSONBProperties(row.Properties)
-	if err != nil {
-		return domain.Entity{}, fmt.Errorf("failed to unmarshal properties: %w", err)
-	}
-
-	return domain.Entity{
-		ID:             row.ID,
-		OrganizationID: row.OrganizationID,
-		EntityType:     row.EntityType,
-		Path:           row.Path,
-		Properties:     properties,
-		CreatedAt:      row.CreatedAt,
-		UpdatedAt:      row.UpdatedAt,
-	}, nil
+	return buildEntity(row.ID, row.OrganizationID, row.SchemaID, row.EntityType, row.Path, row.Properties, row.Version, row.CreatedAt, row.UpdatedAt)
 }
 
 // GetByIDs retrieves multiple entities by their IDs.
@@ -93,20 +79,11 @@ func (r *entityRepository) GetByIDs(ctx context.Context, ids []uuid.UUID) ([]dom
 
 	entities := make([]domain.Entity, len(rows))
 	for i, row := range rows {
-		props, err := domain.FromJSONBProperties(row.Properties)
+		entity, err := buildEntity(row.ID, row.OrganizationID, row.SchemaID, row.EntityType, row.Path, row.Properties, row.Version, row.CreatedAt, row.UpdatedAt)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal properties for entity %s: %w", row.ID, err)
+			return nil, err
 		}
-
-		entities[i] = domain.Entity{
-			ID:             row.ID,
-			OrganizationID: row.OrganizationID,
-			EntityType:     row.EntityType,
-			Path:           row.Path,
-			Properties:     props,
-			CreatedAt:      row.CreatedAt,
-			UpdatedAt:      row.UpdatedAt,
-		}
+		entities[i] = entity
 	}
 
 	return entities, nil
@@ -119,7 +96,6 @@ func (r *entityRepository) List(
 	limit int,
 	offset int,
 ) ([]domain.Entity, int, error) {
-	// Fetch paginated rows
 	params := db.ListEntitiesParams{
 		OrganizationID: organizationID,
 		Limit:          int32(limit),
@@ -130,18 +106,17 @@ func (r *entityRepository) List(
 		return nil, 0, fmt.Errorf("failed to list entities: %w", err)
 	}
 
-	entities, err := r.dbRowsToEntities(rows)
+	entities, err := convertEntityListRows(rows)
 	if err != nil {
-		return nil, 0, fmt.Errorf("failed to convert rows to entities: %w", err)
+		return nil, 0, err
 	}
 
-	// Fetch total count
 	totalCount := 0
 	if len(rows) > 0 {
 		totalCount = int(rows[0].TotalCount)
 	}
 
-	return entities, int(totalCount), nil
+	return entities, totalCount, nil
 }
 
 // ListByType retrieves all entities of a specific type for an organization
@@ -154,7 +129,16 @@ func (r *entityRepository) ListByType(ctx context.Context, organizationID uuid.U
 		return nil, fmt.Errorf("failed to list entities by type: %w", err)
 	}
 
-	return r.rowsToEntities(rows)
+	entities := make([]domain.Entity, len(rows))
+	for i, row := range rows {
+		entity, err := buildEntity(row.ID, row.OrganizationID, row.SchemaID, row.EntityType, row.Path, row.Properties, row.Version, row.CreatedAt, row.UpdatedAt)
+		if err != nil {
+			return nil, err
+		}
+		entities[i] = entity
+	}
+
+	return entities, nil
 }
 
 // Update updates an entity
@@ -166,6 +150,7 @@ func (r *entityRepository) Update(ctx context.Context, entity domain.Entity) (do
 
 	row, err := r.queries.UpdateEntity(ctx, db.UpdateEntityParams{
 		ID:         entity.ID,
+		SchemaID:   entity.SchemaID,
 		EntityType: entity.EntityType,
 		Path:       entity.Path,
 		Properties: propertiesJSON,
@@ -174,20 +159,7 @@ func (r *entityRepository) Update(ctx context.Context, entity domain.Entity) (do
 		return domain.Entity{}, fmt.Errorf("failed to update entity: %w", err)
 	}
 
-	properties, err := domain.FromJSONBProperties(row.Properties)
-	if err != nil {
-		return domain.Entity{}, fmt.Errorf("failed to unmarshal properties: %w", err)
-	}
-
-	return domain.Entity{
-		ID:             row.ID,
-		OrganizationID: row.OrganizationID,
-		EntityType:     row.EntityType,
-		Path:           row.Path,
-		Properties:     properties,
-		CreatedAt:      row.CreatedAt,
-		UpdatedAt:      row.UpdatedAt,
-	}, nil
+	return buildEntity(row.ID, row.OrganizationID, row.SchemaID, row.EntityType, row.Path, row.Properties, row.Version, row.CreatedAt, row.UpdatedAt)
 }
 
 // Delete deletes an entity
@@ -195,6 +167,105 @@ func (r *entityRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	if err := r.queries.DeleteEntity(ctx, id); err != nil {
 		return fmt.Errorf("failed to delete entity: %w", err)
 	}
+	return nil
+}
+
+// RollbackEntity restores a previous entity version as a new version
+func (r *entityRepository) RollbackEntity(ctx context.Context, id string, toVersion int64, reason string) error {
+	entityID, err := uuid.Parse(id)
+	if err != nil {
+		return fmt.Errorf("invalid entity id: %w", err)
+	}
+
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to open transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	qtx := r.queries.WithTx(tx)
+
+	history, err := qtx.GetEntityHistoryByVersion(ctx, db.GetEntityHistoryByVersionParams{
+		EntityID: entityID,
+		Version:  toVersion,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to load entity history: %w", err)
+	}
+
+	rollbackReason := strings.TrimSpace(reason)
+	if rollbackReason == "" {
+		rollbackReason = "ROLLBACK"
+	} else {
+		rollbackReason = "ROLLBACK: " + rollbackReason
+	}
+
+	setReasonSQL := fmt.Sprintf("SET LOCAL app.reason = %s", quoteLiteral(rollbackReason))
+	if _, err := tx.Exec(ctx, setReasonSQL); err != nil {
+		return fmt.Errorf("failed to set rollback reason: %w", err)
+	}
+
+	_, currentErr := qtx.GetEntity(ctx, entityID)
+	if currentErr == nil {
+		if _, err := qtx.UpdateEntity(ctx, db.UpdateEntityParams{
+			ID:         entityID,
+			SchemaID:   history.SchemaID,
+			EntityType: history.EntityType,
+			Path:       history.Path,
+			Properties: history.Properties,
+		}); err != nil {
+			return fmt.Errorf("failed to apply rollback update: %w", err)
+		}
+	} else {
+		if !errors.Is(currentErr, pgx.ErrNoRows) {
+			return fmt.Errorf("failed to fetch entity for rollback: %w", currentErr)
+		}
+
+		maxVersion, err := qtx.GetMaxEntityHistoryVersion(ctx, entityID)
+		if err != nil {
+			return fmt.Errorf("failed to compute next entity version: %w", err)
+		}
+		nextVersion := maxVersion + 1
+
+		if err := qtx.UpsertEntityFromHistory(ctx, db.UpsertEntityFromHistoryParams{
+			ID:             entityID,
+			OrganizationID: history.OrganizationID,
+			SchemaID:       history.SchemaID,
+			EntityType:     history.EntityType,
+			Path:           history.Path,
+			Properties:     history.Properties,
+			Version:        nextVersion,
+			CreatedAt:      history.CreatedAt,
+		}); err != nil {
+			return fmt.Errorf("failed to restore deleted entity: %w", err)
+		}
+
+		if err := qtx.InsertEntityHistoryRecord(ctx, db.InsertEntityHistoryRecordParams{
+			EntityID:       entityID,
+			OrganizationID: history.OrganizationID,
+			SchemaID:       history.SchemaID,
+			EntityType:     history.EntityType,
+			Path:           history.Path,
+			Properties:     history.Properties,
+			CreatedAt:      history.CreatedAt,
+			UpdatedAt:      time.Now(),
+			Version:        nextVersion,
+			ChangeType:     "ROLLBACK",
+			Reason:         pgtype.Text{String: rollbackReason, Valid: true},
+		}); err != nil {
+			return fmt.Errorf("failed to record rollback history: %w", err)
+		}
+
+		// Ensure triggers capture the restored state for future updates
+		if _, err := tx.Exec(ctx, "SET LOCAL app.reason = NULL"); err != nil {
+			return fmt.Errorf("failed to clear rollback reason: %w", err)
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit rollback: %w", err)
+	}
+
 	return nil
 }
 
@@ -208,7 +279,16 @@ func (r *entityRepository) GetAncestors(ctx context.Context, organizationID uuid
 		return nil, fmt.Errorf("failed to get entity ancestors: %w", err)
 	}
 
-	return r.rowsToEntities(rows)
+	entities := make([]domain.Entity, len(rows))
+	for i, row := range rows {
+		entity, err := buildEntity(row.ID, row.OrganizationID, row.SchemaID, row.EntityType, row.Path, row.Properties, row.Version, row.CreatedAt, row.UpdatedAt)
+		if err != nil {
+			return nil, err
+		}
+		entities[i] = entity
+	}
+
+	return entities, nil
 }
 
 // GetDescendants retrieves descendant entities
@@ -221,7 +301,16 @@ func (r *entityRepository) GetDescendants(ctx context.Context, organizationID uu
 		return nil, fmt.Errorf("failed to get entity descendants: %w", err)
 	}
 
-	return r.rowsToEntities(rows)
+	entities := make([]domain.Entity, len(rows))
+	for i, row := range rows {
+		entity, err := buildEntity(row.ID, row.OrganizationID, row.SchemaID, row.EntityType, row.Path, row.Properties, row.Version, row.CreatedAt, row.UpdatedAt)
+		if err != nil {
+			return nil, err
+		}
+		entities[i] = entity
+	}
+
+	return entities, nil
 }
 
 // GetChildren retrieves direct child entities
@@ -234,7 +323,16 @@ func (r *entityRepository) GetChildren(ctx context.Context, organizationID uuid.
 		return nil, fmt.Errorf("failed to get entity children: %w", err)
 	}
 
-	return r.rowsToEntities(rows)
+	entities := make([]domain.Entity, len(rows))
+	for i, row := range rows {
+		entity, err := buildEntity(row.ID, row.OrganizationID, row.SchemaID, row.EntityType, row.Path, row.Properties, row.Version, row.CreatedAt, row.UpdatedAt)
+		if err != nil {
+			return nil, err
+		}
+		entities[i] = entity
+	}
+
+	return entities, nil
 }
 
 // GetSiblings retrieves sibling entities
@@ -247,7 +345,16 @@ func (r *entityRepository) GetSiblings(ctx context.Context, organizationID uuid.
 		return nil, fmt.Errorf("failed to get entity siblings: %w", err)
 	}
 
-	return r.rowsToEntities(rows)
+	entities := make([]domain.Entity, len(rows))
+	for i, row := range rows {
+		entity, err := buildEntity(row.ID, row.OrganizationID, row.SchemaID, row.EntityType, row.Path, row.Properties, row.Version, row.CreatedAt, row.UpdatedAt)
+		if err != nil {
+			return nil, err
+		}
+		entities[i] = entity
+	}
+
+	return entities, nil
 }
 
 // FilterByProperty filters entities by JSONB property match
@@ -265,7 +372,7 @@ func (r *entityRepository) FilterByProperty(ctx context.Context, organizationID 
 		return nil, fmt.Errorf("failed to filter entities by property: %w", err)
 	}
 
-	return r.rowsToEntities(rows)
+	return convertFilterRows(rows)
 }
 
 // Count returns the total count of entities for an organization
@@ -289,48 +396,55 @@ func (r *entityRepository) CountByType(ctx context.Context, organizationID uuid.
 	return count, nil
 }
 
-// rowsToEntities converts database rows to domain entities
-func (r *entityRepository) rowsToEntities(rows []db.Entity) ([]domain.Entity, error) {
+func convertEntityListRows(rows []db.ListEntitiesRow) ([]domain.Entity, error) {
 	entities := make([]domain.Entity, len(rows))
 	for i, row := range rows {
-		properties, err := domain.FromJSONBProperties(row.Properties)
+		entity, err := buildEntity(row.ID, row.OrganizationID, row.SchemaID, row.EntityType, row.Path, row.Properties, row.Version, row.CreatedAt, row.UpdatedAt)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal properties for entity %s: %w", row.ID, err)
+			return nil, err
 		}
-
-		entities[i] = domain.Entity{
-			ID:             row.ID,
-			OrganizationID: row.OrganizationID,
-			EntityType:     row.EntityType,
-			Path:           row.Path,
-			Properties:     properties,
-			CreatedAt:      row.CreatedAt,
-			UpdatedAt:      row.UpdatedAt,
-		}
+		entities[i] = entity
 	}
-
 	return entities, nil
 }
 
-// rowsToEntities converts database rows to domain entities
-func (r *entityRepository) dbRowsToEntities(rows []db.ListEntitiesRow) ([]domain.Entity, error) {
+func convertFilterRows(rows []db.FilterEntitiesByPropertyRow) ([]domain.Entity, error) {
 	entities := make([]domain.Entity, len(rows))
 	for i, row := range rows {
-		properties, err := domain.FromJSONBProperties(row.Properties)
+		entity, err := buildEntity(row.ID, row.OrganizationID, row.SchemaID, row.EntityType, row.Path, row.Properties, row.Version, row.CreatedAt, row.UpdatedAt)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal properties for entity %s: %w", row.ID, err)
+			return nil, err
 		}
+		entities[i] = entity
+	}
+	return entities, nil
+}
 
-		entities[i] = domain.Entity{
-			ID:             row.ID,
-			OrganizationID: row.OrganizationID,
-			EntityType:     row.EntityType,
-			Path:           row.Path,
-			Properties:     properties,
-			CreatedAt:      row.CreatedAt,
-			UpdatedAt:      row.UpdatedAt,
-		}
+func buildEntity(
+	id uuid.UUID,
+	orgID uuid.UUID,
+	schemaID uuid.UUID,
+	entityType string,
+	path string,
+	propertiesJSON json.RawMessage,
+	version int64,
+	createdAt time.Time,
+	updatedAt time.Time,
+) (domain.Entity, error) {
+	properties, err := domain.FromJSONBProperties(propertiesJSON)
+	if err != nil {
+		return domain.Entity{}, fmt.Errorf("failed to decode properties for entity %s: %w", id, err)
 	}
 
-	return entities, nil
+	return domain.Entity{
+		ID:             id,
+		OrganizationID: orgID,
+		SchemaID:       schemaID,
+		EntityType:     entityType,
+		Path:           path,
+		Properties:     properties,
+		Version:        version,
+		CreatedAt:      createdAt,
+		UpdatedAt:      updatedAt,
+	}, nil
 }

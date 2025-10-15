@@ -178,13 +178,15 @@ func TestServiceIngestDetectsTypeConflicts(t *testing.T) {
 }
 
 type stubSchemaRepo struct {
-	exists  bool
-	current domain.EntitySchema
+	exists   bool
+	current  domain.EntitySchema
+	versions []domain.EntitySchema
 }
 
 func (s *stubSchemaRepo) Create(ctx context.Context, schema domain.EntitySchema) (domain.EntitySchema, error) {
 	s.exists = true
 	s.current = schema
+	s.appendVersion(schema)
 	return schema, nil
 }
 
@@ -200,17 +202,46 @@ func (s *stubSchemaRepo) List(ctx context.Context, organizationID uuid.UUID) ([]
 	return nil, errors.New("not implemented")
 }
 
-func (s *stubSchemaRepo) Update(ctx context.Context, schema domain.EntitySchema) (domain.EntitySchema, error) {
+func (s *stubSchemaRepo) Exists(ctx context.Context, organizationID uuid.UUID, name string) (bool, error) {
+	return s.exists, nil
+}
+
+func (s *stubSchemaRepo) ListVersions(ctx context.Context, organizationID uuid.UUID, name string) ([]domain.EntitySchema, error) {
+	if len(s.versions) == 0 {
+		return []domain.EntitySchema{s.current}, nil
+	}
+	return append([]domain.EntitySchema(nil), s.versions...), nil
+}
+
+func (s *stubSchemaRepo) CreateVersion(ctx context.Context, schema domain.EntitySchema) (domain.EntitySchema, error) {
+	s.exists = true
 	s.current = schema
+	s.appendVersion(schema)
 	return schema, nil
+}
+
+func (s *stubSchemaRepo) appendVersion(schema domain.EntitySchema) {
+	s.versions = append([]domain.EntitySchema{{ // ensure latest first
+		ID:                schema.ID,
+		OrganizationID:    schema.OrganizationID,
+		Name:              schema.Name,
+		Description:       schema.Description,
+		Fields:            schema.Fields,
+		Version:           schema.Version,
+		PreviousVersionID: schema.PreviousVersionID,
+		Status:            schema.Status,
+		CreatedAt:         schema.CreatedAt,
+		UpdatedAt:         schema.UpdatedAt,
+	}}, s.versions...)
 }
 
 func (s *stubSchemaRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return errors.New("not implemented")
 }
 
-func (s *stubSchemaRepo) Exists(ctx context.Context, organizationID uuid.UUID, name string) (bool, error) {
-	return s.exists, nil
+func (s *stubSchemaRepo) Update(ctx context.Context, schema domain.EntitySchema) (domain.EntitySchema, error) {
+	s.current = schema
+	return schema, nil
 }
 
 type stubEntityRepo struct {
@@ -272,6 +303,10 @@ func (s *stubEntityRepo) Count(ctx context.Context, organizationID uuid.UUID) (i
 
 func (s *stubEntityRepo) CountByType(ctx context.Context, organizationID uuid.UUID, entityType string) (int64, error) {
 	return 0, errors.New("not implemented")
+}
+
+func (s *stubEntityRepo) RollbackEntity(ctx context.Context, id string, toVersion int64, reason string) error {
+	return nil
 }
 
 type stubLogRepo struct {

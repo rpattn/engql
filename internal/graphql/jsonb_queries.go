@@ -43,9 +43,11 @@ func mapDomainEntity(e domain.Entity) (*graph.Entity, error) {
 	return &graph.Entity{
 		ID:             e.ID.String(),
 		OrganizationID: e.OrganizationID.String(),
+		SchemaID:       e.SchemaID.String(),
 		EntityType:     e.EntityType,
 		Path:           e.Path,
 		Properties:     string(propsJSON),
+		Version:        int(e.Version),
 		CreatedAt:      e.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:      e.UpdatedAt.Format(time.RFC3339),
 	}, nil

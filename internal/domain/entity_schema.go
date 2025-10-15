@@ -2,6 +2,9 @@ package domain
 
 import (
 	"encoding/json"
+	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -36,15 +39,37 @@ type FieldDefinition struct {
 	ReferenceEntityType string    `json:"referenceEntityType,omitempty"`
 }
 
+// SchemaStatus represents lifecycle status of a schema version.
+type SchemaStatus string
+
+const (
+	SchemaStatusActive     SchemaStatus = "ACTIVE"
+	SchemaStatusDeprecated SchemaStatus = "DEPRECATED"
+	SchemaStatusArchived   SchemaStatus = "ARCHIVED"
+	SchemaStatusDraft      SchemaStatus = "DRAFT"
+)
+
+// CompatibilityLevel represents semantic version compatibility.
+type CompatibilityLevel string
+
+const (
+	CompatibilityPatch CompatibilityLevel = "patch"
+	CompatibilityMinor CompatibilityLevel = "minor"
+	CompatibilityMajor CompatibilityLevel = "major"
+)
+
 // EntitySchema represents a schema definition for entity types
 type EntitySchema struct {
-	ID             uuid.UUID         `json:"id"`
-	OrganizationID uuid.UUID         `json:"organization_id"`
-	Name           string            `json:"name"`
-	Description    string            `json:"description"`
-	Fields         []FieldDefinition `json:"fields"`
-	CreatedAt      time.Time         `json:"created_at"`
-	UpdatedAt      time.Time         `json:"updated_at"`
+	ID                uuid.UUID         `json:"id"`
+	OrganizationID    uuid.UUID         `json:"organization_id"`
+	Name              string            `json:"name"`
+	Description       string            `json:"description"`
+	Fields            []FieldDefinition `json:"fields"`
+	Version           string            `json:"version"`
+	PreviousVersionID *uuid.UUID        `json:"previous_version_id,omitempty"`
+	Status            SchemaStatus      `json:"status"`
+	CreatedAt         time.Time         `json:"created_at"`
+	UpdatedAt         time.Time         `json:"updated_at"`
 }
 
 // NewEntitySchema creates a new entity schema with immutable pattern
@@ -56,6 +81,8 @@ func NewEntitySchema(organizationID uuid.UUID, name, description string, fields 
 		Name:           name,
 		Description:    description,
 		Fields:         copyFields(fields), // Deep copy to ensure immutability
+		Version:        "1.0.0",
+		Status:         SchemaStatusActive,
 		CreatedAt:      now,
 		UpdatedAt:      now,
 	}
@@ -80,13 +107,16 @@ func (es EntitySchema) WithField(field FieldDefinition) EntitySchema {
 	}
 
 	return EntitySchema{
-		ID:             es.ID,
-		OrganizationID: es.OrganizationID,
-		Name:           es.Name,
-		Description:    es.Description,
-		Fields:         newFields,
-		CreatedAt:      es.CreatedAt,
-		UpdatedAt:      time.Now(),
+		ID:                es.ID,
+		OrganizationID:    es.OrganizationID,
+		Name:              es.Name,
+		Description:       es.Description,
+		Fields:            newFields,
+		Version:           es.Version,
+		PreviousVersionID: es.PreviousVersionID,
+		Status:            es.Status,
+		CreatedAt:         es.CreatedAt,
+		UpdatedAt:         time.Now(),
 	}
 }
 
@@ -100,39 +130,64 @@ func (es EntitySchema) WithoutField(name string) EntitySchema {
 	}
 
 	return EntitySchema{
-		ID:             es.ID,
-		OrganizationID: es.OrganizationID,
-		Name:           es.Name,
-		Description:    es.Description,
-		Fields:         newFields,
-		CreatedAt:      es.CreatedAt,
-		UpdatedAt:      time.Now(),
+		ID:                es.ID,
+		OrganizationID:    es.OrganizationID,
+		Name:              es.Name,
+		Description:       es.Description,
+		Fields:            newFields,
+		Version:           es.Version,
+		PreviousVersionID: es.PreviousVersionID,
+		Status:            es.Status,
+		CreatedAt:         es.CreatedAt,
+		UpdatedAt:         time.Now(),
 	}
 }
 
 // WithDescription returns a new schema with updated description
 func (es EntitySchema) WithDescription(description string) EntitySchema {
 	return EntitySchema{
-		ID:             es.ID,
-		OrganizationID: es.OrganizationID,
-		Name:           es.Name,
-		Description:    description,
-		Fields:         copyFields(es.Fields),
-		CreatedAt:      es.CreatedAt,
-		UpdatedAt:      time.Now(),
+		ID:                es.ID,
+		OrganizationID:    es.OrganizationID,
+		Name:              es.Name,
+		Description:       description,
+		Fields:            copyFields(es.Fields),
+		Version:           es.Version,
+		PreviousVersionID: es.PreviousVersionID,
+		Status:            es.Status,
+		CreatedAt:         es.CreatedAt,
+		UpdatedAt:         time.Now(),
 	}
 }
 
 // WithName returns a new schema with updated name
 func (es EntitySchema) WithName(name string) EntitySchema {
 	return EntitySchema{
-		ID:             es.ID,
-		OrganizationID: es.OrganizationID,
-		Name:           name,
-		Description:    es.Description,
-		Fields:         copyFields(es.Fields),
-		CreatedAt:      es.CreatedAt,
-		UpdatedAt:      time.Now(),
+		ID:                es.ID,
+		OrganizationID:    es.OrganizationID,
+		Name:              name,
+		Description:       es.Description,
+		Fields:            copyFields(es.Fields),
+		Version:           es.Version,
+		PreviousVersionID: es.PreviousVersionID,
+		Status:            es.Status,
+		CreatedAt:         es.CreatedAt,
+		UpdatedAt:         time.Now(),
+	}
+}
+
+// WithStatus returns a new schema with updated status.
+func (es EntitySchema) WithStatus(status SchemaStatus) EntitySchema {
+	return EntitySchema{
+		ID:                es.ID,
+		OrganizationID:    es.OrganizationID,
+		Name:              es.Name,
+		Description:       es.Description,
+		Fields:            copyFields(es.Fields),
+		Version:           es.Version,
+		PreviousVersionID: es.PreviousVersionID,
+		Status:            status,
+		CreatedAt:         es.CreatedAt,
+		UpdatedAt:         time.Now(),
 	}
 }
 
@@ -156,4 +211,124 @@ func copyFields(fields []FieldDefinition) []FieldDefinition {
 	newFields := make([]FieldDefinition, len(fields))
 	copy(newFields, fields)
 	return newFields
+}
+
+// ComputeNextVersion calculates the next semantic version number based on compatibility.
+func ComputeNextVersion(current string, level CompatibilityLevel) (string, error) {
+	if current == "" {
+		current = "1.0.0"
+	}
+
+	parts := strings.Split(current, ".")
+	if len(parts) != 3 {
+		return "", fmt.Errorf("invalid version format: %s", current)
+	}
+
+	major, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return "", fmt.Errorf("invalid major version: %w", err)
+	}
+	minor, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return "", fmt.Errorf("invalid minor version: %w", err)
+	}
+	patch, err := strconv.Atoi(parts[2])
+	if err != nil {
+		return "", fmt.Errorf("invalid patch version: %w", err)
+	}
+
+	switch level {
+	case CompatibilityMajor:
+		major++
+		minor = 0
+		patch = 0
+	case CompatibilityMinor:
+		minor++
+		patch = 0
+	default:
+		patch++
+	}
+
+	return fmt.Sprintf("%d.%d.%d", major, minor, patch), nil
+}
+
+// DetermineCompatibility compares field definitions to assess change impact.
+func DetermineCompatibility(oldFields, newFields []FieldDefinition) CompatibilityLevel {
+	oldMap := make(map[string]FieldDefinition, len(oldFields))
+	for _, f := range oldFields {
+		oldMap[strings.ToLower(f.Name)] = f
+	}
+
+	newMap := make(map[string]FieldDefinition, len(newFields))
+	for _, f := range newFields {
+		newMap[strings.ToLower(f.Name)] = f
+	}
+
+	majorChange := false
+	minorChange := false
+
+	for key, oldField := range oldMap {
+		newField, ok := newMap[key]
+		if !ok {
+			majorChange = true
+			continue
+		}
+
+		if oldField.Type != newField.Type {
+			majorChange = true
+			continue
+		}
+		if oldField.Required && !newField.Required {
+			minorChange = true
+		}
+		if !oldField.Required && newField.Required {
+			majorChange = true
+		}
+		if !strings.EqualFold(oldField.ReferenceEntityType, newField.ReferenceEntityType) {
+			majorChange = true
+		}
+	}
+
+	for key, newField := range newMap {
+		if _, ok := oldMap[key]; ok {
+			continue
+		}
+		if newField.Required {
+			majorChange = true
+		} else {
+			minorChange = true
+		}
+	}
+
+	if majorChange {
+		return CompatibilityMajor
+	}
+	if minorChange {
+		return CompatibilityMinor
+	}
+	return CompatibilityPatch
+}
+
+// NewVersionFromExisting clones the schema as a new version entry.
+func NewVersionFromExisting(previous EntitySchema, updated EntitySchema, compatibility CompatibilityLevel, status SchemaStatus) (EntitySchema, error) {
+	nextVersion, err := ComputeNextVersion(previous.Version, compatibility)
+	if err != nil {
+		return EntitySchema{}, err
+	}
+
+	now := time.Now()
+	prevID := previous.ID
+
+	return EntitySchema{
+		ID:                uuid.New(),
+		OrganizationID:    previous.OrganizationID,
+		Name:              updated.Name,
+		Description:       updated.Description,
+		Fields:            copyFields(updated.Fields),
+		Version:           nextVersion,
+		PreviousVersionID: &prevID,
+		Status:            status,
+		CreatedAt:         now,
+		UpdatedAt:         now,
+	}, nil
 }

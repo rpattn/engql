@@ -1,15 +1,15 @@
 -- name: CreateEntity :one
-INSERT INTO entities (organization_id, entity_type, path, properties)
-VALUES ($1, $2, $3, $4)
-RETURNING id, organization_id, entity_type, path, properties, created_at, updated_at;
+INSERT INTO entities (organization_id, schema_id, entity_type, path, properties)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, organization_id, schema_id, entity_type, path, properties, version, created_at, updated_at;
 
 -- name: GetEntity :one
-SELECT id, organization_id, entity_type, path, properties, created_at, updated_at
+SELECT id, organization_id, schema_id, entity_type, path, properties, version, created_at, updated_at
 FROM entities
 WHERE id = $1;
 
 -- name: ListEntities :many
-SELECT id, organization_id, entity_type, path, properties, created_at, updated_at,
+SELECT id, organization_id, schema_id, entity_type, path, properties, version, created_at, updated_at,
        COUNT(*) OVER() AS total_count
 FROM entities
 WHERE organization_id = $1
@@ -17,23 +17,23 @@ ORDER BY created_at DESC
 LIMIT $2 OFFSET $3;
 
 -- name: ListEntitiesByType :many
-SELECT id, organization_id, entity_type, path, properties, created_at, updated_at
+SELECT id, organization_id, schema_id, entity_type, path, properties, version, created_at, updated_at
 FROM entities
 WHERE organization_id = $1 AND entity_type = $2
 ORDER BY created_at DESC;
 
 -- name: UpdateEntity :one
 UPDATE entities
-SET entity_type = $2, path = $3, properties = $4, updated_at = NOW()
+SET schema_id = $2, entity_type = $3, path = $4, properties = $5, updated_at = NOW()
 WHERE id = $1
-RETURNING id, organization_id, entity_type, path, properties, created_at, updated_at;
+RETURNING id, organization_id, schema_id, entity_type, path, properties, version, created_at, updated_at;
 
 -- name: DeleteEntity :exec
 DELETE FROM entities
 WHERE id = $1;
 
 -- name: GetEntityAncestors :many
-SELECT id, organization_id, entity_type, path, properties, created_at, updated_at
+SELECT id, organization_id, schema_id, entity_type, path, properties, version, created_at, updated_at
 FROM entities
 WHERE organization_id = $1
   AND path @> $2::ltree
@@ -41,26 +41,25 @@ WHERE organization_id = $1
 ORDER BY nlevel(path);
 
 -- name: GetEntityDescendants :many
-SELECT id, organization_id, entity_type, path, properties, created_at, updated_at
+SELECT id, organization_id, schema_id, entity_type, path, properties, version, created_at, updated_at
 FROM entities
 WHERE organization_id = $1 AND path ~ ($2 || '.*')::lquery;
 
 -- name: GetEntityChildren :many
-SELECT id, organization_id, entity_type, path, properties, created_at, updated_at
+SELECT id, organization_id, schema_id, entity_type, path, properties, version, created_at, updated_at
 FROM entities
 WHERE organization_id = $1 AND path ~ ($2 || '.*{1}')::lquery;
 
 -- name: GetEntitySiblings :many
-SELECT id, organization_id, entity_type, path, properties, created_at, updated_at
+SELECT id, organization_id, schema_id, entity_type, path, properties, version, created_at, updated_at
 FROM entities
 WHERE organization_id = $1 AND path ~ ($2 || '.*{1}')::lquery;
 
 -- name: FilterEntitiesByProperty :many
-SELECT id, organization_id, entity_type, path, properties, created_at, updated_at
+SELECT id, organization_id, schema_id, entity_type, path, properties, version, created_at, updated_at
 FROM entities
 WHERE organization_id = $1 
 AND properties @> $2;
-
 
 -- name: GetEntityCount :one
 SELECT COUNT(*)
@@ -73,6 +72,48 @@ FROM entities
 WHERE organization_id = $1 AND entity_type = $2;
 
 -- name: GetEntitiesByIDs :many
-SELECT id, organization_id, entity_type, path, properties, created_at, updated_at
+SELECT id, organization_id, schema_id, entity_type, path, properties, version, created_at, updated_at
 FROM entities
 WHERE id = ANY(@ids::uuid[]);
+
+-- name: GetEntityHistoryByVersion :one
+SELECT id, entity_id, organization_id, schema_id, entity_type, path, properties, created_at, updated_at, version, change_type, changed_at, reason
+FROM entities_history
+WHERE entity_id = $1 AND version = $2;
+
+-- name: ListEntityHistory :many
+SELECT id, entity_id, organization_id, schema_id, entity_type, path, properties, created_at, updated_at, version, change_type, changed_at, reason
+FROM entities_history
+WHERE entity_id = $1
+ORDER BY version DESC;
+
+-- name: GetMaxEntityHistoryVersion :one
+SELECT COALESCE(MAX(version), 0)::BIGINT
+FROM entities_history
+WHERE entity_id = $1;
+
+-- name: UpsertEntityFromHistory :exec
+INSERT INTO entities (id, organization_id, schema_id, entity_type, path, properties, version, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+ON CONFLICT (id) DO UPDATE
+SET schema_id = EXCLUDED.schema_id,
+    entity_type = EXCLUDED.entity_type,
+    path = EXCLUDED.path,
+    properties = EXCLUDED.properties,
+    updated_at = NOW();
+
+-- name: InsertEntityHistoryRecord :exec
+INSERT INTO entities_history (
+    entity_id,
+    organization_id,
+    schema_id,
+    entity_type,
+    path,
+    properties,
+    created_at,
+    updated_at,
+    version,
+    change_type,
+    reason
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);

@@ -45,7 +45,7 @@ func main() {
 	// Create repositories
 	orgRepo := repository.NewOrganizationRepository(queries)
 	entitySchemaRepo := repository.NewEntitySchemaRepository(queries)
-	entityRepo := repository.NewEntityRepository(queries)
+	entityRepo := repository.NewEntityRepository(queries, conn.Pool)
 	entityJoinRepo := repository.NewEntityJoinRepository(queries, conn.Pool)
 	ingestionLogRepo := repository.NewIngestionLogRepository(conn.Pool)
 	ingestionService := ingestion.NewService(entitySchemaRepo, entityRepo, ingestionLogRepo)
