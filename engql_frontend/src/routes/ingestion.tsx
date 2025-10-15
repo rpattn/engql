@@ -11,6 +11,20 @@ type EntitiesByTypeResponse = {
   }>
 }
 
+type EntitySchemaByNameResponse = {
+  entitySchemaByName: {
+    id: string
+    name: string
+    description?: string | null
+    fields: Array<{
+      name: string
+      type: string
+      required: boolean
+      description?: string | null
+    }>
+  } | null
+}
+
 type IngestionSummary = {
   totalRows: number
   validRows: number
@@ -31,6 +45,22 @@ const ENTITIES_BY_TYPE_QUERY = `
       id
       entityType
       properties
+    }
+  }
+`
+
+const ENTITY_SCHEMA_QUERY = `
+  query EntitySchemaByName($organizationId: String!, $name: String!) {
+    entitySchemaByName(organizationId: $organizationId, name: $name) {
+      id
+      name
+      description
+      fields {
+        name
+        type
+        required
+        description
+      }
     }
   }
 `
@@ -57,6 +87,17 @@ function IngestionPage() {
       return graphqlRequest<EntitiesByTypeResponse>(ENTITIES_BY_TYPE_QUERY, {
         organizationId: organizationId.trim(),
         entityType: schemaName.trim(),
+      })
+    },
+  })
+
+  const schemaQuery = useQuery({
+    queryKey: ['schema-by-name', organizationId, schemaName],
+    enabled: false,
+    queryFn: async () => {
+      return graphqlRequest<EntitySchemaByNameResponse>(ENTITY_SCHEMA_QUERY, {
+        organizationId: organizationId.trim(),
+        name: schemaName.trim(),
       })
     },
   })
@@ -120,6 +161,14 @@ function IngestionPage() {
       }
     })
   }, [entitiesQuery.data])
+
+  const schemaFields =
+    schemaQuery.data?.entitySchemaByName?.fields?.map((field) => ({
+      name: field.name,
+      type: field.type,
+      required: field.required,
+      description: field.description ?? '',
+    })) ?? []
 
   const propertyKeys = useMemo(() => {
     const keys = new Set<string>()
@@ -216,6 +265,18 @@ function IngestionPage() {
           >
             {entitiesQuery.isFetching ? 'Loading...' : 'Refresh Entities'}
           </button>
+
+          <button
+            onClick={() => schemaQuery.refetch()}
+            disabled={
+              !organizationId.trim() ||
+              !schemaName.trim() ||
+              schemaQuery.isFetching
+            }
+            className="inline-flex items-center justify-center rounded-lg border border-slate-600 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-slate-700/40 focus:outline-none focus:ring-2 focus:ring-slate-400 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {schemaQuery.isFetching ? 'Fetching Schema...' : 'Fetch Schema'}
+          </button>
         </div>
 
         {errorMessage && (
@@ -259,6 +320,78 @@ function IngestionPage() {
                 </ul>
               </div>
             )}
+          </div>
+        )}
+      </section>
+
+      <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6 shadow-xl shadow-slate-950/40">
+        <header className="mb-4 flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-semibold text-cyan-300">
+              Schema Definition
+            </h2>
+            <p className="mt-1 text-sm text-slate-400">
+              View fields detected or previously defined for this schema.
+            </p>
+          </div>
+          <span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs text-slate-400">
+            {schemaQuery.data?.entitySchemaByName?.name ?? 'No schema loaded'}
+          </span>
+        </header>
+
+        {schemaQuery.isError && (
+          <div className="mb-4 rounded-md border border-red-500/60 bg-red-500/20 px-3 py-2 text-sm text-red-100">
+            {schemaQuery.error instanceof Error
+              ? schemaQuery.error.message
+              : 'Failed to load schema.'}
+          </div>
+        )}
+
+        {!organizationId.trim() || !schemaName.trim() ? (
+          <p className="text-sm text-slate-400">
+            Enter an organization ID and schema name, then fetch the schema.
+          </p>
+        ) : schemaQuery.isFetching ? (
+          <p className="text-sm text-slate-400">Loading schema...</p>
+        ) : schemaQuery.data?.entitySchemaByName == null ? (
+          <p className="text-sm text-slate-400">
+            No schema found for these parameters. Upload a file or double-check
+            the inputs.
+          </p>
+        ) : schemaFields.length === 0 ? (
+          <p className="text-sm text-slate-400">
+            Schema has no fields defined yet.
+          </p>
+        ) : (
+          <div className="overflow-auto rounded-xl border border-slate-800">
+            <table className="min-w-full divide-y divide-slate-800 text-sm">
+              <thead className="bg-slate-900/80 text-xs uppercase text-slate-300">
+                <tr>
+                  <th className="px-4 py-3 text-left font-semibold">Field</th>
+                  <th className="px-4 py-3 text-left font-semibold">Type</th>
+                  <th className="px-4 py-3 text-left font-semibold">
+                    Required
+                  </th>
+                  <th className="px-4 py-3 text-left font-semibold">
+                    Description
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800">
+                {schemaFields.map((field) => (
+                  <tr key={field.name} className="hover:bg-slate-900/60">
+                    <td className="px-4 py-3 text-slate-200">{field.name}</td>
+                    <td className="px-4 py-3 text-slate-200">{field.type}</td>
+                    <td className="px-4 py-3 text-slate-200">
+                      {field.required ? 'Yes' : 'No'}
+                    </td>
+                    <td className="px-4 py-3 text-slate-300">
+                      {field.description || '-'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </section>
