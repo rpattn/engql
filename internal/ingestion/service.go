@@ -36,6 +36,9 @@ var (
 		time.RFC3339Nano,
 		"2006-01-02",
 		"2006-01-02 15:04:05",
+		"2006-01-02 15:04:05.000",
+		"2006-01-02 15:04:05.000000",
+		"2006-01-02 15:04:05.000000000",
 		"2006/01/02",
 		"01/02/2006",
 		"02/01/2006",
@@ -926,12 +929,19 @@ func buildValidatorDefinitions(fields []domain.FieldDefinition) map[string]valid
 			ref := field.ReferenceEntityType
 			refType = &ref
 		}
+		var validation any
+		if trimmed := strings.TrimSpace(field.Validation); trimmed != "" {
+			var parsed any
+			if err := json.Unmarshal([]byte(trimmed), &parsed); err == nil {
+				validation = parsed
+			}
+		}
 		defs[field.Name] = validator.FieldDefinition{
 			Type:                graph.FieldType(strings.ToUpper(string(field.Type))),
 			Required:            field.Required,
 			Description:         field.Description,
 			Default:             field.Default,
-			Validation:          field.Validation,
+			Validation:          validation,
 			ReferenceEntityType: refType,
 		}
 	}

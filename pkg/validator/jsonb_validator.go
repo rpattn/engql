@@ -135,11 +135,14 @@ func (jv *JSONBValidator) validateFieldType(fieldName string, value any, expecte
 			return fmt.Errorf("field '%s' must be a boolean, got %T", fieldName, value)
 		}
 	case graph.FieldTypeTimestamp:
-		if strVal, ok := value.(string); ok {
-			if _, err := time.Parse(time.RFC3339, strVal); err != nil {
+		switch v := value.(type) {
+		case string:
+			if _, err := time.Parse(time.RFC3339, v); err != nil {
 				return fmt.Errorf("field '%s' must be a valid timestamp (RFC3339): %v", fieldName, err)
 			}
-		} else {
+		case time.Time:
+			// already parsed; accept value
+		default:
 			return fmt.Errorf("field '%s' must be a timestamp string, got %T", fieldName, value)
 		}
 	case graph.FieldTypeJSON:

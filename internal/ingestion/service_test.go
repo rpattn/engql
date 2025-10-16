@@ -339,6 +339,42 @@ Bob,55
 	}
 }
 
+func TestServicePreviewParsesFractionalTimestamps(t *testing.T) {
+	orgID := uuid.New()
+	schemaRepo := &stubSchemaRepo{}
+	entityRepo := &stubEntityRepo{}
+	logRepo := &stubLogRepo{}
+	service := NewService(schemaRepo, entityRepo, logRepo)
+
+	data := `Asset, Warranty_Expiration_Date
+Laptop,2024-03-02 16:25:04.594
+Monitor,2024-03-05 09:15:13.120
+`
+
+	req := PreviewRequest{
+		OrganizationID: orgID,
+		SchemaName:     "Assets",
+		FileName:       "assets.csv",
+		Data:           strings.NewReader(data),
+	}
+
+	result, err := service.Preview(context.Background(), req)
+	if err != nil {
+		t.Fatalf("preview returned error: %v", err)
+	}
+	if result.InvalidRows != 0 {
+		t.Fatalf("expected no invalid rows, got %d (rows: %+v)", result.InvalidRows, result.Rows)
+	}
+
+	timestampHeader := findHeader(result.Headers, "Warranty_Expiration_Date")
+	if timestampHeader == nil {
+		t.Fatalf("expected timestamp header to be present")
+	}
+	if timestampHeader.DetectedType != string(domain.FieldTypeTimestamp) {
+		t.Fatalf("expected detected timestamp type, got %s", timestampHeader.DetectedType)
+	}
+}
+
 func intPtr(value int) *int {
 	return &value
 }
