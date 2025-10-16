@@ -177,6 +177,181 @@ func TestServiceIngestDetectsTypeConflicts(t *testing.T) {
 	}
 }
 
+func TestServiceIngestRespectsHeaderRowIndex(t *testing.T) {
+	orgID := uuid.New()
+	schemaRepo := &stubSchemaRepo{}
+	entityRepo := &stubEntityRepo{}
+	logRepo := &stubLogRepo{}
+	service := NewService(schemaRepo, entityRepo, logRepo)
+
+	data := `metadata,value
+name,age
+Alice,30
+Bob,25
+`
+	req := Request{
+		OrganizationID: orgID,
+		SchemaName:     "People",
+		FileName:       "people.csv",
+		HeaderRowIndex: intPtr(1),
+		Data:           strings.NewReader(data),
+	}
+
+	summary, err := service.Ingest(context.Background(), req)
+	if err != nil {
+		t.Fatalf("ingest returned error: %v", err)
+	}
+	if summary.TotalRows != 2 {
+		t.Fatalf("expected 2 data rows, got %d", summary.TotalRows)
+	}
+	if len(schemaRepo.current.Fields) != 2 {
+		t.Fatalf("expected 2 fields detected, got %d", len(schemaRepo.current.Fields))
+	}
+	names := []string{schemaRepo.current.Fields[0].Name, schemaRepo.current.Fields[1].Name}
+	if names[0] != "name" || names[1] != "age" {
+		t.Fatalf("unexpected headers detected: %+v", names)
+	}
+}
+
+func TestServicePreviewReturnsErrors(t *testing.T) {
+	orgID := uuid.New()
+	existingSchema := domain.EntitySchema{
+		ID:             uuid.New(),
+		OrganizationID: orgID,
+		Name:           "Person",
+		Fields: []domain.FieldDefinition{
+			{
+				Name:     "name",
+				Type:     domain.FieldTypeString,
+				Required: true,
+			},
+			{
+				Name: "age",
+				Type: domain.FieldTypeInteger,
+			},
+		},
+	}
+	schemaRepo := &stubSchemaRepo{
+		exists:  true,
+		current: existingSchema,
+	}
+	entityRepo := &stubEntityRepo{}
+	logRepo := &stubLogRepo{}
+	service := NewService(schemaRepo, entityRepo, logRepo)
+
+	data := `name,age
+Alice,30
+Bob,not_a_number
+`
+	req := PreviewRequest{
+		OrganizationID: orgID,
+		SchemaName:     "Person",
+		FileName:       "people.csv",
+		Data:           strings.NewReader(data),
+	}
+
+	result, err := service.Preview(context.Background(), req)
+	if err != nil {
+		t.Fatalf("preview returned error: %v", err)
+	}
+	if result.TotalRows != 2 {
+		t.Fatalf("expected total rows 2, got %d", result.TotalRows)
+	}
+	if result.InvalidRows != 1 {
+		t.Fatalf("expected 1 invalid row, got %d", result.InvalidRows)
+	}
+	if len(result.HeaderCandidates) == 0 {
+		t.Fatalf("expected header candidates to be populated")
+	}
+	foundError := false
+	for _, row := range result.Rows {
+		if len(row.Errors) > 0 {
+			foundError = true
+			if row.RowNumber != 3 {
+				t.Fatalf("expected error on row number 3, got %d", row.RowNumber)
+			}
+		}
+	}
+	if !foundError {
+		t.Fatalf("expected at least one row error, rows: %+v", result.Rows)
+	}
+}
+
+func TestServicePreviewAppliesOverrides(t *testing.T) {
+	orgID := uuid.New()
+	schemaRepo := &stubSchemaRepo{}
+	entityRepo := &stubEntityRepo{}
+	logRepo := &stubLogRepo{}
+	service := NewService(schemaRepo, entityRepo, logRepo)
+
+	data := `name,age
+Alice,30
+Bob,55
+`
+	baseReq := PreviewRequest{
+		OrganizationID: orgID,
+		SchemaName:     "Person",
+		FileName:       "people.csv",
+		Data:           strings.NewReader(data),
+	}
+
+	result, err := service.Preview(context.Background(), baseReq)
+	if err != nil {
+		t.Fatalf("preview returned error: %v", err)
+	}
+
+	ageHeader := findHeader(result.Headers, "age")
+	if ageHeader == nil {
+		t.Fatalf("expected age header in preview result")
+	}
+	if ageHeader.DetectedType != string(domain.FieldTypeInteger) {
+		t.Fatalf("expected detected type integer, got %s", ageHeader.DetectedType)
+	}
+	if ageHeader.EffectiveType != string(domain.FieldTypeInteger) {
+		t.Fatalf("expected effective type integer, got %s", ageHeader.EffectiveType)
+	}
+	if ageHeader.Overridden {
+		t.Fatalf("did not expect override flag")
+	}
+
+	overrideReq := PreviewRequest{
+		OrganizationID:  orgID,
+		SchemaName:      "Person",
+		FileName:        "people.csv",
+		Data:            strings.NewReader(data),
+		ColumnOverrides: map[string]domain.FieldType{"age": domain.FieldTypeString},
+	}
+
+	overrideResult, err := service.Preview(context.Background(), overrideReq)
+	if err != nil {
+		t.Fatalf("preview with overrides returned error: %v", err)
+	}
+
+	overrideAge := findHeader(overrideResult.Headers, "age")
+	if overrideAge == nil {
+		t.Fatalf("expected age header in override result")
+	}
+	if overrideAge.EffectiveType != string(domain.FieldTypeString) {
+		t.Fatalf("expected override to force string type, got %s", overrideAge.EffectiveType)
+	}
+	if !overrideAge.Overridden {
+		t.Fatalf("expected override flag to be set")
+	}
+}
+
+func intPtr(value int) *int {
+	return &value
+}
+
+func findHeader(headers []PreviewHeader, name string) *PreviewHeader {
+	for i := range headers {
+		if headers[i].Name == name {
+			return &headers[i]
+		}
+	}
+	return nil
+}
+
 type stubSchemaRepo struct {
 	exists   bool
 	current  domain.EntitySchema

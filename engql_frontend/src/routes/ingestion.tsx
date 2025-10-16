@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
+import type { ChangeEvent } from "react";
 import { graphqlRequest } from "../lib/graphql";
 
 type EntitiesByTypeResponse = {
@@ -51,6 +52,46 @@ type ParsedEntityRow = {
   [key: string]: unknown;
 };
 
+type PreviewHeader = {
+  name: string;
+  originalLabel: string;
+  detectedType: string;
+  effectiveType: string;
+  required: boolean;
+  overridden: boolean;
+};
+
+type PreviewRow = {
+  rowNumber: number;
+  values: Record<string, string>;
+  errors?: string[];
+};
+
+type HeaderCandidate = {
+  index: number;
+  values: string[];
+  current: boolean;
+};
+
+type IngestionPreview = {
+  totalRows: number;
+  invalidRows: number;
+  headers: PreviewHeader[];
+  rows: PreviewRow[];
+  schemaChanges: IngestionSummary["schemaChanges"];
+  headerCandidates: HeaderCandidate[];
+};
+
+const COLUMN_TYPE_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: "auto", label: "Auto (detected)" },
+  { value: "string", label: "String" },
+  { value: "integer", label: "Integer" },
+  { value: "float", label: "Float" },
+  { value: "boolean", label: "Boolean" },
+  { value: "timestamp", label: "Timestamp" },
+  { value: "json", label: "JSON" },
+];
+
 const ENTITIES_BY_TYPE_QUERY = `
   query EntitiesByType($organizationId: String!, $entityType: String!) {
     entitiesByType(organizationId: $organizationId, entityType: $entityType) {
@@ -96,6 +137,12 @@ function IngestionPage() {
   const [file, setFile] = useState<File | null>(null);
   const [summary, setSummary] = useState<IngestionSummary | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [headerRowIndex, setHeaderRowIndex] = useState<number | null>(null);
+  const [columnTypeOverrides, setColumnTypeOverrides] = useState<
+    Record<string, string>
+  >({});
+  const [preview, setPreview] = useState<IngestionPreview | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
 
   const entitiesQuery = useQuery({
     queryKey: ["entities-by-type", organizationId, schemaName],
@@ -119,6 +166,77 @@ function IngestionPage() {
     },
   });
 
+  const previewMutation = useMutation<
+    IngestionPreview,
+    Error,
+    {
+      file: File;
+      headerRowIndex: number | null;
+      columnOverrides: Record<string, string>;
+    }
+  >({
+    mutationFn: async ({ file, headerRowIndex, columnOverrides }) => {
+      if (!organizationId.trim() || !schemaName.trim()) {
+        throw new Error("Organization ID and schema name are required for preview.");
+      }
+
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("organizationId", organizationId.trim());
+      formData.append("schemaName", schemaName.trim());
+      if (description.trim()) {
+        formData.append("description", description.trim());
+      }
+      if (headerRowIndex !== null) {
+        formData.append("headerRowIndex", headerRowIndex.toString());
+      }
+
+      const filteredOverrides = Object.fromEntries(
+        Object.entries(columnOverrides).filter(
+          ([, value]) => value && value !== "auto",
+        ),
+      );
+      if (Object.keys(filteredOverrides).length > 0) {
+        formData.append("columnTypes", JSON.stringify(filteredOverrides));
+      }
+      formData.append("previewLimit", "10");
+
+      const response = await fetch(`${API_BASE_URL}/ingestion/preview`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || "Preview failed.");
+      }
+
+      const payload = (await response.json()) as IngestionPreview;
+      return payload;
+    },
+    onSuccess: (result) => {
+      setPreview(result);
+      setPreviewError(null);
+      setHeaderRowIndex((current) => {
+        if (current !== null) {
+          return current;
+        }
+        const candidate = result.headerCandidates.find(
+          (item) => item.current,
+        );
+        return candidate ? candidate.index : current;
+      });
+    },
+    onError: (error) => {
+      if (error instanceof Error) {
+        setPreviewError(error.message);
+      } else {
+        setPreviewError("Unknown preview error.");
+      }
+      setPreview(null);
+    },
+  });
+
   const ingestionMutation = useMutation({
     mutationFn: async () => {
       if (!file) {
@@ -134,6 +252,17 @@ function IngestionPage() {
       formData.append("schemaName", schemaName.trim());
       if (description.trim()) {
         formData.append("description", description.trim());
+      }
+      if (headerRowIndex !== null) {
+        formData.append("headerRowIndex", headerRowIndex.toString());
+      }
+      const filteredOverrides = Object.fromEntries(
+        Object.entries(columnTypeOverrides).filter(
+          ([, value]) => value && value !== "auto",
+        ),
+      );
+      if (Object.keys(filteredOverrides).length > 0) {
+        formData.append("columnTypes", JSON.stringify(filteredOverrides));
       }
 
       const response = await fetch(`${API_BASE_URL}/ingestion`, {
@@ -167,6 +296,87 @@ function IngestionPage() {
       }
     },
   });
+
+  const triggerPreview = (options?: {
+    headerIndex?: number | null;
+    overrides?: Record<string, string>;
+    fileOverride?: File | null;
+  }) => {
+    const selectedFile = options?.fileOverride ?? file;
+    if (
+      !selectedFile ||
+      !organizationId.trim() ||
+      !schemaName.trim()
+    ) {
+      return;
+    }
+
+    const nextHeaderIndex =
+      options?.headerIndex ?? headerRowIndex ?? null;
+    const nextOverrides = options?.overrides ?? columnTypeOverrides;
+
+    previewMutation.reset();
+    previewMutation.mutate({
+      file: selectedFile,
+      headerRowIndex: nextHeaderIndex,
+      columnOverrides: nextOverrides,
+    });
+  };
+
+  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const selected = event.target.files?.[0] ?? null;
+    setFile(selected);
+    setSummary(null);
+    setErrorMessage(null);
+    setPreview(null);
+    setPreviewError(null);
+    setHeaderRowIndex(null);
+    setColumnTypeOverrides({});
+    if (selected) {
+      triggerPreview({
+        fileOverride: selected,
+        headerIndex: null,
+        overrides: {},
+      });
+    }
+  };
+
+  const handleHeaderRowChange = (value: string) => {
+    if (value === "") {
+      setHeaderRowIndex(null);
+      triggerPreview({ headerIndex: null });
+      return;
+    }
+    const parsed = Number(value);
+    setHeaderRowIndex(parsed);
+    triggerPreview({ headerIndex: parsed });
+  };
+
+  const handleColumnTypeChange = (headerName: string, value: string) => {
+    const headerMeta = preview?.headers.find((item) => item.name === headerName);
+    const nextOverrides = { ...columnTypeOverrides };
+    if (
+      value === "auto" ||
+      (headerMeta && headerMeta.detectedType === value)
+    ) {
+      delete nextOverrides[headerName];
+    } else {
+      nextOverrides[headerName] = value;
+    }
+    setColumnTypeOverrides(nextOverrides);
+    triggerPreview({ overrides: nextOverrides });
+  };
+
+  useEffect(() => {
+    if (!file) {
+      return;
+    }
+    if (!organizationId.trim() || !schemaName.trim()) {
+      return;
+    }
+    triggerPreview();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [organizationId, schemaName]);
 
   const parsedEntities = useMemo<ParsedEntityRow[]>(() => {
     const entities = entitiesQuery.data?.entitiesByType ?? [];
@@ -267,10 +477,7 @@ function IngestionPage() {
             <input
               type="file"
               accept=".csv, .xlsx"
-              onChange={(event) => {
-                const selected = event.target.files?.[0];
-                setFile(selected ?? null);
-              }}
+              onChange={handleFileChange}
               className="rounded-lg border border-dashed border-slate-600 bg-slate-950/70 px-3 py-2 text-slate-100 outline-none focus:border-cyan-400"
             />
           </label>
@@ -315,6 +522,199 @@ function IngestionPage() {
             {errorMessage}
           </div>
         )}
+
+        <section className="mt-6 rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-sm">
+          <header className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-200">
+                Preview Sandbox
+              </h2>
+              <p className="mt-1 text-xs text-slate-400">
+                Inspect the first 10 rows, pick the header row, and adjust column
+                types before ingesting the full file.
+              </p>
+            </div>
+            {preview && (
+              <div className="flex gap-2 text-xs">
+                <span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-slate-200">
+                  {preview.totalRows} rows detected
+                </span>
+                <span
+                  className={`rounded-full border px-3 py-1 ${
+                    preview.invalidRows > 0
+                      ? "border-red-500/60 bg-red-500/20 text-red-200"
+                      : "border-emerald-500/50 bg-emerald-500/10 text-emerald-200"
+                  }`}
+                >
+                  {preview.invalidRows} invalid
+                </span>
+              </div>
+            )}
+          </header>
+
+          {!file ? (
+            <p className="text-slate-400">
+              Select a CSV or XLSX file to generate a preview.
+            </p>
+          ) : !organizationId.trim() || !schemaName.trim() ? (
+            <p className="text-slate-400">
+              Provide both the organization ID and schema name to preview the
+              dataset.
+            </p>
+          ) : previewMutation.isPending ? (
+            <p className="text-slate-400">Generating preview...</p>
+          ) : previewError ? (
+            <div className="rounded-md border border-red-500/60 bg-red-500/20 px-3 py-2 text-sm text-red-100">
+              <div className="flex items-center justify-between gap-3">
+                <span>{previewError}</span>
+                <button
+                  onClick={() => triggerPreview()}
+                  className="rounded-md border border-red-300 px-2 py-1 text-xs text-red-100 hover:bg-red-500/30"
+                >
+                  Retry
+                </button>
+              </div>
+            </div>
+          ) : preview ? (
+            <>
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <label className="flex flex-col text-xs text-slate-300 md:max-w-xs">
+                  <span className="mb-1 font-semibold text-slate-200">
+                    Header Row
+                  </span>
+                  <select
+                    value={headerRowIndex ?? ""}
+                    onChange={(event) => handleHeaderRowChange(event.target.value)}
+                    className="rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-sm text-slate-100 outline-none focus:border-cyan-400"
+                  >
+                    {preview.headerCandidates.map((candidate) => (
+                      <option key={candidate.index} value={candidate.index}>
+                        {`Row ${candidate.index + 1}: ${candidate.values
+                          .slice(0, 4)
+                          .join(", ")}`}
+                        {candidate.values.length > 4 ? "…" : ""}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="mt-1 text-[11px] text-slate-500">
+                    Rows above the selected index are ignored during ingestion.
+                  </span>
+                </label>
+                <div className="flex flex-wrap gap-3 text-xs text-slate-400">
+                  {preview.schemaChanges.map((change, idx) => (
+                    <span
+                      key={`${change.message}-${idx}`}
+                      className="rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-slate-200"
+                    >
+                      {change.message}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-4 overflow-auto rounded-xl border border-slate-800">
+                <table className="min-w-full divide-y divide-slate-800 text-sm">
+                  <thead className="bg-slate-900/80 text-xs uppercase text-slate-300">
+                    <tr>
+                      <th className="px-4 py-3 text-left font-semibold">Row</th>
+                      {preview.headers.map((header) => (
+                        <th
+                          key={header.name}
+                          className="px-4 py-3 text-left align-top"
+                        >
+                          <div className="flex flex-col gap-1">
+                            <span className="text-sm font-semibold text-slate-200">
+                              {header.originalLabel || header.name}
+                            </span>
+                            {header.originalLabel &&
+                              header.originalLabel !== header.name && (
+                                <span className="text-[11px] text-slate-500">
+                                  {header.name}
+                                </span>
+                              )}
+                            <select
+                              value={
+                                columnTypeOverrides[header.name] ?? "auto"
+                              }
+                              onChange={(event) =>
+                                handleColumnTypeChange(
+                                  header.name,
+                                  event.target.value,
+                                )
+                              }
+                              className="rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-100 outline-none focus:border-cyan-400"
+                            >
+                              {COLUMN_TYPE_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                            <span className="text-[11px] text-slate-500">
+                              Detected: {header.detectedType}
+                            </span>
+                            <span className="text-[11px] text-slate-400">
+                              Effective: {header.effectiveType}
+                            </span>
+                          </div>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800">
+                    {preview.rows.length === 0 ? (
+                      <tr>
+                        <td
+                          className="px-4 py-3 text-slate-400"
+                          colSpan={preview.headers.length + 1}
+                        >
+                          No data rows detected below the selected header.
+                        </td>
+                      </tr>
+                    ) : (
+                      preview.rows.map((row) => {
+                        const hasErrors = row.errors && row.errors.length > 0;
+                        return (
+                          <Fragment key={`preview-row-${row.rowNumber}`}>
+                            <tr className={hasErrors ? "bg-red-500/5" : ""}>
+                              <td className="px-4 py-3 text-xs text-slate-400">
+                                {row.rowNumber}
+                              </td>
+                              {preview.headers.map((header) => (
+                                <td
+                                  key={`${row.rowNumber}-${header.name}`}
+                                  className="px-4 py-3 text-slate-200"
+                                >
+                                  {formatCellValue(
+                                    row.values[header.name] ?? "",
+                                  )}
+                                </td>
+                              ))}
+                            </tr>
+                            {hasErrors && (
+                              <tr>
+                                <td
+                                  colSpan={preview.headers.length + 1}
+                                  className="px-4 pb-3 text-xs text-red-300"
+                                >
+                                  {row.errors?.join(" • ")}
+                                </td>
+                              </tr>
+                            )}
+                          </Fragment>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          ) : (
+            <p className="text-slate-400">
+              Preview will appear once the initial analysis completes.
+            </p>
+          )}
+        </section>
 
         {summary && (
           <div className="mt-6 grid gap-4 rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-sm">

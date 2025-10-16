@@ -66,11 +66,58 @@ func NewService(
 
 // Request describes the ingestion input.
 type Request struct {
-	OrganizationID uuid.UUID
-	SchemaName     string
-	Description    string
-	FileName       string
-	Data           io.Reader
+	OrganizationID  uuid.UUID
+	SchemaName      string
+	Description     string
+	FileName        string
+	HeaderRowIndex  *int
+	ColumnOverrides map[string]domain.FieldType
+	Data            io.Reader
+}
+
+// PreviewRequest describes the preview input prior to ingestion.
+type PreviewRequest struct {
+	OrganizationID  uuid.UUID
+	SchemaName      string
+	FileName        string
+	HeaderRowIndex  *int
+	ColumnOverrides map[string]domain.FieldType
+	Data            io.Reader
+	Limit           int
+}
+
+// PreviewHeader summarizes column level metadata for previews.
+type PreviewHeader struct {
+	Name          string `json:"name"`
+	OriginalLabel string `json:"originalLabel"`
+	DetectedType  string `json:"detectedType"`
+	EffectiveType string `json:"effectiveType"`
+	Required      bool   `json:"required"`
+	Overridden    bool   `json:"overridden"`
+}
+
+// PreviewRow captures sample data and validation feedback.
+type PreviewRow struct {
+	RowNumber int               `json:"rowNumber"`
+	Values    map[string]string `json:"values"`
+	Errors    []string          `json:"errors,omitempty"`
+}
+
+// HeaderCandidate represents a potential header row option.
+type HeaderCandidate struct {
+	Index   int      `json:"index"`
+	Values  []string `json:"values"`
+	Current bool     `json:"current"`
+}
+
+// PreviewResult returns preview metadata back to clients.
+type PreviewResult struct {
+	TotalRows        int               `json:"totalRows"`
+	InvalidRows      int               `json:"invalidRows"`
+	Headers          []PreviewHeader   `json:"headers"`
+	Rows             []PreviewRow      `json:"rows"`
+	SchemaChanges    []SchemaChange    `json:"schemaChanges"`
+	HeaderCandidates []HeaderCandidate `json:"headerCandidates"`
 }
 
 // SchemaChange highlights schema level adjustments or conflicts.
@@ -92,8 +139,10 @@ type Summary struct {
 }
 
 type tableData struct {
-	headers []string
-	rows    [][]string
+	headers        []string
+	rawHeaders     []string
+	rows           [][]string
+	headerRowIndex int
 }
 
 // Ingest reads the uploaded file, updates the schema, and persists valid entities.
@@ -121,7 +170,7 @@ func (s *Service) Ingest(ctx context.Context, req Request) (Summary, error) {
 		return summary, errors.New("file is empty")
 	}
 
-	table, err := parseTable(req.FileName, payload)
+	table, _, err := parseTable(req.FileName, payload, req.HeaderRowIndex)
 	if err != nil {
 		return summary, err
 	}
@@ -130,6 +179,7 @@ func (s *Service) Ingest(ctx context.Context, req Request) (Summary, error) {
 	}
 
 	detectedFields := inferFieldDefinitions(table)
+	detectedFields = applyOverridesToDefinitions(detectedFields, req.ColumnOverrides)
 	if len(detectedFields) == 0 {
 		return summary, errors.New("no fields inferred from data set")
 	}
@@ -232,7 +282,7 @@ func (s *Service) Ingest(ctx context.Context, req Request) (Summary, error) {
 	usedPaths := make(map[string]int)
 
 	for rowIdx, row := range table.rows {
-		rowNumber := rowIdx + 2 // include header row
+		rowNumber := table.headerRowIndex + rowIdx + 2 // include header row (1-based)
 		properties := make(map[string]any)
 		rowValid := true
 
@@ -300,19 +350,245 @@ func (s *Service) Ingest(ctx context.Context, req Request) (Summary, error) {
 	return summary, nil
 }
 
-func parseTable(fileName string, payload []byte) (tableData, error) {
+// Preview runs validations against a limited set of rows without persisting entities.
+func (s *Service) Preview(ctx context.Context, req PreviewRequest) (PreviewResult, error) {
+	result := PreviewResult{
+		Headers:          []PreviewHeader{},
+		Rows:             []PreviewRow{},
+		SchemaChanges:    []SchemaChange{},
+		HeaderCandidates: []HeaderCandidate{},
+	}
+
+	if req.OrganizationID == uuid.Nil {
+		return result, errors.New("organization id is required")
+	}
+	if strings.TrimSpace(req.SchemaName) == "" {
+		return result, errors.New("schema name is required")
+	}
+	if req.Data == nil {
+		return result, errors.New("data reader is required")
+	}
+
+	payload, err := io.ReadAll(req.Data)
+	if err != nil {
+		return result, fmt.Errorf("failed to read upload: %w", err)
+	}
+	if len(payload) == 0 {
+		return result, errors.New("file is empty")
+	}
+
+	table, records, err := parseTable(req.FileName, payload, req.HeaderRowIndex)
+	if err != nil {
+		return result, err
+	}
+
+	result.HeaderCandidates = buildHeaderCandidates(records, 10, table.headerRowIndex)
+
+	if len(table.headers) == 0 {
+		return result, errors.New("no header row detected")
+	}
+
+	autoDetected := inferFieldDefinitions(table)
+	detectedFields := applyOverridesToDefinitions(autoDetected, req.ColumnOverrides)
+
+	exists, err := s.schemaRepo.Exists(ctx, req.OrganizationID, req.SchemaName)
+	if err != nil {
+		return result, fmt.Errorf("failed to check schema existence: %w", err)
+	}
+
+	var workingSchema domain.EntitySchema
+	if exists {
+		workingSchema, err = s.schemaRepo.GetByName(ctx, req.OrganizationID, req.SchemaName)
+		if err != nil {
+			return result, fmt.Errorf("failed to load schema: %w", err)
+		}
+	} else {
+		workingSchema = domain.NewEntitySchema(req.OrganizationID, req.SchemaName, "", detectedFields)
+		result.SchemaChanges = append(result.SchemaChanges, SchemaChange{
+			Message: fmt.Sprintf("schema %s would be created", req.SchemaName),
+		})
+	}
+
+	fieldMap := make(map[string]domain.FieldDefinition)
+	for _, field := range workingSchema.Fields {
+		fieldMap[field.Name] = field
+	}
+
+	baseSchema := workingSchema
+	var schemaUpdated bool
+
+	for _, detected := range detectedFields {
+		existing, found := fieldMap[detected.Name]
+		if !found {
+			workingSchema = workingSchema.WithField(detected)
+			fieldMap[detected.Name] = detected
+			schemaUpdated = true
+			result.SchemaChanges = append(result.SchemaChanges, SchemaChange{
+				Field:   detected.Name,
+				Message: "new field detected",
+			})
+			continue
+		}
+
+		if !fieldTypesCompatible(existing.Type, detected.Type) {
+			message := fmt.Sprintf("field %s type mismatch: existing=%s, detected=%s", detected.Name, existing.Type, detected.Type)
+			result.SchemaChanges = append(result.SchemaChanges, SchemaChange{
+				Field:        detected.Name,
+				ExistingType: string(existing.Type),
+				DetectedType: string(detected.Type),
+				Message:      message,
+			})
+		}
+
+		if detected.Required && !existing.Required {
+			updated := existing
+			updated.Required = true
+			workingSchema = workingSchema.WithField(updated)
+			fieldMap[updated.Name] = updated
+			schemaUpdated = true
+			result.SchemaChanges = append(result.SchemaChanges, SchemaChange{
+				Field:   detected.Name,
+				Message: "would be promoted to required based on data inference",
+			})
+		}
+	}
+
+	if schemaUpdated && exists {
+		compatibility := domain.DetermineCompatibility(baseSchema.Fields, workingSchema.Fields)
+		result.SchemaChanges = append(result.SchemaChanges, SchemaChange{
+			Message: fmt.Sprintf("schema %s would be updated (%s)", workingSchema.Name, compatibility),
+		})
+	}
+
+	result.TotalRows = len(table.rows)
+
+	limit := req.Limit
+	if limit <= 0 {
+		limit = 10
+	}
+
+	validatorDefs := buildValidatorDefinitions(workingSchema.Fields)
+	invalidRows := 0
+
+	for rowIdx, row := range table.rows {
+		rowNumber := table.headerRowIndex + rowIdx + 2
+		rowValues := make(map[string]string, len(table.headers))
+		for colIdx, header := range table.headers {
+			if colIdx < len(row) {
+				rowValues[header] = strings.TrimSpace(row[colIdx])
+			} else {
+				rowValues[header] = ""
+			}
+		}
+
+		var rowErrors []string
+		properties := make(map[string]any)
+
+		for colIdx, header := range table.headers {
+			if colIdx >= len(row) {
+				continue
+			}
+
+			fieldDef, ok := fieldMap[header]
+			if !ok {
+				continue
+			}
+
+			raw := strings.TrimSpace(row[colIdx])
+			if raw == "" {
+				continue
+			}
+
+			coerced, coerceErr := coerceValue(fieldDef.Type, raw)
+			if coerceErr != nil {
+				rowErrors = append(rowErrors, fmt.Sprintf("field %s: %v", header, coerceErr))
+				break
+			}
+			properties[fieldDef.Name] = coerced
+		}
+
+		if len(rowErrors) == 0 {
+			validationResult := s.validator.ValidateProperties(properties, validatorDefs)
+			if !validationResult.IsValid {
+				for _, validationErr := range validationResult.Errors {
+					rowErrors = append(rowErrors, fmt.Sprintf("%s: %s", validationErr.Field, validationErr.Message))
+				}
+				for _, warning := range validationResult.Warnings {
+					rowErrors = append(rowErrors, fmt.Sprintf("warning %s: %s", warning.Field, warning.Message))
+				}
+			}
+		}
+
+		if len(rowErrors) > 0 {
+			invalidRows++
+		}
+
+		if rowIdx < limit {
+			previewRow := PreviewRow{
+				RowNumber: rowNumber,
+				Values:    rowValues,
+			}
+			if len(rowErrors) > 0 {
+				previewRow.Errors = rowErrors
+			}
+			result.Rows = append(result.Rows, previewRow)
+		}
+	}
+
+	result.InvalidRows = invalidRows
+
+	detectedByName := make(map[string]domain.FieldDefinition, len(autoDetected))
+	for _, field := range autoDetected {
+		detectedByName[field.Name] = field
+	}
+
+	for idx, header := range table.headers {
+		detectedField, ok := detectedByName[header]
+		var detectedType domain.FieldType
+		var detectedRequired bool
+		if ok {
+			detectedType = detectedField.Type
+			detectedRequired = detectedField.Required
+		}
+
+		effectiveField, ok := fieldMap[header]
+		effectiveType := detectedType
+		required := detectedRequired
+		if ok {
+			effectiveType = effectiveField.Type
+			required = effectiveField.Required
+		}
+
+		previewHeader := PreviewHeader{
+			Name:          header,
+			OriginalLabel: "",
+			DetectedType:  string(detectedType),
+			EffectiveType: string(effectiveType),
+			Required:      required,
+			Overridden:    req.ColumnOverrides != nil && req.ColumnOverrides[header] != "",
+		}
+		if idx < len(table.rawHeaders) {
+			previewHeader.OriginalLabel = table.rawHeaders[idx]
+		}
+		result.Headers = append(result.Headers, previewHeader)
+	}
+
+	return result, nil
+}
+
+func parseTable(fileName string, payload []byte, headerRowIndex *int) (tableData, [][]string, error) {
 	ext := strings.ToLower(filepath.Ext(fileName))
 	switch ext {
 	case ".csv":
-		return parseCSV(payload)
+		return parseCSV(payload, headerRowIndex)
 	case ".xlsx":
-		return parseExcel(payload)
+		return parseExcel(payload, headerRowIndex)
 	default:
-		return tableData{}, fmt.Errorf("%w: %s", ErrUnsupportedFormat, ext)
+		return tableData{}, nil, fmt.Errorf("%w: %s", ErrUnsupportedFormat, ext)
 	}
 }
 
-func parseCSV(payload []byte) (tableData, error) {
+func parseCSV(payload []byte, headerRowIndex *int) (tableData, [][]string, error) {
 	reader := bufio.NewReader(bytes.NewReader(payload))
 	if prefix, err := reader.Peek(len(byteOrderMark)); err == nil && bytes.Equal(prefix, byteOrderMark) {
 		_, _ = reader.Discard(len(byteOrderMark))
@@ -324,57 +600,78 @@ func parseCSV(payload []byte) (tableData, error) {
 
 	records, err := csvReader.ReadAll()
 	if err != nil {
-		return tableData{}, fmt.Errorf("failed to read csv: %w", err)
+		return tableData{}, nil, fmt.Errorf("failed to read csv: %w", err)
 	}
 
-	table, err := normalizeTable(records)
+	table, err := normalizeTable(records, headerRowIndex)
 	if err != nil {
-		return tableData{}, err
+		return tableData{}, nil, err
 	}
-	return table, nil
+	return table, records, nil
 }
 
-func parseExcel(payload []byte) (tableData, error) {
+func parseExcel(payload []byte, headerRowIndex *int) (tableData, [][]string, error) {
 	f, err := excelize.OpenReader(bytes.NewReader(payload))
 	if err != nil {
-		return tableData{}, fmt.Errorf("failed to open xlsx: %w", err)
+		return tableData{}, nil, fmt.Errorf("failed to open xlsx: %w", err)
 	}
 	defer func() { _ = f.Close() }()
 
 	sheets := f.GetSheetList()
 	if len(sheets) == 0 {
-		return tableData{}, errors.New("excel file has no sheets")
+		return tableData{}, nil, errors.New("excel file has no sheets")
 	}
 
 	rows, err := f.GetRows(sheets[0])
 	if err != nil {
-		return tableData{}, fmt.Errorf("failed to read rows from xlsx: %w", err)
+		return tableData{}, nil, fmt.Errorf("failed to read rows from xlsx: %w", err)
 	}
 
-	table, err := normalizeTable(rows)
+	table, err := normalizeTable(rows, headerRowIndex)
 	if err != nil {
-		return tableData{}, err
+		return tableData{}, nil, err
 	}
-	return table, nil
+	return table, rows, nil
 }
 
-func normalizeTable(records [][]string) (tableData, error) {
+func normalizeTable(records [][]string, headerRowIndex *int) (tableData, error) {
 	if len(records) == 0 {
 		return tableData{}, errors.New("no rows found in file")
 	}
 
 	var headerRow []string
 	var dataRows [][]string
+	headerIndex := -1
 
-	for _, row := range records {
-		if len(cleanRow(row)) == 0 {
-			continue
+	if headerRowIndex != nil {
+		if *headerRowIndex < 0 || *headerRowIndex >= len(records) {
+			return tableData{}, fmt.Errorf("header row index %d out of range", *headerRowIndex)
 		}
-		if headerRow == nil {
-			headerRow = row
-			continue
+		selected := cleanRow(records[*headerRowIndex])
+		if len(selected) == 0 {
+			return tableData{}, fmt.Errorf("selected header row %d is empty", *headerRowIndex+1)
 		}
-		dataRows = append(dataRows, row)
+		headerRow = records[*headerRowIndex]
+		headerIndex = *headerRowIndex
+		for idx := *headerRowIndex + 1; idx < len(records); idx++ {
+			row := records[idx]
+			if len(cleanRow(row)) == 0 {
+				continue
+			}
+			dataRows = append(dataRows, row)
+		}
+	} else {
+		for idx, row := range records {
+			if len(cleanRow(row)) == 0 {
+				continue
+			}
+			if headerRow == nil {
+				headerRow = row
+				headerIndex = idx
+				continue
+			}
+			dataRows = append(dataRows, row)
+		}
 	}
 
 	if headerRow == nil {
@@ -382,6 +679,11 @@ func normalizeTable(records [][]string) (tableData, error) {
 	}
 
 	headers := sanitizeHeaders(headerRow)
+	rawHeaders := make([]string, len(headerRow))
+	for i, value := range headerRow {
+		rawHeaders[i] = strings.TrimSpace(value)
+	}
+
 	for i := range dataRows {
 		dataRows[i] = padRow(dataRows[i], len(headers))
 	}
@@ -389,9 +691,41 @@ func normalizeTable(records [][]string) (tableData, error) {
 	dataRows = filterEmptyRows(dataRows)
 
 	return tableData{
-		headers: headers,
-		rows:    dataRows,
+		headers:        headers,
+		rawHeaders:     rawHeaders,
+		rows:           dataRows,
+		headerRowIndex: headerIndex,
 	}, nil
+}
+
+func buildHeaderCandidates(records [][]string, limit int, currentIndex int) []HeaderCandidate {
+	if limit <= 0 {
+		limit = 10
+	}
+
+	candidates := make([]HeaderCandidate, 0, limit)
+	for idx, row := range records {
+		if len(cleanRow(row)) == 0 {
+			continue
+		}
+
+		values := make([]string, len(row))
+		for i, cell := range row {
+			values[i] = strings.TrimSpace(cell)
+		}
+
+		candidates = append(candidates, HeaderCandidate{
+			Index:   idx,
+			Values:  values,
+			Current: idx == currentIndex,
+		})
+
+		if len(candidates) >= limit {
+			break
+		}
+	}
+
+	return candidates
 }
 
 func cleanRow(row []string) []string {
@@ -471,6 +805,20 @@ func inferFieldDefinitions(table tableData) []domain.FieldDefinition {
 		})
 	}
 	return definitions
+}
+
+func applyOverridesToDefinitions(fields []domain.FieldDefinition, overrides map[string]domain.FieldType) []domain.FieldDefinition {
+	if len(fields) == 0 || len(overrides) == 0 {
+		return fields
+	}
+	overridden := make([]domain.FieldDefinition, len(fields))
+	for idx, field := range fields {
+		if override, ok := overrides[field.Name]; ok && override != "" {
+			field.Type = override
+		}
+		overridden[idx] = field
+	}
+	return overridden
 }
 
 func profileColumn(col int, rows [][]string) (domain.FieldType, bool) {
