@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/rpattn/engql/graph"
+	"github.com/rpattn/engql/internal/config"
 	"github.com/rpattn/engql/internal/db"
 	"github.com/rpattn/engql/internal/graphql"
 	"github.com/rpattn/engql/internal/ingestion"
@@ -27,8 +28,11 @@ func main() {
 	defer cancel()
 
 	// Setup database connection
-	config := db.DefaultConfig()
-	conn, err := db.NewConnection(ctx, config)
+	dbCfg, err := config.LoadDBConfig(".")
+	if err != nil {
+		log.Fatalf("Failed to load DB config: %v", err)
+	}
+	conn, err := db.NewConnection(ctx, dbCfg)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}

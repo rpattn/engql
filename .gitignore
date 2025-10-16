@@ -27,3 +27,8 @@ go.work.sum
 # OS-specific files
 .DS_Store
 Thumbs.db
+
+# Environment files
+.env
+.env.local
+config.yaml
