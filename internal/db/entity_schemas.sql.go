@@ -77,6 +77,83 @@ func (q *Queries) CreateEntitySchema(ctx context.Context, arg CreateEntitySchema
 	return i, err
 }
 
+const CreateEntitySchemaAndArchivePrevious = `-- name: CreateEntitySchemaAndArchivePrevious :one
+WITH archived AS (
+    UPDATE entity_schemas
+    SET status = 'ARCHIVED', updated_at = NOW()
+    WHERE organization_id = $1 AND name = $2 AND status = 'ACTIVE'
+)
+INSERT INTO entity_schemas (
+    organization_id,
+    name,
+    description,
+    fields,
+    version,
+    previous_version_id,
+    status
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id,
+          organization_id,
+          name,
+          description,
+          fields,
+          version,
+          previous_version_id,
+          status,
+          created_at,
+          updated_at
+`
+
+type CreateEntitySchemaAndArchivePreviousParams struct {
+	OrganizationID    uuid.UUID       `json:"organization_id"`
+	Name              string          `json:"name"`
+	Description       pgtype.Text     `json:"description"`
+	Fields            json.RawMessage `json:"fields"`
+	Version           string          `json:"version"`
+	PreviousVersionID pgtype.UUID     `json:"previous_version_id"`
+	Status            string          `json:"status"`
+}
+
+type CreateEntitySchemaAndArchivePreviousRow struct {
+	ID                uuid.UUID       `json:"id"`
+	OrganizationID    uuid.UUID       `json:"organization_id"`
+	Name              string          `json:"name"`
+	Description       pgtype.Text     `json:"description"`
+	Fields            json.RawMessage `json:"fields"`
+	Version           string          `json:"version"`
+	PreviousVersionID pgtype.UUID     `json:"previous_version_id"`
+	Status            string          `json:"status"`
+	CreatedAt         time.Time       `json:"created_at"`
+	UpdatedAt         time.Time       `json:"updated_at"`
+}
+
+func (q *Queries) CreateEntitySchemaAndArchivePrevious(ctx context.Context, arg CreateEntitySchemaAndArchivePreviousParams) (CreateEntitySchemaAndArchivePreviousRow, error) {
+	row := q.db.QueryRow(ctx, CreateEntitySchemaAndArchivePrevious,
+		arg.OrganizationID,
+		arg.Name,
+		arg.Description,
+		arg.Fields,
+		arg.Version,
+		arg.PreviousVersionID,
+		arg.Status,
+	)
+	var i CreateEntitySchemaAndArchivePreviousRow
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.Name,
+		&i.Description,
+		&i.Fields,
+		&i.Version,
+		&i.PreviousVersionID,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const GetEntitySchema = `-- name: GetEntitySchema :one
 SELECT id, organization_id, name, description, fields, version, previous_version_id, status, created_at, updated_at
 FROM entity_schemas
@@ -318,6 +395,18 @@ func (q *Queries) ListEntitySchemas(ctx context.Context, organizationID uuid.UUI
 		return nil, err
 	}
 	return items, nil
+}
+
+const MarkEntitySchemaInactive = `-- name: MarkEntitySchemaInactive :exec
+UPDATE entity_schemas
+SET status = 'ARCHIVED',
+    updated_at = NOW()
+WHERE id = $1
+`
+
+func (q *Queries) MarkEntitySchemaInactive(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, MarkEntitySchemaInactive, id)
+	return err
 }
 
 const SchemaExists = `-- name: SchemaExists :one

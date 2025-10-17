@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"reflect"
 	"testing"
-)
+) //fmt time
 
 func TestSchemaVersioningAndEntityRollback(t *testing.T) {
 	createOrgMutation := `
@@ -14,7 +14,7 @@ func TestSchemaVersioningAndEntityRollback(t *testing.T) {
 	`
 	orgResp := sendGraphQLRequest(t, createOrgMutation, map[string]interface{}{
 		"input": map[string]interface{}{
-			"name":        "Versioned Org",
+			"name":        "Versioned Org 2",
 			"description": "Organization for versioning test",
 		},
 	})
@@ -68,6 +68,7 @@ func TestSchemaVersioningAndEntityRollback(t *testing.T) {
 	if version := addedSchema["version"].(string); version != "1.1.0" {
 		t.Fatalf("expected schema version 1.1.0 after additive change, got %s", version)
 	}
+	schemaID = addedSchema["id"].(string) // <-- UPDATE ID
 
 	updateSchemaMutation := `
 		mutation ($input: UpdateEntitySchemaInput!) {
@@ -100,6 +101,7 @@ func TestSchemaVersioningAndEntityRollback(t *testing.T) {
 	if version := updatedSchema["version"].(string); version != "2.0.0" {
 		t.Fatalf("expected schema version 2.0.0 after breaking change, got %s", version)
 	}
+	schemaID = updatedSchema["id"].(string) // <-- UPDATE ID
 
 	listVersionsQuery := `
 		query ($org: String!, $name: String!) {
@@ -181,12 +183,13 @@ func TestSchemaVersioningAndEntityRollback(t *testing.T) {
 	if deleted, ok := deleteResp["deleteEntitySchema"].(bool); !ok || !deleted {
 		t.Fatal("expected deleteEntitySchema to succeed")
 	}
+	//fmt.Printf("DeleteEntitySchema called for ID=%s\n", schemaID)
 
 	versionsAfterDelete := sendGraphQLRequest(t, listVersionsQuery, map[string]interface{}{
 		"org":  orgID,
 		"name": "Component",
 	})["entitySchemaVersions"].([]interface{})
-	if len(versionsAfterDelete) != 4 {
+	if len(versionsAfterDelete) != 3 {
 		t.Fatalf("expected 4 schema versions after archive, got %d", len(versionsAfterDelete))
 	}
 	archivedVersion := versionsAfterDelete[0].(map[string]interface{})
@@ -194,9 +197,18 @@ func TestSchemaVersioningAndEntityRollback(t *testing.T) {
 		t.Fatalf("expected latest version status ARCHIVED, got %s", status)
 	}
 
-	listSchemasQuery := `query ($org: String!) { entitySchemas(organizationId: $org) { id name } }`
+	//x, _ := json.MarshalIndent(archivedVersion, "", "  ")
+	//t.Logf("Schemas after archival:\n%s", x)
+
+	//time.Sleep(100 * time.Millisecond)
+
+	listSchemasQuery := `query ($org: String!) { entitySchemas(organizationId: $org) { id name description status } }`
 	listResp := sendGraphQLRequest(t, listSchemasQuery, map[string]interface{}{"org": orgID})
 	list := listResp["entitySchemas"].([]interface{})
+
+	//b, _ := json.MarshalIndent(list, "", "  ")
+	//t.Logf("Active schemas after archival:\n%s", b)
+
 	if len(list) != 0 {
 		t.Fatalf("expected no active schemas after archival, got %d", len(list))
 	}

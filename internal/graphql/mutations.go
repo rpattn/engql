@@ -135,6 +135,12 @@ func (r *Resolver) createSchemaVersion(
 	if err != nil {
 		return domain.EntitySchema{}, "", fmt.Errorf("failed to persist schema version: %w", err)
 	}
+
+	// Archive the previous version after creating the new one
+	if err := r.entitySchemaRepo.ArchiveSchema(ctx, previous.ID); err != nil {
+		return domain.EntitySchema{}, "", fmt.Errorf("failed to archive previous schema: %w", err)
+	}
+
 	return saved, compatibility, nil
 }
 
@@ -471,19 +477,26 @@ func (r *Resolver) DeleteEntitySchema(ctx context.Context, id string) (*bool, er
 		return nil, fmt.Errorf("invalid schema ID: %w", err)
 	}
 
+	// Fetch the schema record to get org and name
 	existingSchema, err := r.entitySchemaRepo.GetByID(ctx, schemaID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get entity schema: %w", err)
 	}
 
-	if existingSchema.Status == domain.SchemaStatusArchived {
+	// Now explicitly fetch the latest version for that org/name
+	latestSchema, err := r.entitySchemaRepo.GetByName(ctx, existingSchema.OrganizationID, existingSchema.Name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get latest schema version: %w", err)
+	}
+
+	if latestSchema.Status == domain.SchemaStatusArchived {
 		result := true
 		return &result, nil
 	}
 
-	updated := existingSchema.WithStatus(domain.SchemaStatusArchived)
-	if _, _, err := r.createSchemaVersion(ctx, existingSchema, updated, domain.SchemaStatusArchived); err != nil {
-		return nil, err
+	// Archive the *latest* one
+	if err := r.entitySchemaRepo.ArchiveSchema(ctx, latestSchema.ID); err != nil {
+		return nil, fmt.Errorf("failed to mark schema inactive: %w", err)
 	}
 
 	result := true

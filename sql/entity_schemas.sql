@@ -57,3 +57,36 @@ SELECT EXISTS(
     SELECT 1 FROM entity_schemas
     WHERE organization_id = $1 AND name = $2
 );
+
+-- name: MarkEntitySchemaInactive :exec
+UPDATE entity_schemas
+SET status = 'ARCHIVED',
+    updated_at = NOW()
+WHERE id = $1;
+
+-- name: CreateEntitySchemaAndArchivePrevious :one
+WITH archived AS (
+    UPDATE entity_schemas
+    SET status = 'ARCHIVED', updated_at = NOW()
+    WHERE organization_id = $1 AND name = $2 AND status = 'ACTIVE'
+)
+INSERT INTO entity_schemas (
+    organization_id,
+    name,
+    description,
+    fields,
+    version,
+    previous_version_id,
+    status
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id,
+          organization_id,
+          name,
+          description,
+          fields,
+          version,
+          previous_version_id,
+          status,
+          created_at,
+          updated_at;

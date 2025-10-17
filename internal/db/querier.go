@@ -14,6 +14,7 @@ type Querier interface {
 	CreateEntity(ctx context.Context, arg CreateEntityParams) (CreateEntityRow, error)
 	CreateEntityJoin(ctx context.Context, arg CreateEntityJoinParams) (CreateEntityJoinRow, error)
 	CreateEntitySchema(ctx context.Context, arg CreateEntitySchemaParams) (CreateEntitySchemaRow, error)
+	CreateEntitySchemaAndArchivePrevious(ctx context.Context, arg CreateEntitySchemaAndArchivePreviousParams) (CreateEntitySchemaAndArchivePreviousRow, error)
 	CreateOrganization(ctx context.Context, arg CreateOrganizationParams) (Organization, error)
 	DeleteEntity(ctx context.Context, id uuid.UUID) error
 	DeleteEntityJoin(ctx context.Context, id uuid.UUID) error
@@ -43,6 +44,7 @@ type Querier interface {
 	ListEntitySchemaVersions(ctx context.Context, arg ListEntitySchemaVersionsParams) ([]ListEntitySchemaVersionsRow, error)
 	ListEntitySchemas(ctx context.Context, organizationID uuid.UUID) ([]ListEntitySchemasRow, error)
 	ListOrganizations(ctx context.Context) ([]Organization, error)
+	MarkEntitySchemaInactive(ctx context.Context, id uuid.UUID) error
 	SchemaExists(ctx context.Context, arg SchemaExistsParams) (bool, error)
 	UpdateEntity(ctx context.Context, arg UpdateEntityParams) (UpdateEntityRow, error)
 	UpdateEntityJoin(ctx context.Context, arg UpdateEntityJoinParams) (UpdateEntityJoinRow, error)

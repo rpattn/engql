@@ -455,6 +455,10 @@ func (s *stubSchemaRepo) Update(ctx context.Context, schema domain.EntitySchema)
 	return schema, nil
 }
 
+func (s *stubSchemaRepo) ArchiveSchema(ctx context.Context, schemaID uuid.UUID) error {
+	return nil
+}
+
 type stubEntityRepo struct {
 	created []domain.Entity
 }

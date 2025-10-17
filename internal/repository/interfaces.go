@@ -27,6 +27,7 @@ type EntitySchemaRepository interface {
 	ListVersions(ctx context.Context, organizationID uuid.UUID, name string) ([]domain.EntitySchema, error)
 	CreateVersion(ctx context.Context, schema domain.EntitySchema) (domain.EntitySchema, error)
 	Exists(ctx context.Context, organizationID uuid.UUID, name string) (bool, error)
+	ArchiveSchema(ctx context.Context, schemaID uuid.UUID) error
 }
 
 // EntityRepository defines the interface for entity operations

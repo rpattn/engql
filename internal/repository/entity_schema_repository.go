@@ -32,6 +32,14 @@ func (r *entitySchemaRepository) CreateVersion(ctx context.Context, schema domai
 	return r.insertSchema(ctx, schema)
 }
 
+func (r *entitySchemaRepository) ArchiveSchema(ctx context.Context, schemaID uuid.UUID) error {
+	err := r.queries.MarkEntitySchemaInactive(ctx, schemaID)
+	if err != nil {
+		return fmt.Errorf("failed to archive entity schema: %w", err)
+	}
+	return nil
+}
+
 // GetByID retrieves an entity schema by ID
 func (r *entitySchemaRepository) GetByID(ctx context.Context, id uuid.UUID) (domain.EntitySchema, error) {
 	row, err := r.queries.GetEntitySchema(ctx, id)
@@ -120,7 +128,7 @@ func (r *entitySchemaRepository) insertSchema(ctx context.Context, schema domain
 		copy(previous.Bytes[:], prevVal[:])
 	}
 
-	row, err := r.queries.CreateEntitySchema(ctx, db.CreateEntitySchemaParams{
+	row, err := r.queries.CreateEntitySchemaAndArchivePrevious(ctx, db.CreateEntitySchemaAndArchivePreviousParams{
 		OrganizationID:    schema.OrganizationID,
 		Name:              schema.Name,
 		Description:       pgtype.Text{String: schema.Description, Valid: schema.Description != ""},
