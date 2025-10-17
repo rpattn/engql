@@ -1,0 +1,19 @@
+schema: ../graph/schema.graphqls
+documents: ../graph/*.graphqls
+
+generates:
+  ./src/generated/graphql.ts:
+    plugins:
+      - typescript
+      - typescript-operations
+      - typescript-react-query
+    config:
+      reactQueryVersion: 5   # may have a different name in future releases
+      fetcher:
+        func: "../lib/graphql#graphqlRequest"
+        isReactHook: false
+      exposeFetcher: true
+      exposeQueryKeys: true
+      exposeMutationKeys: true
+      addInfiniteQuery: false
+      useTypeImports: false

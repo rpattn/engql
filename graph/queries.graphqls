@@ -1,0 +1,208 @@
+query GetOrganizations {
+  organizations {
+    id
+    name
+    description
+  }
+}
+
+query GetEntitiesByOrg($organizationId: String!, $limit: Int = 10, $offset: Int = 0) {
+  entities(organizationId: $organizationId, pagination: { limit: $limit, offset: $offset }) {
+    entities {
+      id
+      entityType
+      version
+      path
+      properties
+      createdAt
+      updatedAt
+    }
+    pageInfo {
+      totalCount
+      hasNextPage
+      hasPreviousPage
+    }
+  }
+}
+
+# --- Create a new Entity Schema ---
+mutation CreateSchema($input: CreateEntitySchemaInput!) {
+  createEntitySchema(input: $input) {
+    id
+    name
+    description
+    version
+    status
+    previousVersionId
+  }
+}
+
+# --- Create a new Entity ---
+mutation CreateEntity($input: CreateEntityInput!) {
+  createEntity(input: $input) {
+    id
+    entityType
+    schemaId
+    version
+    properties
+  }
+}
+
+# --- Get Entities by Type ---
+query EntitiesByTypeFull($organizationId: String!, $entityType: String!) {
+  entitiesByType(organizationId: $organizationId, entityType: $entityType) {
+    id
+    entityType
+    schemaId
+    version
+    properties
+    linkedEntities {
+      id
+      entityType
+      properties
+    }
+  }
+}
+
+# --- Get Schema Versions ---
+query SchemaVersions($organizationId: String!, $name: String!) {
+  entitySchemaVersions(organizationId: $organizationId, name: $name) {
+    id
+    version
+    status
+    previousVersionId
+    createdAt
+  }
+}
+
+# --- Rollback an Entity to a previous version ---
+mutation RollbackEntity($id: String!, $toVersion: Int!, $reason: String) {
+  rollbackEntity(id: $id, toVersion: $toVersion, reason: $reason) {
+    id
+    version
+    properties
+  }
+}
+
+# --- Entities by Type ---
+query EntitiesByType($organizationId: String!, $entityType: String!) {
+  entitiesByType(organizationId: $organizationId, entityType: $entityType) {
+    id
+    entityType
+    schemaId
+    version
+    properties
+  }
+}
+
+# --- Entity Schema by Name ---
+query EntitySchemaByName($organizationId: String!, $name: String!) {
+  entitySchemaByName(organizationId: $organizationId, name: $name) {
+    id
+    name
+    description
+    version
+    status
+    previousVersionId
+    fields {
+      name
+      type
+      required
+      description
+    }
+  }
+}
+
+# --- Create Join Definition ---
+mutation CreateJoin($input: CreateEntityJoinDefinitionInput!) {
+  createEntityJoinDefinition(input: $input) {
+    id
+    name
+    description
+    joinType
+    leftEntityType
+    rightEntityType
+    joinField
+    joinFieldType
+    createdAt
+    updatedAt
+    leftFilters {
+      key
+      value
+      exists
+      inArray
+    }
+    rightFilters {
+      key
+      value
+      exists
+      inArray
+    }
+    sortCriteria {
+      side
+      field
+      direction
+    }
+  }
+}
+
+# --- List Join Definitions ---
+query EntityJoinDefinitions($organizationId: String!) {
+  entityJoinDefinitions(organizationId: $organizationId) {
+    id
+    name
+    description
+    joinType
+    leftEntityType
+    rightEntityType
+    joinField
+    joinFieldType
+    createdAt
+    updatedAt
+    leftFilters {
+      key
+      value
+      exists
+      inArray
+    }
+    rightFilters {
+      key
+      value
+      exists
+      inArray
+    }
+    sortCriteria {
+      side
+      field
+      direction
+    }
+  }
+}
+
+# --- Delete Join Definition ---
+mutation DeleteJoin($id: String!) {
+  deleteEntityJoinDefinition(id: $id)
+}
+
+# --- Execute Join ---
+query ExecuteJoin($input: ExecuteEntityJoinInput!) {
+  executeEntityJoin(input: $input) {
+    edges {
+      left {
+        id
+        entityType
+        properties
+      }
+      right {
+        id
+        entityType
+        properties
+      }
+    }
+    pageInfo {
+      totalCount
+      hasNextPage
+      hasPreviousPage
+    }
+  }
+}
