@@ -38,10 +38,12 @@ func main() {
 	}
 	defer conn.Close()
 
-	// Run migrations
-	if err := db.RunMigrations(ctx, conn.Pool, "./migrations"); err != nil {
+	// --- Run migrations (once) ---
+	log.Println("Running database migrations...")
+	if err := db.RunMigrations(conn.Pool, "./migrations"); err != nil {
 		log.Fatalf("Failed to run migrations: %v", err)
 	}
+	log.Println("Database migrations complete")
 
 	// Create sqlc queries instance
 	queries := db.New(conn.Pool)

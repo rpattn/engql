@@ -1,47 +1,51 @@
 package db
 
 import (
-	"context"
+	"database/sql"
 	"fmt"
-	"io/ioutil"
-	"path/filepath"
-	"strings"
+	"log"
 
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jackc/pgx/v5/pgxpool"
+	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
-// RunMigrations runs SQL migrations from the migrations directory
-func RunMigrations(ctx context.Context, pool *pgxpool.Pool, migrationsPath string) error {
-	// Read all .up.sql files in the migrations directory
-	files, err := ioutil.ReadDir(migrationsPath)
+// RunMigrations runs pending database migrations once using golang-migrate.
+func RunMigrations(pool *pgxpool.Pool, migrationsPath string) error {
+	// Convert pgxpool.Pool to *sql.DB (golang-migrate needs *sql.DB)
+	db := stdlibOpen(pool)
+
+	driver, err := postgres.WithInstance(db, &postgres.Config{})
 	if err != nil {
-		return fmt.Errorf("failed to read migrations directory: %w", err)
+		return fmt.Errorf("migration driver error: %w", err)
 	}
 
-	// Sort files by name (assuming they start with numbers like 001_, 002_, etc.)
-	var migrationFiles []string
-	for _, file := range files {
-		if strings.HasSuffix(file.Name(), ".up.sql") {
-			migrationFiles = append(migrationFiles, file.Name())
-		}
+	m, err := migrate.NewWithDatabaseInstance(
+		fmt.Sprintf("file://%s", migrationsPath),
+		"postgres",
+		driver,
+	)
+	if err != nil {
+		return fmt.Errorf("migration setup error: %w", err)
 	}
 
-	// Execute each migration
-	for _, fileName := range migrationFiles {
-		filePath := filepath.Join(migrationsPath, fileName)
-		sql, err := ioutil.ReadFile(filePath)
-		if err != nil {
-			return fmt.Errorf("failed to read migration file %s: %w", fileName, err)
-		}
-
-		// Execute the migration
-		_, err = pool.Exec(ctx, string(sql))
-		if err != nil {
-			return fmt.Errorf("failed to execute migration %s: %w", fileName, err)
-		}
-
-		fmt.Printf("Successfully executed migration: %s\n", fileName)
+	// Run all "up" migrations
+	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+		return fmt.Errorf("migration failed: %w", err)
 	}
 
+	log.Println("✅ Migrations applied (or no change).")
 	return nil
+}
+
+// stdlibOpen converts pgxpool.Pool -> *sql.DB for golang-migrate
+func stdlibOpen(pool *pgxpool.Pool) *sql.DB {
+	conn := pool.Config().ConnConfig.ConnString()
+	db, err := sql.Open("pgx", conn)
+	if err != nil {
+		panic(fmt.Sprintf("failed to create stdlib DB: %v", err))
+	}
+	return db
 }

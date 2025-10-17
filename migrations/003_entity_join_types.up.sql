@@ -1,8 +1,0 @@
-ALTER TABLE entity_joins
-    ADD COLUMN IF NOT EXISTS join_type VARCHAR(32) NOT NULL DEFAULT 'REFERENCE';
-
-ALTER TABLE entity_joins
-    ALTER COLUMN join_field DROP NOT NULL;
-
-ALTER TABLE entity_joins
-    ALTER COLUMN join_field_type DROP NOT NULL;
