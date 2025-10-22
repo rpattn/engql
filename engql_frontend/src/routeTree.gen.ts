@@ -11,6 +11,8 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as JoinTestingRouteImport } from './routes/join-testing'
 import { Route as IngestionRouteImport } from './routes/ingestion'
+import { Route as EntitySchemasRouteImport } from './routes/entity-schemas'
+import { Route as EntitiesRouteImport } from './routes/entities'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DemoTanstackQueryRouteImport } from './routes/demo/tanstack-query'
 import { Route as DemoTableRouteImport } from './routes/demo/table'
@@ -33,6 +35,16 @@ const JoinTestingRoute = JoinTestingRouteImport.update({
 const IngestionRoute = IngestionRouteImport.update({
   id: '/ingestion',
   path: '/ingestion',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EntitySchemasRoute = EntitySchemasRouteImport.update({
+  id: '/entity-schemas',
+  path: '/entity-schemas',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EntitiesRoute = EntitiesRouteImport.update({
+  id: '/entities',
+  path: '/entities',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -103,6 +115,8 @@ const DemoStartSsrDataOnlyRoute = DemoStartSsrDataOnlyRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/entities': typeof EntitiesRoute
+  '/entity-schemas': typeof EntitySchemasRoute
   '/ingestion': typeof IngestionRoute
   '/join-testing': typeof JoinTestingRoute
   '/demo/table': typeof DemoTableRoute
@@ -120,6 +134,8 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/entities': typeof EntitiesRoute
+  '/entity-schemas': typeof EntitySchemasRoute
   '/ingestion': typeof IngestionRoute
   '/join-testing': typeof JoinTestingRoute
   '/demo/table': typeof DemoTableRoute
@@ -138,6 +154,8 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/entities': typeof EntitiesRoute
+  '/entity-schemas': typeof EntitySchemasRoute
   '/ingestion': typeof IngestionRoute
   '/join-testing': typeof JoinTestingRoute
   '/demo/table': typeof DemoTableRoute
@@ -157,6 +175,8 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/entities'
+    | '/entity-schemas'
     | '/ingestion'
     | '/join-testing'
     | '/demo/table'
@@ -174,6 +194,8 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/entities'
+    | '/entity-schemas'
     | '/ingestion'
     | '/join-testing'
     | '/demo/table'
@@ -191,6 +213,8 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/entities'
+    | '/entity-schemas'
     | '/ingestion'
     | '/join-testing'
     | '/demo/table'
@@ -209,6 +233,8 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  EntitiesRoute: typeof EntitiesRoute
+  EntitySchemasRoute: typeof EntitySchemasRoute
   IngestionRoute: typeof IngestionRoute
   JoinTestingRoute: typeof JoinTestingRoute
   DemoTableRoute: typeof DemoTableRoute
@@ -239,6 +265,20 @@ declare module '@tanstack/react-router' {
       path: '/ingestion'
       fullPath: '/ingestion'
       preLoaderRoute: typeof IngestionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/entity-schemas': {
+      id: '/entity-schemas'
+      path: '/entity-schemas'
+      fullPath: '/entity-schemas'
+      preLoaderRoute: typeof EntitySchemasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/entities': {
+      id: '/entities'
+      path: '/entities'
+      fullPath: '/entities'
+      preLoaderRoute: typeof EntitiesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -337,6 +377,8 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  EntitiesRoute: EntitiesRoute,
+  EntitySchemasRoute: EntitySchemasRoute,
   IngestionRoute: IngestionRoute,
   JoinTestingRoute: JoinTestingRoute,
   DemoTableRoute: DemoTableRoute,

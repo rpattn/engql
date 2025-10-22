@@ -580,6 +580,20 @@ export type CreateEntityMutationVariables = Exact<{
 
 export type CreateEntityMutation = { __typename?: 'Mutation', createEntity: { __typename?: 'Entity', id: string, entityType: string, schemaId: string, version: number, properties: string } };
 
+export type UpdateEntityMutationVariables = Exact<{
+  input: UpdateEntityInput;
+}>;
+
+
+export type UpdateEntityMutation = { __typename?: 'Mutation', updateEntity: { __typename?: 'Entity', id: string, organizationId: string, schemaId: string, entityType: string, path: string, properties: string, version: number, updatedAt: string } };
+
+export type DeleteEntityMutationVariables = Exact<{
+  id: Scalars['String']['input'];
+}>;
+
+
+export type DeleteEntityMutation = { __typename?: 'Mutation', deleteEntity: boolean };
+
 export type EntitiesByTypeFullQueryVariables = Exact<{
   organizationId: Scalars['String']['input'];
   entityType: Scalars['String']['input'];
@@ -595,6 +609,22 @@ export type SchemaVersionsQueryVariables = Exact<{
 
 
 export type SchemaVersionsQuery = { __typename?: 'Query', entitySchemaVersions: Array<{ __typename?: 'EntitySchema', id: string, version: string, status: SchemaStatus, previousVersionId?: string | null, createdAt: string }> };
+
+export type EntitySchemasQueryVariables = Exact<{
+  organizationId: Scalars['String']['input'];
+}>;
+
+
+export type EntitySchemasQuery = { __typename?: 'Query', entitySchemas: Array<{ __typename?: 'EntitySchema', id: string, organizationId: string, name: string, description?: string | null, status: SchemaStatus, version: string, createdAt: string, updatedAt: string, previousVersionId?: string | null, fields: Array<{ __typename?: 'FieldDefinition', name: string, type: FieldType, required: boolean, description?: string | null, default?: string | null, validation?: string | null, referenceEntityType?: string | null }> }> };
+
+export type EntitiesManagementQueryVariables = Exact<{
+  organizationId: Scalars['String']['input'];
+  pagination?: InputMaybe<PaginationInput>;
+  filter?: InputMaybe<EntityFilter>;
+}>;
+
+
+export type EntitiesManagementQuery = { __typename?: 'Query', entities: { __typename?: 'EntityConnection', entities: Array<{ __typename?: 'Entity', id: string, organizationId: string, schemaId: string, entityType: string, path: string, properties: string, version: number, createdAt: string, updatedAt: string, linkedEntities: Array<{ __typename?: 'Entity', id: string, entityType: string, properties: string }> }>, pageInfo: { __typename?: 'PageInfo', totalCount: number, hasNextPage: boolean, hasPreviousPage: boolean } } };
 
 export type RollbackEntityMutationVariables = Exact<{
   id: Scalars['String']['input'];
@@ -628,12 +658,26 @@ export type CreateJoinMutationVariables = Exact<{
 
 export type CreateJoinMutation = { __typename?: 'Mutation', createEntityJoinDefinition: { __typename?: 'EntityJoinDefinition', id: string, name: string, description?: string | null, joinType: JoinType, leftEntityType: string, rightEntityType: string, joinField?: string | null, joinFieldType?: FieldType | null, createdAt: string, updatedAt: string, leftFilters: Array<{ __typename?: 'PropertyFilterConfig', key: string, value?: string | null, exists?: boolean | null, inArray?: Array<string> | null }>, rightFilters: Array<{ __typename?: 'PropertyFilterConfig', key: string, value?: string | null, exists?: boolean | null, inArray?: Array<string> | null }>, sortCriteria: Array<{ __typename?: 'JoinSortCriterion', side: JoinSide, field: string, direction: JoinSortDirection }> } };
 
+export type UpdateSchemaMutationVariables = Exact<{
+  input: UpdateEntitySchemaInput;
+}>;
+
+
+export type UpdateSchemaMutation = { __typename?: 'Mutation', updateEntitySchema: { __typename?: 'EntitySchema', id: string, organizationId: string, name: string, description?: string | null, status: SchemaStatus, version: string, createdAt: string, updatedAt: string, previousVersionId?: string | null, fields: Array<{ __typename?: 'FieldDefinition', name: string, type: FieldType, required: boolean, description?: string | null, default?: string | null, validation?: string | null, referenceEntityType?: string | null }> } };
+
 export type EntityJoinDefinitionsQueryVariables = Exact<{
   organizationId: Scalars['String']['input'];
 }>;
 
 
 export type EntityJoinDefinitionsQuery = { __typename?: 'Query', entityJoinDefinitions: Array<{ __typename?: 'EntityJoinDefinition', id: string, name: string, description?: string | null, joinType: JoinType, leftEntityType: string, rightEntityType: string, joinField?: string | null, joinFieldType?: FieldType | null, createdAt: string, updatedAt: string, leftFilters: Array<{ __typename?: 'PropertyFilterConfig', key: string, value?: string | null, exists?: boolean | null, inArray?: Array<string> | null }>, rightFilters: Array<{ __typename?: 'PropertyFilterConfig', key: string, value?: string | null, exists?: boolean | null, inArray?: Array<string> | null }>, sortCriteria: Array<{ __typename?: 'JoinSortCriterion', side: JoinSide, field: string, direction: JoinSortDirection }> }> };
+
+export type DeleteSchemaMutationVariables = Exact<{
+  id: Scalars['String']['input'];
+}>;
+
+
+export type DeleteSchemaMutation = { __typename?: 'Mutation', deleteEntitySchema: boolean };
 
 export type DeleteJoinMutationVariables = Exact<{
   id: Scalars['String']['input'];
@@ -788,6 +832,63 @@ useCreateEntityMutation.getKey = () => ['CreateEntity'];
 
 useCreateEntityMutation.fetcher = (variables: CreateEntityMutationVariables, options?: RequestInit['headers']) => graphqlRequest<CreateEntityMutation, CreateEntityMutationVariables>(CreateEntityDocument, variables, options);
 
+export const UpdateEntityDocument = `
+    mutation UpdateEntity($input: UpdateEntityInput!) {
+  updateEntity(input: $input) {
+    id
+    organizationId
+    schemaId
+    entityType
+    path
+    properties
+    version
+    updatedAt
+  }
+}
+    `;
+
+export const useUpdateEntityMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateEntityMutation, TError, UpdateEntityMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateEntityMutation, TError, UpdateEntityMutationVariables, TContext>(
+      {
+    mutationKey: ['UpdateEntity'],
+    mutationFn: (variables?: UpdateEntityMutationVariables) => graphqlRequest<UpdateEntityMutation, UpdateEntityMutationVariables>(UpdateEntityDocument, variables),
+    ...options
+  }
+    )};
+
+useUpdateEntityMutation.getKey = () => ['UpdateEntity'];
+
+
+useUpdateEntityMutation.fetcher = (variables: UpdateEntityMutationVariables, options?: RequestInit['headers']) => graphqlRequest<UpdateEntityMutation, UpdateEntityMutationVariables>(UpdateEntityDocument, variables, options);
+
+export const DeleteEntityDocument = `
+    mutation DeleteEntity($id: String!) {
+  deleteEntity(id: $id)
+}
+    `;
+
+export const useDeleteEntityMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteEntityMutation, TError, DeleteEntityMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteEntityMutation, TError, DeleteEntityMutationVariables, TContext>(
+      {
+    mutationKey: ['DeleteEntity'],
+    mutationFn: (variables?: DeleteEntityMutationVariables) => graphqlRequest<DeleteEntityMutation, DeleteEntityMutationVariables>(DeleteEntityDocument, variables),
+    ...options
+  }
+    )};
+
+useDeleteEntityMutation.getKey = () => ['DeleteEntity'];
+
+
+useDeleteEntityMutation.fetcher = (variables: DeleteEntityMutationVariables, options?: RequestInit['headers']) => graphqlRequest<DeleteEntityMutation, DeleteEntityMutationVariables>(DeleteEntityDocument, variables, options);
+
 export const EntitiesByTypeFullDocument = `
     query EntitiesByTypeFull($organizationId: String!, $entityType: String!) {
   entitiesByType(organizationId: $organizationId, entityType: $entityType) {
@@ -858,6 +959,105 @@ useSchemaVersionsQuery.getKey = (variables: SchemaVersionsQueryVariables) => ['S
 
 
 useSchemaVersionsQuery.fetcher = (variables: SchemaVersionsQueryVariables, options?: RequestInit['headers']) => graphqlRequest<SchemaVersionsQuery, SchemaVersionsQueryVariables>(SchemaVersionsDocument, variables, options);
+
+export const EntitySchemasDocument = `
+    query EntitySchemas($organizationId: String!) {
+  entitySchemas(organizationId: $organizationId) {
+    id
+    organizationId
+    name
+    description
+    status
+    version
+    createdAt
+    updatedAt
+    previousVersionId
+    fields {
+      name
+      type
+      required
+      description
+      default
+      validation
+      referenceEntityType
+    }
+  }
+}
+    `;
+
+export const useEntitySchemasQuery = <
+      TData = EntitySchemasQuery,
+      TError = unknown
+    >(
+      variables: EntitySchemasQueryVariables,
+      options?: Omit<UseQueryOptions<EntitySchemasQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<EntitySchemasQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<EntitySchemasQuery, TError, TData>(
+      {
+    queryKey: ['EntitySchemas', variables],
+    queryFn: () => graphqlRequest<EntitySchemasQuery, EntitySchemasQueryVariables>(EntitySchemasDocument, variables),
+    ...options
+  }
+    )};
+
+useEntitySchemasQuery.getKey = (variables: EntitySchemasQueryVariables) => ['EntitySchemas', variables];
+
+
+useEntitySchemasQuery.fetcher = (variables: EntitySchemasQueryVariables, options?: RequestInit['headers']) => graphqlRequest<EntitySchemasQuery, EntitySchemasQueryVariables>(EntitySchemasDocument, variables, options);
+
+export const EntitiesManagementDocument = `
+    query EntitiesManagement($organizationId: String!, $pagination: PaginationInput, $filter: EntityFilter) {
+  entities(
+    organizationId: $organizationId
+    pagination: $pagination
+    filter: $filter
+  ) {
+    entities {
+      id
+      organizationId
+      schemaId
+      entityType
+      path
+      properties
+      version
+      createdAt
+      updatedAt
+      linkedEntities {
+        id
+        entityType
+        properties
+      }
+    }
+    pageInfo {
+      totalCount
+      hasNextPage
+      hasPreviousPage
+    }
+  }
+}
+    `;
+
+export const useEntitiesManagementQuery = <
+      TData = EntitiesManagementQuery,
+      TError = unknown
+    >(
+      variables: EntitiesManagementQueryVariables,
+      options?: Omit<UseQueryOptions<EntitiesManagementQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<EntitiesManagementQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<EntitiesManagementQuery, TError, TData>(
+      {
+    queryKey: ['EntitiesManagement', variables],
+    queryFn: () => graphqlRequest<EntitiesManagementQuery, EntitiesManagementQueryVariables>(EntitiesManagementDocument, variables),
+    ...options
+  }
+    )};
+
+useEntitiesManagementQuery.getKey = (variables: EntitiesManagementQueryVariables) => ['EntitiesManagement', variables];
+
+
+useEntitiesManagementQuery.fetcher = (variables: EntitiesManagementQueryVariables, options?: RequestInit['headers']) => graphqlRequest<EntitiesManagementQuery, EntitiesManagementQueryVariables>(EntitiesManagementDocument, variables, options);
 
 export const RollbackEntityDocument = `
     mutation RollbackEntity($id: String!, $toVersion: Int!, $reason: String) {
@@ -1012,6 +1212,49 @@ useCreateJoinMutation.getKey = () => ['CreateJoin'];
 
 useCreateJoinMutation.fetcher = (variables: CreateJoinMutationVariables, options?: RequestInit['headers']) => graphqlRequest<CreateJoinMutation, CreateJoinMutationVariables>(CreateJoinDocument, variables, options);
 
+export const UpdateSchemaDocument = `
+    mutation UpdateSchema($input: UpdateEntitySchemaInput!) {
+  updateEntitySchema(input: $input) {
+    id
+    organizationId
+    name
+    description
+    status
+    version
+    createdAt
+    updatedAt
+    previousVersionId
+    fields {
+      name
+      type
+      required
+      description
+      default
+      validation
+      referenceEntityType
+    }
+  }
+}
+    `;
+
+export const useUpdateSchemaMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateSchemaMutation, TError, UpdateSchemaMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateSchemaMutation, TError, UpdateSchemaMutationVariables, TContext>(
+      {
+    mutationKey: ['UpdateSchema'],
+    mutationFn: (variables?: UpdateSchemaMutationVariables) => graphqlRequest<UpdateSchemaMutation, UpdateSchemaMutationVariables>(UpdateSchemaDocument, variables),
+    ...options
+  }
+    )};
+
+useUpdateSchemaMutation.getKey = () => ['UpdateSchema'];
+
+
+useUpdateSchemaMutation.fetcher = (variables: UpdateSchemaMutationVariables, options?: RequestInit['headers']) => graphqlRequest<UpdateSchemaMutation, UpdateSchemaMutationVariables>(UpdateSchemaDocument, variables, options);
+
 export const EntityJoinDefinitionsDocument = `
     query EntityJoinDefinitions($organizationId: String!) {
   entityJoinDefinitions(organizationId: $organizationId) {
@@ -1066,6 +1309,30 @@ useEntityJoinDefinitionsQuery.getKey = (variables: EntityJoinDefinitionsQueryVar
 
 
 useEntityJoinDefinitionsQuery.fetcher = (variables: EntityJoinDefinitionsQueryVariables, options?: RequestInit['headers']) => graphqlRequest<EntityJoinDefinitionsQuery, EntityJoinDefinitionsQueryVariables>(EntityJoinDefinitionsDocument, variables, options);
+
+export const DeleteSchemaDocument = `
+    mutation DeleteSchema($id: String!) {
+  deleteEntitySchema(id: $id)
+}
+    `;
+
+export const useDeleteSchemaMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteSchemaMutation, TError, DeleteSchemaMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteSchemaMutation, TError, DeleteSchemaMutationVariables, TContext>(
+      {
+    mutationKey: ['DeleteSchema'],
+    mutationFn: (variables?: DeleteSchemaMutationVariables) => graphqlRequest<DeleteSchemaMutation, DeleteSchemaMutationVariables>(DeleteSchemaDocument, variables),
+    ...options
+  }
+    )};
+
+useDeleteSchemaMutation.getKey = () => ['DeleteSchema'];
+
+
+useDeleteSchemaMutation.fetcher = (variables: DeleteSchemaMutationVariables, options?: RequestInit['headers']) => graphqlRequest<DeleteSchemaMutation, DeleteSchemaMutationVariables>(DeleteSchemaDocument, variables, options);
 
 export const DeleteJoinDocument = `
     mutation DeleteJoin($id: String!) {

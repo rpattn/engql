@@ -9,6 +9,9 @@ npm install
 npm run start
 ```
 
+To gen graphql hooks / code from schema
+`npm run codegen`
+
 # Building For Production
 
 To build this application for production:

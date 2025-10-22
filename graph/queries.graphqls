@@ -48,6 +48,25 @@ mutation CreateEntity($input: CreateEntityInput!) {
   }
 }
 
+# --- Update Entity ---
+mutation UpdateEntity($input: UpdateEntityInput!) {
+  updateEntity(input: $input) {
+    id
+    organizationId
+    schemaId
+    entityType
+    path
+    properties
+    version
+    updatedAt
+  }
+}
+
+# --- Delete Entity ---
+mutation DeleteEntity($id: String!) {
+  deleteEntity(id: $id)
+}
+
 # --- Get Entities by Type ---
 query EntitiesByTypeFull($organizationId: String!, $entityType: String!) {
   entitiesByType(organizationId: $organizationId, entityType: $entityType) {
@@ -72,6 +91,65 @@ query SchemaVersions($organizationId: String!, $name: String!) {
     status
     previousVersionId
     createdAt
+  }
+}
+
+# --- List Entity Schemas ---
+query EntitySchemas($organizationId: String!) {
+  entitySchemas(organizationId: $organizationId) {
+    id
+    organizationId
+    name
+    description
+    status
+    version
+    createdAt
+    updatedAt
+    previousVersionId
+    fields {
+      name
+      type
+      required
+      description
+      default
+      validation
+      referenceEntityType
+    }
+  }
+}
+
+# --- Entities management (paginated) ---
+query EntitiesManagement(
+  $organizationId: String!
+  $pagination: PaginationInput
+  $filter: EntityFilter
+) {
+  entities(
+    organizationId: $organizationId
+    pagination: $pagination
+    filter: $filter
+  ) {
+    entities {
+      id
+      organizationId
+      schemaId
+      entityType
+      path
+      properties
+      version
+      createdAt
+      updatedAt
+      linkedEntities {
+        id
+        entityType
+        properties
+      }
+    }
+    pageInfo {
+      totalCount
+      hasNextPage
+      hasPreviousPage
+    }
   }
 }
 
@@ -146,6 +224,30 @@ mutation CreateJoin($input: CreateEntityJoinDefinitionInput!) {
   }
 }
 
+# --- Update Entity Schema ---
+mutation UpdateSchema($input: UpdateEntitySchemaInput!) {
+  updateEntitySchema(input: $input) {
+    id
+    organizationId
+    name
+    description
+    status
+    version
+    createdAt
+    updatedAt
+    previousVersionId
+    fields {
+      name
+      type
+      required
+      description
+      default
+      validation
+      referenceEntityType
+    }
+  }
+}
+
 # --- List Join Definitions ---
 query EntityJoinDefinitions($organizationId: String!) {
   entityJoinDefinitions(organizationId: $organizationId) {
@@ -177,6 +279,11 @@ query EntityJoinDefinitions($organizationId: String!) {
       direction
     }
   }
+}
+
+# --- Delete Entity Schema ---
+mutation DeleteSchema($id: String!) {
+  deleteEntitySchema(id: $id)
 }
 
 # --- Delete Join Definition ---
