@@ -83,6 +83,13 @@ function EntitySchemasPage() {
     },
   )
 
+  const entitySchemasErrorMessage =
+    entitySchemasQuery.error instanceof Error
+      ? entitySchemasQuery.error.message
+      : entitySchemasQuery.error
+        ? String(entitySchemasQuery.error)
+        : null
+
   const createSchemaMutation = useCreateSchemaMutation()
   const updateSchemaMutation = useUpdateSchemaMutation()
   const deleteSchemaMutation = useDeleteSchemaMutation()
@@ -124,7 +131,7 @@ function EntitySchemasPage() {
 
     const normalizedFields = formState.fields.map((field) => ({
       name: field.name.trim(),
-      type: field.type,
+      type: normalizeFieldType(field.type),
       required: field.required,
       description: field.description.trim() ? field.description.trim() : undefined,
       default: field.defaultValue.trim() ? field.defaultValue.trim() : undefined,
@@ -287,9 +294,9 @@ function EntitySchemasPage() {
         </div>
       )}
 
-      {entitySchemasQuery.error && (
+      {entitySchemasErrorMessage && (
         <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
-          {(entitySchemasQuery.error as Error).message}
+          {entitySchemasErrorMessage}
         </div>
       )}
 
@@ -786,6 +793,26 @@ function SchemaModal({
   )
 }
 
+function normalizeFieldType(type: string | null | undefined): FieldType {
+  if (!type) {
+    return FieldType.String
+  }
+
+  if ((Object.values(FieldType) as FieldType[]).includes(type as FieldType)) {
+    return type as FieldType
+  }
+
+  const matchingKey = (Object.keys(FieldType) as Array<keyof typeof FieldType>).find(
+    (key) => key.toLowerCase() === type.toLowerCase(),
+  )
+
+  if (matchingKey) {
+    return FieldType[matchingKey]
+  }
+
+  return FieldType.String
+}
+
 function createEmptyField(): FieldFormValue {
   return {
     clientId: generateFieldClientId(),
@@ -822,7 +849,7 @@ function buildFormStateFromSchema(schema: EntitySchema): SchemaFormState {
     fields: schema.fields.map((field, index) => ({
       clientId: `${schema.id}-${field.name}-${index}`,
       name: field.name ?? '',
-      type: field.type as FieldType,
+      type: normalizeFieldType(field.type),
       required: field.required ?? false,
       description: field.description ?? '',
       defaultValue: field.default ?? '',
