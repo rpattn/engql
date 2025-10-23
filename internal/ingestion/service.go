@@ -179,6 +179,14 @@ type BatchStats struct {
 	TotalRowsFlushed  int64 `json:"totalRowsFlushed"`
 }
 
+// BatchLogEntry captures a failed row recorded during ingestion.
+type BatchLogEntry struct {
+	ID           uuid.UUID `json:"id"`
+	RowNumber    *int      `json:"rowNumber,omitempty"`
+	ErrorMessage string    `json:"errorMessage"`
+	CreatedAt    time.Time `json:"createdAt"`
+}
+
 // BatchOverview bundles the current queue, history, and stats.
 type BatchOverview struct {
 	Current   []BatchRecord `json:"current"`
@@ -524,6 +532,41 @@ func (s *Service) GetBatchOverview(ctx context.Context, organizationID *uuid.UUI
 	return overview, nil
 }
 
+// GetBatchLogs lists ingestion log entries associated with a staged batch.
+func (s *Service) GetBatchLogs(ctx context.Context, organizationID uuid.UUID, schemaName string, fileName string, limit int, offset int) ([]BatchLogEntry, error) {
+	if organizationID == uuid.Nil {
+		return nil, errors.New("organization id is required")
+	}
+
+	schemaName = strings.TrimSpace(schemaName)
+	if schemaName == "" {
+		return nil, errors.New("schema name is required")
+	}
+
+	fileName = strings.TrimSpace(fileName)
+	if fileName == "" {
+		return nil, errors.New("file name is required")
+	}
+
+	if limit <= 0 {
+		limit = 200
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	if s.logRepo == nil {
+		return []BatchLogEntry{}, nil
+	}
+
+	entries, err := s.logRepo.List(ctx, organizationID, schemaName, fileName, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list ingestion logs: %w", err)
+	}
+
+	return convertLogEntries(entries), nil
+}
+
 func convertBatchRecords(records []repository.IngestBatchRecord) []BatchRecord {
 	if len(records) == 0 {
 		return []BatchRecord{}
@@ -545,6 +588,22 @@ func convertBatchRecords(records []repository.IngestBatchRecord) []BatchRecord {
 			StartedAt:      record.StartedAt,
 			CompletedAt:    record.CompletedAt,
 			UpdatedAt:      record.UpdatedAt,
+		}
+	}
+	return out
+}
+
+func convertLogEntries(entries []domain.IngestionLogEntry) []BatchLogEntry {
+	if len(entries) == 0 {
+		return []BatchLogEntry{}
+	}
+	out := make([]BatchLogEntry, len(entries))
+	for i, entry := range entries {
+		out[i] = BatchLogEntry{
+			ID:           entry.ID,
+			RowNumber:    entry.RowNumber,
+			ErrorMessage: entry.ErrorMessage,
+			CreatedAt:    entry.CreatedAt,
 		}
 	}
 	return out

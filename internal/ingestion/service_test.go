@@ -732,6 +732,10 @@ func (s *stubLogRepo) Record(ctx context.Context, entry domain.IngestionLogEntry
 	return nil
 }
 
+func (s *stubLogRepo) List(ctx context.Context, organizationID uuid.UUID, schemaName string, fileName string, limit int, offset int) ([]domain.IngestionLogEntry, error) {
+	return append([]domain.IngestionLogEntry(nil), s.entries...), nil
+}
+
 var _ repository.EntitySchemaRepository = (*stubSchemaRepo)(nil)
 var _ repository.EntityRepository = (*stubEntityRepo)(nil)
 var _ repository.IngestionLogRepository = (*stubLogRepo)(nil)

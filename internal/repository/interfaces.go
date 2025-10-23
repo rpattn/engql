@@ -122,4 +122,5 @@ type EntityJoinRepository interface {
 // IngestionLogRepository stores ingestion errors for observability.
 type IngestionLogRepository interface {
 	Record(ctx context.Context, entry domain.IngestionLogEntry) error
+	List(ctx context.Context, organizationID uuid.UUID, schemaName string, fileName string, limit int, offset int) ([]domain.IngestionLogEntry, error)
 }

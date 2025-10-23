@@ -26,6 +26,9 @@ func NewHTTPHandler(service *Service) http.Handler {
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch {
+	case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/logs"):
+		h.handleLogs(w, r)
+		return
 	case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/batches"):
 		h.handleBatches(w, r)
 		return
@@ -155,6 +158,60 @@ func (h *Handler) handleBatches(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, overview)
+}
+
+func (h *Handler) handleLogs(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query()
+	orgRaw := strings.TrimSpace(query.Get("organizationId"))
+	if orgRaw == "" {
+		http.Error(w, "organizationId is required", http.StatusBadRequest)
+		return
+	}
+	organizationID, err := uuid.Parse(orgRaw)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("invalid organizationId: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	schemaName := strings.TrimSpace(query.Get("schemaName"))
+	if schemaName == "" {
+		http.Error(w, "schemaName is required", http.StatusBadRequest)
+		return
+	}
+
+	fileName := strings.TrimSpace(query.Get("fileName"))
+	if fileName == "" {
+		http.Error(w, "fileName is required", http.StatusBadRequest)
+		return
+	}
+
+	limit := 100
+	if rawLimit := strings.TrimSpace(query.Get("limit")); rawLimit != "" {
+		value, convErr := strconv.Atoi(rawLimit)
+		if convErr != nil || value <= 0 {
+			http.Error(w, "limit must be a positive integer", http.StatusBadRequest)
+			return
+		}
+		limit = value
+	}
+
+	offset := 0
+	if rawOffset := strings.TrimSpace(query.Get("offset")); rawOffset != "" {
+		value, convErr := strconv.Atoi(rawOffset)
+		if convErr != nil || value < 0 {
+			http.Error(w, "offset must be zero or positive", http.StatusBadRequest)
+			return
+		}
+		offset = value
+	}
+
+	logs, err := h.service.GetBatchLogs(r.Context(), organizationID, schemaName, fileName, limit, offset)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, logs)
 }
 
 func parseUploadPayload(r *http.Request) (uploadPayload, error) {

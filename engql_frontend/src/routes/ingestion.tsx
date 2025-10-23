@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useRouterState } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import type { ChangeEvent } from "react";
@@ -131,6 +131,14 @@ export const Route = createFileRoute("/ingestion")({
 });
 
 function IngestionPage() {
+  const { location } = useRouterState();
+  if (
+    location.pathname.startsWith("/ingestion/") &&
+    location.pathname !== "/ingestion"
+  ) {
+    return <Outlet />;
+  }
+
   const [organizationId, setOrganizationId] = useState("");
   const [schemaName, setSchemaName] = useState("");
   const [description, setDescription] = useState("");
