@@ -400,19 +400,19 @@ func (s *Service) Ingest(ctx context.Context, req Request) (Summary, error) {
 		log.Printf("%s skipValidation was requested but %d invalid rows remain; DB trigger will run", logPrefix, summary.InvalidRows)
 	}
 	if skipBatchValidation {
-		log.Printf("%s skipValidation on ingest enabled; database trigger will be bypassed", logPrefix)
+		log.Printf("%s skipValidation on ingest enabled; background flush will bypass database trigger", logPrefix)
 		batchCtx = repository.WithSkipEntityValidation(batchCtx)
 	}
 
 	inserted, err := s.entityRepo.CreateBatch(batchCtx, items)
 	if err == nil {
 		summary.ValidRows = inserted
-		log.Printf("%s batch insert succeeded in %v (rows=%d)", logPrefix, time.Since(batchStart), inserted)
+		log.Printf("%s batch staging succeeded in %v (rows=%d); background flush in progress", logPrefix, time.Since(batchStart), inserted)
 		log.Printf("%s completed in %v (valid=%d invalid=%d schemaCreated=%t)", logPrefix, time.Since(start), summary.ValidRows, summary.InvalidRows, summary.SchemaCreated)
 		return summary, nil
 	}
 
-	log.Printf("%s batch insert failed after %v (rows=%d err=%v) - falling back to per-row inserts", logPrefix, time.Since(batchStart), len(items), err)
+	log.Printf("%s batch staging failed after %v (rows=%d err=%v) - falling back to per-row inserts", logPrefix, time.Since(batchStart), len(items), err)
 	s.logIngestionError(ctx, req, nil, fmt.Errorf("failed to insert entity batch: %w", err))
 
 	fallbackStart := time.Now()
