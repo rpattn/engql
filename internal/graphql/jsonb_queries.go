@@ -400,7 +400,7 @@ func (r *Resolver) SearchEntitiesByPropertyRange(ctx context.Context, organizati
 	}
 
 	// TODO: Implement pagination correctly
-	entities, _, err := r.entityRepo.List(ctx, orgID, 10, 0)
+	entities, _, err := r.entityRepo.List(ctx, orgID, nil, 10, 0)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list entities: %w", err)
 	}
@@ -456,7 +456,7 @@ func (r *Resolver) SearchEntitiesByPropertyExists(ctx context.Context, organizat
 
 	// Get 10 entities for the organization first
 	// TODO: Implement pagination correctly
-	entities, _, err := r.entityRepo.List(ctx, orgID, 10, 0)
+	entities, _, err := r.entityRepo.List(ctx, orgID, nil, 10, 0)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list entities: %w", err)
 	}
@@ -499,7 +499,7 @@ func (r *Resolver) SearchEntitiesByPropertyContains(ctx context.Context, organiz
 	}
 
 	// TODO: Implement pagination correctly
-	entities, _, err := r.entityRepo.List(ctx, orgID, 10, 0)
+	entities, _, err := r.entityRepo.List(ctx, orgID, nil, 10, 0)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list entities: %w", err)
 	}

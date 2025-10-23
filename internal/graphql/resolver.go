@@ -3,9 +3,11 @@ package graphql
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/rpattn/engql/graph"
+	"github.com/rpattn/engql/internal/domain"
 	"github.com/rpattn/engql/internal/repository"
 
 	"github.com/google/uuid"
@@ -183,7 +185,9 @@ func (r *Resolver) Entities(ctx context.Context, organizationID string, filter *
 	}
 
 	// Fetch only the requested page from the repository
-	entities, totalCount, err := r.entityRepo.List(ctx, orgID, limit, offset)
+	domainFilter := convertEntityFilter(filter)
+
+	entities, totalCount, err := r.entityRepo.List(ctx, orgID, domainFilter, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list entities: %w", err)
 	}
@@ -209,6 +213,50 @@ func (r *Resolver) Entities(ctx context.Context, organizationID string, filter *
 			TotalCount:      totalCount,
 		},
 	}, nil
+}
+
+func convertEntityFilter(filter *graph.EntityFilter) *domain.EntityFilter {
+	if filter == nil {
+		return nil
+	}
+
+	result := &domain.EntityFilter{}
+
+	if filter.EntityType != nil {
+		result.EntityType = strings.TrimSpace(*filter.EntityType)
+	}
+
+	if len(filter.PropertyFilters) > 0 {
+		for _, pf := range filter.PropertyFilters {
+			if pf == nil {
+				continue
+			}
+			key := strings.TrimSpace(pf.Key)
+			if key == "" {
+				continue
+			}
+			value := ""
+			if pf.Value != nil {
+				value = strings.TrimSpace(*pf.Value)
+			}
+			result.PropertyFilters = append(result.PropertyFilters, domain.PropertyFilter{
+				Key:     key,
+				Value:   value,
+				Exists:  pf.Exists,
+				InArray: pf.InArray,
+			})
+		}
+	}
+
+	if filter.TextSearch != nil {
+		result.TextSearch = strings.TrimSpace(*filter.TextSearch)
+	}
+
+	if result.EntityType == "" && len(result.PropertyFilters) == 0 && strings.TrimSpace(result.TextSearch) == "" {
+		return nil
+	}
+
+	return result
 }
 
 // GetEntity returns a specific entity by ID

@@ -9,12 +9,40 @@ FROM entities
 WHERE id = $1;
 
 -- name: ListEntities :many
-SELECT id, organization_id, schema_id, entity_type, path, properties, version, created_at, updated_at,
-       COUNT(*) OVER() AS total_count
+SELECT
+    id,
+    organization_id,
+    schema_id,
+    entity_type,
+    path,
+    properties,
+    version,
+    created_at,
+    updated_at,
+    COUNT(*) OVER() AS total_count
 FROM entities
-WHERE organization_id = $1
+WHERE organization_id = sqlc.arg(organization_id)
+  AND (
+        sqlc.arg(entity_type)::text = ''
+        OR entity_type = sqlc.arg(entity_type)::text
+    )
+  AND (
+        COALESCE(array_length(sqlc.arg(property_keys)::text[], 1), 0) = 0
+        OR (
+            SELECT bool_and(COALESCE((properties ->> filters.key) ILIKE filters.value, false))
+            FROM unnest(COALESCE(sqlc.arg(property_keys)::text[], ARRAY[]::text[])) WITH ORDINALITY AS keys(key, ord)
+            JOIN unnest(COALESCE(sqlc.arg(property_values)::text[], ARRAY[]::text[])) WITH ORDINALITY AS values(value, ord)
+              ON keys.ord = values.ord
+        )
+    )
+  AND (
+        sqlc.arg(text_search)::text = ''
+        OR entity_type ILIKE sqlc.arg(text_search)::text
+        OR path ILIKE sqlc.arg(text_search)::text
+        OR properties::text ILIKE sqlc.arg(text_search)::text
+    )
 ORDER BY created_at DESC
-LIMIT $2 OFFSET $3;
+LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
 
 -- name: ListEntitiesByType :many
 SELECT id, organization_id, schema_id, entity_type, path, properties, version, created_at, updated_at
@@ -117,3 +145,4 @@ INSERT INTO entities_history (
     reason
 )
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
+

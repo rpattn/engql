@@ -476,7 +476,7 @@ func (s *stubEntityRepo) GetByIDs(ctx context.Context, ids []uuid.UUID) ([]domai
 	return nil, errors.New("not implemented")
 }
 
-func (s *stubEntityRepo) List(ctx context.Context, organizationID uuid.UUID, limit int, offset int) ([]domain.Entity, int, error) {
+func (s *stubEntityRepo) List(ctx context.Context, organizationID uuid.UUID, filter *domain.EntityFilter, limit int, offset int) ([]domain.Entity, int, error) {
 	return nil, 0, errors.New("not implemented")
 }
 

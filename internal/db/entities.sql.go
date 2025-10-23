@@ -550,18 +550,50 @@ func (q *Queries) InsertEntityHistoryRecord(ctx context.Context, arg InsertEntit
 }
 
 const ListEntities = `-- name: ListEntities :many
-SELECT id, organization_id, schema_id, entity_type, path, properties, version, created_at, updated_at,
-       COUNT(*) OVER() AS total_count
+SELECT
+    id,
+    organization_id,
+    schema_id,
+    entity_type,
+    path,
+    properties,
+    version,
+    created_at,
+    updated_at,
+    COUNT(*) OVER() AS total_count
 FROM entities
 WHERE organization_id = $1
+  AND (
+        $2::text = ''
+        OR entity_type = $2::text
+    )
+  AND (
+        COALESCE(array_length($3::text[], 1), 0) = 0
+        OR (
+            SELECT bool_and(COALESCE((properties ->> filters.key) ILIKE filters.value, false))
+            FROM unnest(COALESCE($3::text[], ARRAY[]::text[])) WITH ORDINALITY AS keys(key, ord)
+            JOIN unnest(COALESCE($4::text[], ARRAY[]::text[])) WITH ORDINALITY AS values(value, ord)
+              ON keys.ord = values.ord
+        )
+    )
+  AND (
+        $5::text = ''
+        OR entity_type ILIKE $5::text
+        OR path ILIKE $5::text
+        OR properties::text ILIKE $5::text
+    )
 ORDER BY created_at DESC
-LIMIT $2 OFFSET $3
+LIMIT $7 OFFSET $6
 `
 
 type ListEntitiesParams struct {
 	OrganizationID uuid.UUID `json:"organization_id"`
-	Limit          int32     `json:"limit"`
-	Offset         int32     `json:"offset"`
+	EntityType     string    `json:"entity_type"`
+	PropertyKeys   []string  `json:"property_keys"`
+	PropertyValues []string  `json:"property_values"`
+	TextSearch     string    `json:"text_search"`
+	PageOffset     int32     `json:"page_offset"`
+	PageLimit      int32     `json:"page_limit"`
 }
 
 type ListEntitiesRow struct {
@@ -578,7 +610,15 @@ type ListEntitiesRow struct {
 }
 
 func (q *Queries) ListEntities(ctx context.Context, arg ListEntitiesParams) ([]ListEntitiesRow, error) {
-	rows, err := q.db.Query(ctx, ListEntities, arg.OrganizationID, arg.Limit, arg.Offset)
+	rows, err := q.db.Query(ctx, ListEntities,
+		arg.OrganizationID,
+		arg.EntityType,
+		arg.PropertyKeys,
+		arg.PropertyValues,
+		arg.TextSearch,
+		arg.PageOffset,
+		arg.PageLimit,
+	)
 	if err != nil {
 		return nil, err
 	}

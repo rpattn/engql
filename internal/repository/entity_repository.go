@@ -89,31 +89,64 @@ func (r *entityRepository) GetByIDs(ctx context.Context, ids []uuid.UUID) ([]dom
 	return entities, nil
 }
 
-// List retrieves all entities for an organization
+// List retrieves entities for an organization applying optional filters.
 func (r *entityRepository) List(
 	ctx context.Context,
 	organizationID uuid.UUID,
+	filter *domain.EntityFilter,
 	limit int,
 	offset int,
 ) ([]domain.Entity, int, error) {
 	params := db.ListEntitiesParams{
 		OrganizationID: organizationID,
-		Limit:          int32(limit),
-		Offset:         int32(offset),
+		EntityType:     "",
+		PropertyKeys:   nil,
+		PropertyValues: nil,
+		TextSearch:     "",
+		PageLimit:      int32(limit),
+		PageOffset:     int32(offset),
 	}
+
+	if filter != nil {
+		if filter.EntityType != "" {
+			params.EntityType = filter.EntityType
+		}
+
+		for _, propertyFilter := range filter.PropertyFilters {
+			if propertyFilter.Key == "" {
+				continue
+			}
+			params.PropertyKeys = append(params.PropertyKeys, propertyFilter.Key)
+			params.PropertyValues = append(params.PropertyValues, "%"+propertyFilter.Value+"%")
+		}
+
+		if trimmed := strings.TrimSpace(filter.TextSearch); trimmed != "" {
+			params.TextSearch = "%" + trimmed + "%"
+		}
+	}
+
 	rows, err := r.queries.ListEntities(ctx, params)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to list entities: %w", err)
 	}
 
-	entities, err := convertEntityListRows(rows)
-	if err != nil {
-		return nil, 0, err
+	if len(rows) == 0 {
+		return nil, 0, nil
 	}
 
-	totalCount := 0
-	if len(rows) > 0 {
-		totalCount = int(rows[0].TotalCount)
+	entities := make([]domain.Entity, len(rows))
+	var totalCount int
+
+	for i, row := range rows {
+		entity, err := buildEntity(row.ID, row.OrganizationID, row.SchemaID, row.EntityType, row.Path, row.Properties, row.Version, row.CreatedAt, row.UpdatedAt)
+		if err != nil {
+			return nil, 0, err
+		}
+		entities[i] = entity
+
+		if i == 0 {
+			totalCount = int(row.TotalCount)
+		}
 	}
 
 	return entities, totalCount, nil
