@@ -30,15 +30,18 @@ WHERE organization_id = sqlc.arg(organization_id)
         COALESCE(array_length(sqlc.arg(property_keys)::text[], 1), 0) = 0
         OR (
             SELECT bool_and(COALESCE((properties ->> filters.key) ILIKE filters.value, false))
-            FROM unnest(COALESCE(sqlc.arg(property_keys)::text[], ARRAY[]::text[])) WITH ORDINALITY AS keys(key, ord)
-            JOIN unnest(COALESCE(sqlc.arg(property_values)::text[], ARRAY[]::text[])) WITH ORDINALITY AS values(value, ord)
-              ON keys.ord = values.ord
+            FROM (
+                SELECT keys.key, values.value
+                FROM unnest(COALESCE(sqlc.arg(property_keys)::text[], ARRAY[]::text[])) WITH ORDINALITY AS keys(key, ord)
+                JOIN unnest(COALESCE(sqlc.arg(property_values)::text[], ARRAY[]::text[])) WITH ORDINALITY AS values(value, ord)
+                  ON keys.ord = values.ord
+            ) AS filters
         )
     )
   AND (
         sqlc.arg(text_search)::text = ''
         OR entity_type ILIKE sqlc.arg(text_search)::text
-        OR path ILIKE sqlc.arg(text_search)::text
+        OR path::text ILIKE sqlc.arg(text_search)::text
         OR properties::text ILIKE sqlc.arg(text_search)::text
     )
 ORDER BY created_at DESC

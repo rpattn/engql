@@ -3,6 +3,7 @@ package ingestion
 import (
 	"context"
 	"errors"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -64,6 +65,12 @@ Bob,25,false
 	if len(entityRepo.created) != 2 {
 		t.Fatalf("expected 2 entities, got %d", len(entityRepo.created))
 	}
+	if entityRepo.batchCallCount != 1 {
+		t.Fatalf("expected entities to be inserted via batch, got %d batch calls", entityRepo.batchCallCount)
+	}
+	if entityRepo.createCallCount != 0 {
+		t.Fatalf("expected no per-row inserts, got %d", entityRepo.createCallCount)
+	}
 }
 
 func TestServiceIngestAppendsFields(t *testing.T) {
@@ -117,6 +124,12 @@ Beta,100
 	}
 	if len(entityRepo.created) != 2 {
 		t.Fatalf("expected 2 entities inserted, got %d", len(entityRepo.created))
+	}
+	if entityRepo.batchCallCount != 1 {
+		t.Fatalf("expected batch insert, got %d batch calls", entityRepo.batchCallCount)
+	}
+	if entityRepo.createCallCount != 0 {
+		t.Fatalf("expected no fallback to per-row inserts, got %d", entityRepo.createCallCount)
 	}
 	if len(logRepo.entries) != 0 {
 		t.Fatalf("did not expect ingestion errors, found %d", len(logRepo.entries))
@@ -175,6 +188,12 @@ func TestServiceIngestDetectsTypeConflicts(t *testing.T) {
 	if len(entityRepo.created) != 0 {
 		t.Fatalf("expected no entities inserted, got %d", len(entityRepo.created))
 	}
+	if entityRepo.batchCallCount != 0 {
+		t.Fatalf("expected batch insert to be skipped after validation errors, got %d calls", entityRepo.batchCallCount)
+	}
+	if entityRepo.createCallCount != 0 {
+		t.Fatalf("expected no per-row inserts after validation errors, got %d", entityRepo.createCallCount)
+	}
 }
 
 func TestServiceIngestRespectsHeaderRowIndex(t *testing.T) {
@@ -210,6 +229,114 @@ Bob,25
 	names := []string{schemaRepo.current.Fields[0].Name, schemaRepo.current.Fields[1].Name}
 	if names[0] != "name" || names[1] != "age" {
 		t.Fatalf("unexpected headers detected: %+v", names)
+	}
+	if entityRepo.batchCallCount != 1 {
+		t.Fatalf("expected single batch insert, got %d", entityRepo.batchCallCount)
+	}
+	if entityRepo.createCallCount != 0 {
+		t.Fatalf("expected no per-row inserts, got %d", entityRepo.createCallCount)
+	}
+}
+
+func TestServiceIngestBatchesWithPartialInvalidRows(t *testing.T) {
+	orgID := uuid.New()
+	initialSchema := domain.EntitySchema{
+		ID:             uuid.New(),
+		OrganizationID: orgID,
+		Name:           "Metrics",
+		Fields: []domain.FieldDefinition{
+			{
+				Name:     "name",
+				Type:     domain.FieldTypeString,
+				Required: true,
+			},
+			{
+				Name:     "score",
+				Type:     domain.FieldTypeInteger,
+				Required: true,
+			},
+		},
+	}
+
+	schemaRepo := &stubSchemaRepo{}
+	if _, err := schemaRepo.Create(context.Background(), initialSchema); err != nil {
+		t.Fatalf("failed to prime schema repo: %v", err)
+	}
+	entityRepo := &stubEntityRepo{}
+	logRepo := &stubLogRepo{}
+	service := NewService(schemaRepo, entityRepo, logRepo)
+
+	data := `name,score
+Alpha,10
+Beta,not_a_number
+Gamma,25
+`
+	req := Request{
+		OrganizationID: orgID,
+		SchemaName:     "Metrics",
+		FileName:       "metrics.csv",
+		Data:           strings.NewReader(data),
+	}
+
+	summary, err := service.Ingest(context.Background(), req)
+	if err != nil {
+		t.Fatalf("ingest returned error: %v", err)
+	}
+	if summary.ValidRows != 2 || summary.InvalidRows != 1 {
+		t.Fatalf("unexpected summary: %+v", summary)
+	}
+	if entityRepo.batchCallCount != 1 {
+		t.Fatalf("expected batch insert despite invalid rows, got %d calls", entityRepo.batchCallCount)
+	}
+	if entityRepo.createCallCount != 0 {
+		t.Fatalf("expected no per-row inserts, got %d", entityRepo.createCallCount)
+	}
+	if len(entityRepo.created) != 2 {
+		t.Fatalf("expected 2 entities inserted, got %d", len(entityRepo.created))
+	}
+	if len(logRepo.entries) == 0 {
+		t.Fatalf("expected invalid row to be logged")
+	}
+}
+
+func TestServiceIngestFallsBackWhenBatchInsertFails(t *testing.T) {
+	orgID := uuid.New()
+	schemaRepo := &stubSchemaRepo{}
+	entityRepo := &stubEntityRepo{
+		batchErr: errors.New("copy failure"),
+	}
+	logRepo := &stubLogRepo{}
+	service := NewService(schemaRepo, entityRepo, logRepo)
+
+	data := `name,age
+Alice,30
+Bob,25
+`
+	req := Request{
+		OrganizationID: orgID,
+		SchemaName:     "Person",
+		FileName:       "people.csv",
+		Data:           strings.NewReader(data),
+	}
+
+	summary, err := service.Ingest(context.Background(), req)
+	if err != nil {
+		t.Fatalf("ingest returned error: %v", err)
+	}
+	if summary.ValidRows != 2 || summary.InvalidRows != 0 {
+		t.Fatalf("unexpected summary: %+v", summary)
+	}
+	if entityRepo.batchCallCount != 1 {
+		t.Fatalf("expected exactly one batch attempt, got %d", entityRepo.batchCallCount)
+	}
+	if entityRepo.createCallCount != 2 {
+		t.Fatalf("expected fallback to per-row inserts, got %d", entityRepo.createCallCount)
+	}
+	if len(entityRepo.created) != 2 {
+		t.Fatalf("expected 2 entities inserted via fallback, got %d", len(entityRepo.created))
+	}
+	if len(logRepo.entries) == 0 {
+		t.Fatalf("expected batch failure to be logged")
 	}
 }
 
@@ -459,13 +586,74 @@ func (s *stubSchemaRepo) ArchiveSchema(ctx context.Context, schemaID uuid.UUID) 
 	return nil
 }
 
+func TestGeneratePathProducesSanitizedLtree(t *testing.T) {
+	used := map[string]int{}
+	path := generatePath("Team Schema", []string{" 2025/10/23 12:09:55 "}, 0, used)
+	expected := "team_schema.n2025_10_23_12_09_55"
+	if path != expected {
+		t.Fatalf("unexpected path: got %q want %q", path, expected)
+	}
+
+	ltreeSegment := regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
+	for idx, segment := range strings.Split(path, ".") {
+		if !ltreeSegment.MatchString(segment) {
+			t.Fatalf("segment %d %q is not a valid ltree label", idx, segment)
+		}
+	}
+}
+
+func TestGeneratePathAppendsSuffixForDuplicates(t *testing.T) {
+	used := map[string]int{}
+	first := generatePath("Schema", []string{"Example"}, 0, used)
+	second := generatePath("Schema", []string{"Example"}, 1, used)
+
+	if first != "schema.example" {
+		t.Fatalf("unexpected first path: %q", first)
+	}
+	if second != "schema.example_2" {
+		t.Fatalf("unexpected second path: %q", second)
+	}
+}
+
+func TestGeneratePathFallbacks(t *testing.T) {
+	used := map[string]int{}
+	path := generatePath("", []string{"", ""}, 0, used)
+	if path != "entity.row_1" {
+		t.Fatalf("unexpected fallback path: %q", path)
+	}
+}
+
 type stubEntityRepo struct {
-	created []domain.Entity
+	created         []domain.Entity
+	batchErr        error
+	createErr       error
+	batchCallCount  int
+	createCallCount int
 }
 
 func (s *stubEntityRepo) Create(ctx context.Context, entity domain.Entity) (domain.Entity, error) {
+	s.createCallCount++
+	if s.createErr != nil {
+		return domain.Entity{}, s.createErr
+	}
 	s.created = append(s.created, entity)
 	return entity, nil
+}
+
+func (s *stubEntityRepo) CreateBatch(ctx context.Context, items []repository.EntityBatchItem) (int, error) {
+	s.batchCallCount++
+	if s.batchErr != nil {
+		return 0, s.batchErr
+	}
+	for _, item := range items {
+		s.created = append(s.created, domain.Entity{
+			OrganizationID: item.OrganizationID,
+			SchemaID:       item.SchemaID,
+			EntityType:     item.EntityType,
+			Path:           item.Path,
+		})
+	}
+	return len(items), nil
 }
 
 func (s *stubEntityRepo) GetByID(ctx context.Context, id uuid.UUID) (domain.Entity, error) {

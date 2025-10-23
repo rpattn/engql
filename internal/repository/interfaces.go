@@ -33,6 +33,7 @@ type EntitySchemaRepository interface {
 // EntityRepository defines the interface for entity operations
 type EntityRepository interface {
 	Create(ctx context.Context, entity domain.Entity) (domain.Entity, error)
+	CreateBatch(ctx context.Context, items []EntityBatchItem) (int, error)
 	GetByID(ctx context.Context, id uuid.UUID) (domain.Entity, error)
 	GetByIDs(ctx context.Context, ids []uuid.UUID) ([]domain.Entity, error)
 	List(ctx context.Context, organizationID uuid.UUID, filter *domain.EntityFilter, limit int, offset int) ([]domain.Entity, int, error)
@@ -53,6 +54,15 @@ type EntityRepository interface {
 	// Count operations
 	Count(ctx context.Context, organizationID uuid.UUID) (int64, error)
 	CountByType(ctx context.Context, organizationID uuid.UUID, entityType string) (int64, error)
+}
+
+// EntityBatchItem represents one row destined for batch insertion.
+type EntityBatchItem struct {
+	OrganizationID uuid.UUID
+	SchemaID       uuid.UUID
+	EntityType     string
+	Path           string
+	PropertiesJSON []byte
 }
 
 // EntityJoinRepository defines operations for persisted join definitions and executions

@@ -2,11 +2,13 @@ package db
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -35,6 +37,38 @@ func NewConnection(ctx context.Context, config Config) (*Connection, error) {
 	poolConfig, err := pgxpool.ParseConfig(dsn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse database config: %w", err)
+	}
+
+	poolConfig.AfterConnect = func(ctx context.Context, conn *pgx.Conn) error {
+		var ltreeOID uint32
+		err := conn.QueryRow(ctx, "select oid from pg_type where typname = 'ltree'").Scan(&ltreeOID)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				// Extension not installed yet; skip registration so connection still succeeds.
+				return nil
+			}
+			return fmt.Errorf("failed to look up ltree type: %w", err)
+		}
+
+		ltreeType := &pgtype.Type{Name: "ltree", OID: ltreeOID, Codec: pgtype.LtreeCodec{}}
+		conn.TypeMap().RegisterType(ltreeType)
+
+		var ltreeArrayOID uint32
+		err = conn.QueryRow(ctx, "select oid from pg_type where typname = '_ltree'").Scan(&ltreeArrayOID)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return nil
+			}
+			return fmt.Errorf("failed to look up _ltree type: %w", err)
+		}
+
+		conn.TypeMap().RegisterType(&pgtype.Type{
+			Name:  "_ltree",
+			OID:   ltreeArrayOID,
+			Codec: &pgtype.ArrayCodec{ElementType: ltreeType},
+		})
+
+		return nil
 	}
 
 	// Configure pool settings - more conservative to avoid connection issues

@@ -571,15 +571,18 @@ WHERE organization_id = $1
         COALESCE(array_length($3::text[], 1), 0) = 0
         OR (
             SELECT bool_and(COALESCE((properties ->> filters.key) ILIKE filters.value, false))
-            FROM unnest(COALESCE($3::text[], ARRAY[]::text[])) WITH ORDINALITY AS keys(key, ord)
-            JOIN unnest(COALESCE($4::text[], ARRAY[]::text[])) WITH ORDINALITY AS values(value, ord)
-              ON keys.ord = values.ord
+            FROM (
+                SELECT keys.key, values.value
+                FROM unnest(COALESCE($3::text[], ARRAY[]::text[])) WITH ORDINALITY AS keys(key, ord)
+                JOIN unnest(COALESCE($4::text[], ARRAY[]::text[])) WITH ORDINALITY AS values(value, ord)
+                  ON keys.ord = values.ord
+            ) AS filters
         )
     )
   AND (
         $5::text = ''
         OR entity_type ILIKE $5::text
-        OR path ILIKE $5::text
+        OR path::text ILIKE $5::text
         OR properties::text ILIKE $5::text
     )
 ORDER BY created_at DESC

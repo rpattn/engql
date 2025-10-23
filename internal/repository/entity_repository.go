@@ -56,6 +56,57 @@ func (r *entityRepository) Create(ctx context.Context, entity domain.Entity) (do
 	return buildEntity(row.ID, row.OrganizationID, row.SchemaID, row.EntityType, row.Path, row.Properties, row.Version, row.CreatedAt, row.UpdatedAt)
 }
 
+// CreateBatch inserts multiple entities using PostgreSQL COPY for efficiency.
+func (r *entityRepository) CreateBatch(ctx context.Context, items []EntityBatchItem) (int, error) {
+	if r.pool == nil {
+		return 0, errors.New("entity repository not initialized")
+	}
+	if len(items) == 0 {
+		return 0, nil
+	}
+
+	rows := make([][]any, 0, len(items))
+	for _, item := range items {
+		pathValue := pgtype.Text{}
+		if item.Path != "" {
+			pathValue = pgtype.Text{
+				String: item.Path,
+				Valid:  true,
+			}
+		}
+
+		rows = append(rows, []any{
+			item.OrganizationID,
+			item.SchemaID,
+			item.EntityType,
+			pathValue,
+			json.RawMessage(item.PropertiesJSON),
+		})
+	}
+
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return 0, fmt.Errorf("failed to begin batch transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	count, err := tx.CopyFrom(
+		ctx,
+		pgx.Identifier{"entities"},
+		[]string{"organization_id", "schema_id", "entity_type", "path", "properties"},
+		pgx.CopyFromRows(rows),
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create entity batch: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return 0, fmt.Errorf("failed to commit entity batch: %w", err)
+	}
+
+	return int(count), nil
+}
+
 // GetByID retrieves an entity by ID
 func (r *entityRepository) GetByID(ctx context.Context, id uuid.UUID) (domain.Entity, error) {
 	row, err := r.queries.GetEntity(ctx, id)

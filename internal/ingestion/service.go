@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"math"
 	"path/filepath"
 	"regexp"
@@ -154,6 +155,10 @@ func (s *Service) Ingest(ctx context.Context, req Request) (Summary, error) {
 		NewFieldsDetected: []string{},
 		SchemaChanges:     []SchemaChange{},
 	}
+	logPrefix := fmt.Sprintf("[ingest] schema=%s file=%s", req.SchemaName, req.FileName)
+	start := time.Now()
+	log.Printf("%s start", logPrefix)
+	stageStart := start
 
 	if req.OrganizationID == uuid.Nil {
 		return summary, errors.New("organization id is required")
@@ -172,6 +177,8 @@ func (s *Service) Ingest(ctx context.Context, req Request) (Summary, error) {
 	if len(payload) == 0 {
 		return summary, errors.New("file is empty")
 	}
+	log.Printf("%s read upload in %v (bytes=%d)", logPrefix, time.Since(stageStart), len(payload))
+	stageStart = time.Now()
 
 	table, _, err := parseTable(req.FileName, payload, req.HeaderRowIndex)
 	if err != nil {
@@ -180,6 +187,8 @@ func (s *Service) Ingest(ctx context.Context, req Request) (Summary, error) {
 	if len(table.headers) == 0 {
 		return summary, errors.New("no header row detected")
 	}
+	log.Printf("%s parsed table in %v (headers=%d rows=%d)", logPrefix, time.Since(stageStart), len(table.headers), len(table.rows))
+	stageStart = time.Now()
 
 	detectedFields := inferFieldDefinitions(table)
 	detectedFields = applyOverridesToDefinitions(detectedFields, req.ColumnOverrides)
@@ -276,13 +285,24 @@ func (s *Service) Ingest(ctx context.Context, req Request) (Summary, error) {
 			Message: fmt.Sprintf("schema %s updated to version %s (%s)", workingSchema.Name, workingSchema.Version, compatibility),
 		})
 	}
+	log.Printf("%s schema reconciliation in %v (created=%t updated=%t)", logPrefix, time.Since(stageStart), summary.SchemaCreated, schemaUpdated)
+	stageStart = time.Now()
 
 	if summary.TotalRows == 0 {
+		log.Printf("%s no data rows detected; total duration %v", logPrefix, time.Since(start))
 		return summary, nil
 	}
 
 	validatorDefs := buildValidatorDefinitions(workingSchema.Fields)
 	usedPaths := make(map[string]int)
+
+	type candidate struct {
+		item       repository.EntityBatchItem
+		properties map[string]any
+		rowNumber  int
+	}
+
+	candidates := make([]candidate, 0, len(table.rows))
 
 	for rowIdx, row := range table.rows {
 		rowNumber := table.headerRowIndex + rowIdx + 2 // include header row (1-based)
@@ -338,17 +358,67 @@ func (s *Service) Ingest(ctx context.Context, req Request) (Summary, error) {
 			continue
 		}
 
-		path := generatePath(workingSchema.Name, row, rowIdx, usedPaths)
-		entity := domain.NewEntity(req.OrganizationID, workingSchema.ID, workingSchema.Name, path, properties)
+		propertiesJSON, marshalErr := json.Marshal(properties)
+		if marshalErr != nil {
+			s.summaryRowError(ctx, req, rowNumber, fmt.Errorf("failed to encode properties: %w", marshalErr))
+			summary.InvalidRows++
+			continue
+		}
 
+		path := generatePath(workingSchema.Name, row, rowIdx, usedPaths)
+
+		candidates = append(candidates, candidate{
+			item: repository.EntityBatchItem{
+				OrganizationID: req.OrganizationID,
+				SchemaID:       workingSchema.ID,
+				EntityType:     workingSchema.Name,
+				Path:           path,
+				PropertiesJSON: propertiesJSON,
+			},
+			properties: properties,
+			rowNumber:  rowNumber,
+		})
+	}
+
+	if len(candidates) == 0 {
+		log.Printf("%s validation produced no candidates (invalidRows=%d) in %v", logPrefix, summary.InvalidRows, time.Since(stageStart))
+		log.Printf("%s completed in %v (valid=%d invalid=%d)", logPrefix, time.Since(start), summary.ValidRows, summary.InvalidRows)
+		return summary, nil
+	}
+	log.Printf("%s validation produced %d candidates (invalidRows=%d) in %v", logPrefix, len(candidates), summary.InvalidRows, time.Since(stageStart))
+
+	items := make([]repository.EntityBatchItem, len(candidates))
+	for i, candidate := range candidates {
+		items[i] = candidate.item
+	}
+
+	batchStart := time.Now()
+	inserted, err := s.entityRepo.CreateBatch(ctx, items)
+	if err == nil {
+		summary.ValidRows = inserted
+		log.Printf("%s batch insert succeeded in %v (rows=%d)", logPrefix, time.Since(batchStart), inserted)
+		log.Printf("%s completed in %v (valid=%d invalid=%d schemaCreated=%t)", logPrefix, time.Since(start), summary.ValidRows, summary.InvalidRows, summary.SchemaCreated)
+		return summary, nil
+	}
+
+	log.Printf("%s batch insert failed after %v (rows=%d err=%v) - falling back to per-row inserts", logPrefix, time.Since(batchStart), len(items), err)
+	s.logIngestionError(ctx, req, nil, fmt.Errorf("failed to insert entity batch: %w", err))
+
+	fallbackStart := time.Now()
+	fallbackValid := 0
+	for _, candidate := range candidates {
+		entity := domain.NewEntity(req.OrganizationID, candidate.item.SchemaID, candidate.item.EntityType, candidate.item.Path, candidate.properties)
 		if _, err := s.entityRepo.Create(ctx, entity); err != nil {
-			s.summaryRowError(ctx, req, rowNumber, fmt.Errorf("failed to insert entity: %w", err))
+			s.summaryRowError(ctx, req, candidate.rowNumber, fmt.Errorf("failed to insert entity: %w", err))
 			summary.InvalidRows++
 			continue
 		}
 
 		summary.ValidRows++
+		fallbackValid++
 	}
+	log.Printf("%s fallback insert completed in %v (rows=%d success=%d)", logPrefix, time.Since(fallbackStart), len(candidates), fallbackValid)
+	log.Printf("%s completed in %v (valid=%d invalid=%d schemaCreated=%t)", logPrefix, time.Since(start), summary.ValidRows, summary.InvalidRows, summary.SchemaCreated)
 
 	return summary, nil
 }
@@ -1006,15 +1076,26 @@ func parseTimestamp(raw string) (time.Time, error) {
 	return time.Time{}, fmt.Errorf("unrecognized timestamp format")
 }
 
-var slugPattern = regexp.MustCompile(`[^a-z0-9]+`)
+var (
+	slugPattern        = regexp.MustCompile(`[^a-z0-9_]+`)
+	multiUnderscoreRe  = regexp.MustCompile(`_+`)
+	leadingInvalidChar = regexp.MustCompile(`^[^a-z_]+`)
+)
 
 func slugify(value string) string {
 	value = strings.ToLower(strings.TrimSpace(value))
 	value = slugPattern.ReplaceAllString(value, "_")
+	value = multiUnderscoreRe.ReplaceAllString(value, "_")
 	value = strings.Trim(value, "_")
+
 	if value == "" {
 		return ""
 	}
+
+	if leadingInvalidChar.MatchString(value) {
+		value = "n" + value
+	}
+
 	return value
 }
 
