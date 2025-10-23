@@ -23,6 +23,20 @@ type entityRepository struct {
 	pool    *pgxpool.Pool
 }
 
+type skipEntityValidationContextKey struct{}
+
+// WithSkipEntityValidation marks the context so batch inserts can skip
+// PostgreSQL trigger validation. Only set this when upstream validation has
+// already guaranteed data quality.
+func WithSkipEntityValidation(ctx context.Context) context.Context {
+	return context.WithValue(ctx, skipEntityValidationContextKey{}, true)
+}
+
+func shouldSkipEntityValidation(ctx context.Context) bool {
+	flag, ok := ctx.Value(skipEntityValidationContextKey{}).(bool)
+	return ok && flag
+}
+
 // NewEntityRepository creates a new entity repository
 func NewEntityRepository(queries *db.Queries, pool *pgxpool.Pool) EntityRepository {
 	return &entityRepository{
@@ -89,6 +103,15 @@ func (r *entityRepository) CreateBatch(ctx context.Context, items []EntityBatchI
 		return 0, fmt.Errorf("failed to begin batch transaction: %w", err)
 	}
 	defer tx.Rollback(ctx)
+
+	if shouldSkipEntityValidation(ctx) {
+		if _, err := tx.Exec(ctx, "SET LOCAL app.skip_entity_property_validation = 'on'"); err != nil {
+			return 0, fmt.Errorf("failed to configure batch transaction: %w", err)
+		}
+		if _, err := tx.Exec(ctx, "SET LOCAL synchronous_commit = 'off'"); err != nil {
+			return 0, fmt.Errorf("failed to relax synchronous commit: %w", err)
+		}
+	}
 
 	count, err := tx.CopyFrom(
 		ctx,

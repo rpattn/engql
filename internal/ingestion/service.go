@@ -70,13 +70,14 @@ func NewService(
 
 // Request describes the ingestion input.
 type Request struct {
-	OrganizationID  uuid.UUID
-	SchemaName      string
-	Description     string
-	FileName        string
-	HeaderRowIndex  *int
-	ColumnOverrides map[string]domain.FieldType
-	Data            io.Reader
+	OrganizationID       uuid.UUID
+	SchemaName           string
+	Description          string
+	FileName             string
+	HeaderRowIndex       *int
+	ColumnOverrides      map[string]domain.FieldType
+	Data                 io.Reader
+	SkipEntityValidation bool
 }
 
 // PreviewRequest describes the preview input prior to ingestion.
@@ -393,7 +394,17 @@ func (s *Service) Ingest(ctx context.Context, req Request) (Summary, error) {
 	}
 
 	batchStart := time.Now()
-	inserted, err := s.entityRepo.CreateBatch(ctx, items)
+	batchCtx := ctx
+	skipBatchValidation := req.SkipEntityValidation && summary.InvalidRows == 0
+	if req.SkipEntityValidation && summary.InvalidRows > 0 {
+		log.Printf("%s skipValidation was requested but %d invalid rows remain; DB trigger will run", logPrefix, summary.InvalidRows)
+	}
+	if skipBatchValidation {
+		log.Printf("%s skipValidation on ingest enabled; database trigger will be bypassed", logPrefix)
+		batchCtx = repository.WithSkipEntityValidation(batchCtx)
+	}
+
+	inserted, err := s.entityRepo.CreateBatch(batchCtx, items)
 	if err == nil {
 		summary.ValidRows = inserted
 		log.Printf("%s batch insert succeeded in %v (rows=%d)", logPrefix, time.Since(batchStart), inserted)

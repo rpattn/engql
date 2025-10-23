@@ -46,6 +46,7 @@ type uploadPayload struct {
 	description     string
 	headerRowIndex  *int
 	columnOverrides map[string]domain.FieldType
+	skipValidation  bool
 }
 
 func (h *Handler) handleIngest(w http.ResponseWriter, r *http.Request) {
@@ -56,13 +57,14 @@ func (h *Handler) handleIngest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	req := Request{
-		OrganizationID:  payload.organizationID,
-		SchemaName:      payload.schemaName,
-		Description:     payload.description,
-		FileName:        payload.fileName,
-		HeaderRowIndex:  payload.headerRowIndex,
-		ColumnOverrides: payload.columnOverrides,
-		Data:            bytes.NewReader(payload.fileData),
+		OrganizationID:       payload.organizationID,
+		SchemaName:           payload.schemaName,
+		Description:          payload.description,
+		FileName:             payload.fileName,
+		HeaderRowIndex:       payload.headerRowIndex,
+		ColumnOverrides:      payload.columnOverrides,
+		Data:                 bytes.NewReader(payload.fileData),
+		SkipEntityValidation: payload.skipValidation,
 	}
 
 	summary, err := h.service.Ingest(r.Context(), req)
@@ -153,6 +155,11 @@ func parseUploadPayload(r *http.Request) (uploadPayload, error) {
 		return uploadPayload{}, err
 	}
 
+	skipValidation, err := parseSkipValidation(r.FormValue("skipValidation"))
+	if err != nil {
+		return uploadPayload{}, err
+	}
+
 	return uploadPayload{
 		fileName:        header.Filename,
 		fileData:        data,
@@ -161,6 +168,7 @@ func parseUploadPayload(r *http.Request) (uploadPayload, error) {
 		description:     description,
 		headerRowIndex:  headerRowIndex,
 		columnOverrides: columnOverrides,
+		skipValidation:  skipValidation,
 	}, nil
 }
 
@@ -206,6 +214,18 @@ func parseColumnOverrides(raw string) (map[string]domain.FieldType, error) {
 		overrides[key] = fieldType
 	}
 	return overrides, nil
+}
+
+func parseSkipValidation(raw string) (bool, error) {
+	value := strings.ToLower(strings.TrimSpace(raw))
+	switch value {
+	case "", "0", "false", "off", "no":
+		return false, nil
+	case "1", "true", "on", "yes":
+		return true, nil
+	default:
+		return false, fmt.Errorf("invalid skipValidation flag: %q", raw)
+	}
 }
 
 func normalizeFieldType(raw string) (domain.FieldType, error) {

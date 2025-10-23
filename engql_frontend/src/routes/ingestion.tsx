@@ -143,6 +143,11 @@ function IngestionPage() {
   >({});
   const [preview, setPreview] = useState<IngestionPreview | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [skipEntityValidation, setSkipEntityValidation] = useState(false);
+  const canSkipValidation =
+    preview != null &&
+    preview.invalidRows === 0 &&
+    preview.totalRows > 0;
 
   const entitiesQuery = useQuery({
     queryKey: ["entities-by-type", organizationId, schemaName],
@@ -215,8 +220,21 @@ function IngestionPage() {
       return payload;
     },
     onSuccess: (result) => {
+      const hadValidPreview = canSkipValidation;
+      const nextCanSkip =
+        result.invalidRows === 0 && result.totalRows > 0;
+
       setPreview(result);
       setPreviewError(null);
+      setSkipEntityValidation((current) => {
+        if (!nextCanSkip) {
+          return false;
+        }
+        if (!hadValidPreview) {
+          return true;
+        }
+        return current;
+      });
       setHeaderRowIndex((current) => {
         if (current !== null) {
           return current;
@@ -234,6 +252,7 @@ function IngestionPage() {
         setPreviewError("Unknown preview error.");
       }
       setPreview(null);
+      setSkipEntityValidation(false);
     },
   });
 
@@ -263,6 +282,9 @@ function IngestionPage() {
       );
       if (Object.keys(filteredOverrides).length > 0) {
         formData.append("columnTypes", JSON.stringify(filteredOverrides));
+      }
+      if (canSkipValidation && skipEntityValidation) {
+        formData.append("skipValidation", "true");
       }
 
       const response = await fetch(`${API_BASE_URL}/ingestion`, {
@@ -332,6 +354,7 @@ function IngestionPage() {
     setPreviewError(null);
     setHeaderRowIndex(null);
     setColumnTypeOverrides({});
+    setSkipEntityValidation(false);
     if (selected) {
       triggerPreview({
         fileOverride: selected,
@@ -611,6 +634,31 @@ function IngestionPage() {
                   ))}
                 </div>
               </div>
+              <label className="mt-3 flex items-start gap-3 rounded-md border border-slate-800 bg-slate-900/60 px-3 py-2 text-xs text-slate-200 md:max-w-xl">
+                <input
+                  type="checkbox"
+                  className="mt-1 h-4 w-4 rounded border-slate-600 text-cyan-400 focus:ring-cyan-500"
+                  checked={canSkipValidation && skipEntityValidation}
+                  disabled={!canSkipValidation}
+                  onChange={(event) => {
+                    if (!canSkipValidation) {
+                      setSkipEntityValidation(false);
+                      return;
+                    }
+                    setSkipEntityValidation(event.target.checked);
+                  }}
+                />
+                <span className="leading-tight">
+                  <span className="block font-semibold text-slate-100">
+                    Skip database validation during ingest
+                  </span>
+                  <span className="mt-1 block text-[11px] text-slate-400">
+                    {canSkipValidation
+                      ? "Preview passed validation; skipping the trigger keeps COPY fast."
+                      : "Available after the preview reports 0 invalid rows."}
+                  </span>
+                </span>
+              </label>
 
               <div className="mt-4 overflow-auto rounded-xl border border-slate-800">
                 <table className="min-w-full divide-y divide-slate-800 text-sm">
