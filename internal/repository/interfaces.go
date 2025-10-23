@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"github.com/rpattn/engql/internal/domain"
 
@@ -33,7 +34,7 @@ type EntitySchemaRepository interface {
 // EntityRepository defines the interface for entity operations
 type EntityRepository interface {
 	Create(ctx context.Context, entity domain.Entity) (domain.Entity, error)
-	CreateBatch(ctx context.Context, items []EntityBatchItem) (int, error)
+	CreateBatch(ctx context.Context, items []EntityBatchItem, opts EntityBatchOptions) (EntityBatchResult, error)
 	GetByID(ctx context.Context, id uuid.UUID) (domain.Entity, error)
 	GetByIDs(ctx context.Context, ids []uuid.UUID) ([]domain.Entity, error)
 	List(ctx context.Context, organizationID uuid.UUID, filter *domain.EntityFilter, limit int, offset int) ([]domain.Entity, int, error)
@@ -54,6 +55,10 @@ type EntityRepository interface {
 	// Count operations
 	Count(ctx context.Context, organizationID uuid.UUID) (int64, error)
 	CountByType(ctx context.Context, organizationID uuid.UUID, entityType string) (int64, error)
+
+	// Batch ingestion tracking
+	ListIngestBatches(ctx context.Context, organizationID *uuid.UUID, statuses []string, limit int, offset int) ([]IngestBatchRecord, error)
+	GetIngestBatchStats(ctx context.Context, organizationID *uuid.UUID) (IngestBatchStats, error)
 }
 
 // EntityBatchItem represents one row destined for batch insertion.
@@ -63,6 +68,45 @@ type EntityBatchItem struct {
 	EntityType     string
 	Path           string
 	PropertiesJSON []byte
+}
+
+// EntityBatchOptions carries metadata about the staged batch.
+type EntityBatchOptions struct {
+	SourceFile string
+}
+
+// EntityBatchResult returns metadata about a staged batch.
+type EntityBatchResult struct {
+	BatchID    uuid.UUID
+	RowsStaged int
+}
+
+// IngestBatchRecord captures persisted batch lifecycle data.
+type IngestBatchRecord struct {
+	ID             uuid.UUID
+	OrganizationID uuid.UUID
+	SchemaID       uuid.UUID
+	EntityType     string
+	FileName       *string
+	RowsStaged     int
+	RowsFlushed    int
+	SkipValidation bool
+	Status         string
+	ErrorMessage   *string
+	EnqueuedAt     time.Time
+	StartedAt      *time.Time
+	CompletedAt    *time.Time
+	UpdatedAt      time.Time
+}
+
+// IngestBatchStats aggregates batch activity metrics.
+type IngestBatchStats struct {
+	TotalBatches      int64
+	InProgressBatches int64
+	CompletedBatches  int64
+	FailedBatches     int64
+	TotalRowsStaged   int64
+	TotalRowsFlushed  int64
 }
 
 // EntityJoinRepository defines operations for persisted join definitions and executions

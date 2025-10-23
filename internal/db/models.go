@@ -28,6 +28,17 @@ type EntitiesHistory struct {
 	Reason         pgtype.Text        `json:"reason"`
 }
 
+// Staging table for COPY-based entity ingestion
+type EntitiesIngest struct {
+	OrganizationID uuid.UUID          `json:"organization_id"`
+	SchemaID       uuid.UUID          `json:"schema_id"`
+	EntityType     string             `json:"entity_type"`
+	Path           string             `json:"path"`
+	Properties     json.RawMessage    `json:"properties"`
+	BatchID        uuid.UUID          `json:"batch_id"`
+	EnqueuedAt     pgtype.Timestamptz `json:"enqueued_at"`
+}
+
 type Entity struct {
 	ID             uuid.UUID       `json:"id"`
 	OrganizationID uuid.UUID       `json:"organization_id"`
@@ -38,6 +49,23 @@ type Entity struct {
 	UpdatedAt      time.Time       `json:"updated_at"`
 	SchemaID       uuid.UUID       `json:"schema_id"`
 	Version        int64           `json:"version"`
+}
+
+type EntityIngestBatch struct {
+	ID             uuid.UUID          `json:"id"`
+	OrganizationID uuid.UUID          `json:"organization_id"`
+	SchemaID       uuid.UUID          `json:"schema_id"`
+	EntityType     string             `json:"entity_type"`
+	FileName       pgtype.Text        `json:"file_name"`
+	RowsStaged     int32              `json:"rows_staged"`
+	RowsFlushed    int32              `json:"rows_flushed"`
+	SkipValidation bool               `json:"skip_validation"`
+	Status         string             `json:"status"`
+	ErrorMessage   pgtype.Text        `json:"error_message"`
+	EnqueuedAt     pgtype.Timestamptz `json:"enqueued_at"`
+	StartedAt      pgtype.Timestamptz `json:"started_at"`
+	CompletedAt    pgtype.Timestamptz `json:"completed_at"`
+	UpdatedAt      time.Time          `json:"updated_at"`
 }
 
 type EntityJoin struct {

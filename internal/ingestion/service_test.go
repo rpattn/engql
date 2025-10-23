@@ -640,10 +640,10 @@ func (s *stubEntityRepo) Create(ctx context.Context, entity domain.Entity) (doma
 	return entity, nil
 }
 
-func (s *stubEntityRepo) CreateBatch(ctx context.Context, items []repository.EntityBatchItem) (int, error) {
+func (s *stubEntityRepo) CreateBatch(ctx context.Context, items []repository.EntityBatchItem, opts repository.EntityBatchOptions) (repository.EntityBatchResult, error) {
 	s.batchCallCount++
 	if s.batchErr != nil {
-		return 0, s.batchErr
+		return repository.EntityBatchResult{}, s.batchErr
 	}
 	for _, item := range items {
 		s.created = append(s.created, domain.Entity{
@@ -653,7 +653,10 @@ func (s *stubEntityRepo) CreateBatch(ctx context.Context, items []repository.Ent
 			Path:           item.Path,
 		})
 	}
-	return len(items), nil
+	return repository.EntityBatchResult{
+		BatchID:    uuid.New(),
+		RowsStaged: len(items),
+	}, nil
 }
 
 func (s *stubEntityRepo) GetByID(ctx context.Context, id uuid.UUID) (domain.Entity, error) {
@@ -710,6 +713,14 @@ func (s *stubEntityRepo) CountByType(ctx context.Context, organizationID uuid.UU
 
 func (s *stubEntityRepo) RollbackEntity(ctx context.Context, id string, toVersion int64, reason string) error {
 	return nil
+}
+
+func (s *stubEntityRepo) ListIngestBatches(ctx context.Context, organizationID *uuid.UUID, statuses []string, limit int, offset int) ([]repository.IngestBatchRecord, error) {
+	return []repository.IngestBatchRecord{}, nil
+}
+
+func (s *stubEntityRepo) GetIngestBatchStats(ctx context.Context, organizationID *uuid.UUID) (repository.IngestBatchStats, error) {
+	return repository.IngestBatchStats{}, nil
 }
 
 type stubLogRepo struct {

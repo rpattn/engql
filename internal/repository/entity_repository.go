@@ -38,6 +38,16 @@ func shouldSkipEntityValidation(ctx context.Context) bool {
 	return ok && flag
 }
 
+type flushBatchMeta struct {
+	BatchID        uuid.UUID
+	OrganizationID uuid.UUID
+	SchemaID       uuid.UUID
+	EntityType     string
+	SourceFile     string
+	ExpectedRows   int
+	SkipValidation bool
+}
+
 // NewEntityRepository creates a new entity repository
 func NewEntityRepository(queries *db.Queries, pool *pgxpool.Pool) EntityRepository {
 	return &entityRepository{
@@ -71,24 +81,24 @@ func (r *entityRepository) Create(ctx context.Context, entity domain.Entity) (do
 	return buildEntity(row.ID, row.OrganizationID, row.SchemaID, row.EntityType, row.Path, row.Properties, row.Version, row.CreatedAt, row.UpdatedAt)
 }
 
-// CreateBatch inserts multiple entities using PostgreSQL COPY for efficiency.
-func (r *entityRepository) CreateBatch(ctx context.Context, items []EntityBatchItem) (int, error) {
+// CreateBatch stages entity rows for asynchronous flushing.
+func (r *entityRepository) CreateBatch(ctx context.Context, items []EntityBatchItem, opts EntityBatchOptions) (EntityBatchResult, error) {
+	result := EntityBatchResult{}
 	if r.pool == nil {
-		return 0, errors.New("entity repository not initialized")
+		return result, errors.New("entity repository not initialized")
 	}
 	if len(items) == 0 {
-		return 0, nil
+		return result, nil
 	}
 
 	batchID := uuid.New()
+	result.BatchID = batchID
+
 	rows := make([][]any, 0, len(items))
 	for _, item := range items {
 		pathValue := pgtype.Text{}
 		if item.Path != "" {
-			pathValue = pgtype.Text{
-				String: item.Path,
-				Valid:  true,
-			}
+			pathValue = pgtype.Text{String: item.Path, Valid: true}
 		}
 
 		rows = append(rows, []any{
@@ -103,13 +113,43 @@ func (r *entityRepository) CreateBatch(ctx context.Context, items []EntityBatchI
 
 	stagedCount, err := r.stageBatch(ctx, batchID, rows)
 	if err != nil {
-		return 0, err
+		return EntityBatchResult{}, err
+	}
+	result.RowsStaged = int(stagedCount)
+
+	first := items[0]
+	fileName := pgtype.Text{}
+	sourceFile := strings.TrimSpace(opts.SourceFile)
+	if sourceFile != "" {
+		fileName = pgtype.Text{String: sourceFile, Valid: true}
 	}
 
 	skipValidation := shouldSkipEntityValidation(ctx)
-	r.scheduleFlush(batchID, int(stagedCount), skipValidation)
+	insertErr := r.queries.InsertEntityIngestBatch(ctx, db.InsertEntityIngestBatchParams{
+		ID:             batchID,
+		OrganizationID: first.OrganizationID,
+		SchemaID:       first.SchemaID,
+		EntityType:     first.EntityType,
+		FileName:       fileName,
+		RowsStaged:     int32(stagedCount),
+		SkipValidation: skipValidation,
+	})
+	if insertErr != nil {
+		_ = r.purgeStagedBatch(ctx, batchID)
+		return EntityBatchResult{}, fmt.Errorf("failed to record batch metadata: %w", insertErr)
+	}
 
-	return int(stagedCount), nil
+	r.scheduleFlush(flushBatchMeta{
+		BatchID:        batchID,
+		OrganizationID: first.OrganizationID,
+		SchemaID:       first.SchemaID,
+		EntityType:     first.EntityType,
+		SourceFile:     sourceFile,
+		ExpectedRows:   int(stagedCount),
+		SkipValidation: skipValidation,
+	})
+
+	return result, nil
 }
 
 func (r *entityRepository) stageBatch(ctx context.Context, batchID uuid.UUID, rows [][]any) (int64, error) {
@@ -138,9 +178,23 @@ func (r *entityRepository) stageBatch(ctx context.Context, batchID uuid.UUID, ro
 	return count, nil
 }
 
-func (r *entityRepository) scheduleFlush(batchID uuid.UUID, expected int, skipValidation bool) {
+func (r *entityRepository) purgeStagedBatch(ctx context.Context, batchID uuid.UUID) error {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	if _, err := tx.Exec(ctx, "DELETE FROM entities_ingest WHERE batch_id = $1", batchID); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+func (r *entityRepository) scheduleFlush(meta flushBatchMeta) {
 	flushCtx := context.Background()
-	if skipValidation {
+	if meta.SkipValidation {
 		flushCtx = WithSkipEntityValidation(flushCtx)
 	}
 
@@ -149,20 +203,50 @@ func (r *entityRepository) scheduleFlush(batchID uuid.UUID, expected int, skipVa
 		defer cancel()
 		defer func() {
 			if rec := recover(); rec != nil {
-				log.Printf("[entityRepository] panic while flushing batch %s: %v", batchID, rec)
+				log.Printf("[entityRepository] panic while flushing batch %s: %v", meta.BatchID, rec)
 			}
 		}()
 
-		log.Printf("[entityRepository] flushing batch %s (expected=%d skipValidation=%t)", batchID, expected, skipValidation)
+		if err := r.queries.MarkEntityIngestBatchFlushing(flushCtx, meta.BatchID); err != nil {
+			log.Printf("[entityRepository] failed to mark batch %s as flushing: %v", meta.BatchID, err)
+		}
 
-		inserted, err := r.flushStagedBatch(flushCtx, batchID)
+		log.Printf("[entityRepository] flushing batch %s (expected=%d skipValidation=%t)", meta.BatchID, meta.ExpectedRows, meta.SkipValidation)
+
+		inserted, err := r.flushStagedBatch(flushCtx, meta.BatchID)
 		if err != nil {
-			log.Printf("[entityRepository] failed to flush batch %s: %v", batchID, err)
+			log.Printf("[entityRepository] failed to flush batch %s: %v", meta.BatchID, err)
+			if markErr := r.queries.MarkEntityIngestBatchFailed(flushCtx, db.MarkEntityIngestBatchFailedParams{
+				ID:           meta.BatchID,
+				ErrorMessage: pgtype.Text{String: truncateError(err), Valid: true},
+			}); markErr != nil {
+				log.Printf("[entityRepository] failed to mark batch %s as failed: %v", meta.BatchID, markErr)
+			}
 			return
 		}
 
-		log.Printf("[entityRepository] flushed batch %s into entities (expected=%d inserted=%d)", batchID, expected, inserted)
+		if err := r.queries.MarkEntityIngestBatchCompleted(flushCtx, db.MarkEntityIngestBatchCompletedParams{
+			RowsFlushed: int32(inserted),
+			ID:          meta.BatchID,
+		}); err != nil {
+			log.Printf("[entityRepository] flushed batch %s but failed to mark completion: %v", meta.BatchID, err)
+			return
+		}
+
+		log.Printf("[entityRepository] flushed batch %s into entities (expected=%d inserted=%d)", meta.BatchID, meta.ExpectedRows, inserted)
 	}()
+}
+
+func truncateError(err error) string {
+	if err == nil {
+		return ""
+	}
+	const maxLen = 512
+	msg := err.Error()
+	if len(msg) > maxLen {
+		return msg[:maxLen]
+	}
+	return msg
 }
 
 func (r *entityRepository) flushStagedBatch(ctx context.Context, batchID uuid.UUID) (int, error) {
@@ -202,6 +286,104 @@ func (r *entityRepository) flushStagedBatch(ctx context.Context, batchID uuid.UU
 	}
 
 	return int(res.RowsAffected()), nil
+}
+
+func (r *entityRepository) ListIngestBatches(ctx context.Context, organizationID *uuid.UUID, statuses []string, limit int, offset int) ([]IngestBatchRecord, error) {
+	if len(statuses) == 0 {
+		return []IngestBatchRecord{}, nil
+	}
+
+	if limit <= 0 {
+		limit = 20
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	orgParam := toPGUUID(organizationID)
+
+	rows, err := r.queries.ListEntityIngestBatchesByStatus(ctx, db.ListEntityIngestBatchesByStatusParams{
+		Statuses:       statuses,
+		OrganizationID: orgParam,
+		PageOffset:     int32(offset),
+		PageLimit:      int32(limit),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list ingest batches: %w", err)
+	}
+
+	records := make([]IngestBatchRecord, 0, len(rows))
+	for _, row := range rows {
+		record := IngestBatchRecord{
+			ID:             row.ID,
+			OrganizationID: row.OrganizationID,
+			SchemaID:       row.SchemaID,
+			EntityType:     row.EntityType,
+			RowsStaged:     int(row.RowsStaged),
+			RowsFlushed:    int(row.RowsFlushed),
+			SkipValidation: row.SkipValidation,
+			Status:         row.Status,
+			EnqueuedAt:     safeTimestamptz(row.EnqueuedAt),
+			StartedAt:      timestamptzPtr(row.StartedAt),
+			CompletedAt:    timestamptzPtr(row.CompletedAt),
+			UpdatedAt:      row.UpdatedAt,
+		}
+
+		if row.FileName.Valid {
+			val := row.FileName.String
+			record.FileName = &val
+		}
+		if row.ErrorMessage.Valid {
+			msg := row.ErrorMessage.String
+			record.ErrorMessage = &msg
+		}
+
+		records = append(records, record)
+	}
+
+	return records, nil
+}
+
+func (r *entityRepository) GetIngestBatchStats(ctx context.Context, organizationID *uuid.UUID) (IngestBatchStats, error) {
+	orgParam := toPGUUID(organizationID)
+
+	row, err := r.queries.EntityIngestBatchStats(ctx, orgParam)
+	if err != nil {
+		return IngestBatchStats{}, fmt.Errorf("failed to fetch ingest batch stats: %w", err)
+	}
+
+	return IngestBatchStats{
+		TotalBatches:      row.TotalBatches,
+		InProgressBatches: row.InProgressBatches,
+		CompletedBatches:  row.CompletedBatches,
+		FailedBatches:     row.FailedBatches,
+		TotalRowsStaged:   row.TotalRowsStaged,
+		TotalRowsFlushed:  row.TotalRowsFlushed,
+	}, nil
+}
+
+func timestamptzPtr(value pgtype.Timestamptz) *time.Time {
+	if !value.Valid {
+		return nil
+	}
+	t := value.Time
+	return &t
+}
+
+func safeTimestamptz(value pgtype.Timestamptz) time.Time {
+	if value.Valid {
+		return value.Time
+	}
+	return time.Time{}
+}
+
+func toPGUUID(id *uuid.UUID) pgtype.UUID {
+	if id == nil {
+		return pgtype.UUID{}
+	}
+	var buf [16]byte
+	copy(buf[:], id[:])
+	return pgtype.UUID{Bytes: buf, Valid: true}
 }
 
 // GetByID retrieves an entity by ID

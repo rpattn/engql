@@ -8,6 +8,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Querier interface {
@@ -19,6 +20,7 @@ type Querier interface {
 	DeleteEntity(ctx context.Context, id uuid.UUID) error
 	DeleteEntityJoin(ctx context.Context, id uuid.UUID) error
 	DeleteOrganization(ctx context.Context, id uuid.UUID) error
+	EntityIngestBatchStats(ctx context.Context, organizationID pgtype.UUID) (EntityIngestBatchStatsRow, error)
 	FilterEntitiesByProperty(ctx context.Context, arg FilterEntitiesByPropertyParams) ([]FilterEntitiesByPropertyRow, error)
 	GetEntitiesByIDs(ctx context.Context, ids []uuid.UUID) ([]GetEntitiesByIDsRow, error)
 	GetEntity(ctx context.Context, id uuid.UUID) (GetEntityRow, error)
@@ -37,13 +39,19 @@ type Querier interface {
 	GetOrganization(ctx context.Context, id uuid.UUID) (Organization, error)
 	GetOrganizationByName(ctx context.Context, name string) (Organization, error)
 	InsertEntityHistoryRecord(ctx context.Context, arg InsertEntityHistoryRecordParams) error
+	// Track background flush batches for staged entity ingestion.
+	InsertEntityIngestBatch(ctx context.Context, arg InsertEntityIngestBatchParams) error
 	ListEntities(ctx context.Context, arg ListEntitiesParams) ([]ListEntitiesRow, error)
 	ListEntitiesByType(ctx context.Context, arg ListEntitiesByTypeParams) ([]ListEntitiesByTypeRow, error)
 	ListEntityHistory(ctx context.Context, entityID uuid.UUID) ([]EntitiesHistory, error)
+	ListEntityIngestBatchesByStatus(ctx context.Context, arg ListEntityIngestBatchesByStatusParams) ([]EntityIngestBatch, error)
 	ListEntityJoinsByOrganization(ctx context.Context, organizationID uuid.UUID) ([]ListEntityJoinsByOrganizationRow, error)
 	ListEntitySchemaVersions(ctx context.Context, arg ListEntitySchemaVersionsParams) ([]ListEntitySchemaVersionsRow, error)
 	ListEntitySchemas(ctx context.Context, organizationID uuid.UUID) ([]ListEntitySchemasRow, error)
 	ListOrganizations(ctx context.Context) ([]Organization, error)
+	MarkEntityIngestBatchCompleted(ctx context.Context, arg MarkEntityIngestBatchCompletedParams) error
+	MarkEntityIngestBatchFailed(ctx context.Context, arg MarkEntityIngestBatchFailedParams) error
+	MarkEntityIngestBatchFlushing(ctx context.Context, id uuid.UUID) error
 	MarkEntitySchemaInactive(ctx context.Context, id uuid.UUID) error
 	SchemaExists(ctx context.Context, arg SchemaExistsParams) (bool, error)
 	UpdateEntity(ctx context.Context, arg UpdateEntityParams) (UpdateEntityRow, error)

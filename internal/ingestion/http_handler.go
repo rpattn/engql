@@ -25,17 +25,20 @@ func NewHTTPHandler(service *Service) http.Handler {
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
+	switch {
+	case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/batches"):
+		h.handleBatches(w, r)
+		return
+	case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/preview"):
+		h.handlePreview(w, r)
+		return
+	case r.Method == http.MethodPost:
+		h.handleIngest(w, r)
+		return
+	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-
-	if strings.HasSuffix(r.URL.Path, "/preview") {
-		h.handlePreview(w, r)
-		return
-	}
-
-	h.handleIngest(w, r)
 }
 
 type uploadPayload struct {
@@ -111,6 +114,47 @@ func (h *Handler) handlePreview(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, result)
+}
+
+func (h *Handler) handleBatches(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query()
+	var organizationID *uuid.UUID
+	if raw := strings.TrimSpace(query.Get("organizationId")); raw != "" {
+		id, err := uuid.Parse(raw)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("invalid organizationId: %v", err), http.StatusBadRequest)
+			return
+		}
+		organizationID = &id
+	}
+
+	limit := 20
+	if rawLimit := strings.TrimSpace(query.Get("limit")); rawLimit != "" {
+		value, err := strconv.Atoi(rawLimit)
+		if err != nil || value <= 0 {
+			http.Error(w, "limit must be a positive integer", http.StatusBadRequest)
+			return
+		}
+		limit = value
+	}
+
+	offset := 0
+	if rawOffset := strings.TrimSpace(query.Get("offset")); rawOffset != "" {
+		value, err := strconv.Atoi(rawOffset)
+		if err != nil || value < 0 {
+			http.Error(w, "offset must be zero or positive", http.StatusBadRequest)
+			return
+		}
+		offset = value
+	}
+
+	overview, err := h.service.GetBatchOverview(r.Context(), organizationID, limit, offset)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, overview)
 }
 
 func parseUploadPayload(r *http.Request) (uploadPayload, error) {
