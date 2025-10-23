@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -110,6 +111,14 @@ func (r *entityRepository) CreateBatch(ctx context.Context, items []EntityBatchI
 		}
 		if _, err := tx.Exec(ctx, "SET LOCAL synchronous_commit = 'off'"); err != nil {
 			return 0, fmt.Errorf("failed to relax synchronous commit: %w", err)
+		}
+		var skipSetting, syncSetting string
+		err := tx.QueryRow(
+			ctx,
+			"SELECT current_setting('app.skip_entity_property_validation', true), current_setting('synchronous_commit')",
+		).Scan(&skipSetting, &syncSetting)
+		if err == nil {
+			log.Printf("[entityRepository] skip_entity_property_validation=%s synchronous_commit=%s", skipSetting, syncSetting)
 		}
 	}
 
