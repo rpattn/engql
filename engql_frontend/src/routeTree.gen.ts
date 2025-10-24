@@ -14,6 +14,7 @@ import { Route as IngestionRouteImport } from './routes/ingestion'
 import { Route as EntitySchemasRouteImport } from './routes/entity-schemas'
 import { Route as EntitiesRouteImport } from './routes/entities'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as EntitiesIndexRouteImport } from './routes/entities.index'
 import { Route as IngestionBatchesRouteImport } from './routes/ingestion/batches'
 import { Route as DemoTanstackQueryRouteImport } from './routes/demo/tanstack-query'
 import { Route as DemoTableRouteImport } from './routes/demo/table'
@@ -53,6 +54,11 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const EntitiesIndexRoute = EntitiesIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => EntitiesRoute,
 } as any)
 const IngestionBatchesRoute = IngestionBatchesRouteImport.update({
   id: '/batches',
@@ -135,6 +141,7 @@ export interface FileRoutesByFullPath {
   '/demo/table': typeof DemoTableRoute
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
   '/ingestion/batches': typeof IngestionBatchesRoute
+  '/entities/': typeof EntitiesIndexRoute
   '/demo/api/names': typeof DemoApiNamesRoute
   '/demo/api/tq-todos': typeof DemoApiTqTodosRoute
   '/demo/form/address': typeof DemoFormAddressRoute
@@ -149,13 +156,13 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/entities': typeof EntitiesRouteWithChildren
   '/entity-schemas': typeof EntitySchemasRoute
   '/ingestion': typeof IngestionRouteWithChildren
   '/join-testing': typeof JoinTestingRoute
   '/demo/table': typeof DemoTableRoute
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
   '/ingestion/batches': typeof IngestionBatchesRoute
+  '/entities': typeof EntitiesIndexRoute
   '/demo/api/names': typeof DemoApiNamesRoute
   '/demo/api/tq-todos': typeof DemoApiTqTodosRoute
   '/demo/form/address': typeof DemoFormAddressRoute
@@ -178,6 +185,7 @@ export interface FileRoutesById {
   '/demo/table': typeof DemoTableRoute
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
   '/ingestion/batches': typeof IngestionBatchesRoute
+  '/entities/': typeof EntitiesIndexRoute
   '/demo/api/names': typeof DemoApiNamesRoute
   '/demo/api/tq-todos': typeof DemoApiTqTodosRoute
   '/demo/form/address': typeof DemoFormAddressRoute
@@ -201,6 +209,7 @@ export interface FileRouteTypes {
     | '/demo/table'
     | '/demo/tanstack-query'
     | '/ingestion/batches'
+    | '/entities/'
     | '/demo/api/names'
     | '/demo/api/tq-todos'
     | '/demo/form/address'
@@ -215,13 +224,13 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/entities'
     | '/entity-schemas'
     | '/ingestion'
     | '/join-testing'
     | '/demo/table'
     | '/demo/tanstack-query'
     | '/ingestion/batches'
+    | '/entities'
     | '/demo/api/names'
     | '/demo/api/tq-todos'
     | '/demo/form/address'
@@ -243,6 +252,7 @@ export interface FileRouteTypes {
     | '/demo/table'
     | '/demo/tanstack-query'
     | '/ingestion/batches'
+    | '/entities/'
     | '/demo/api/names'
     | '/demo/api/tq-todos'
     | '/demo/form/address'
@@ -312,6 +322,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/entities/': {
+      id: '/entities/'
+      path: '/'
+      fullPath: '/entities/'
+      preLoaderRoute: typeof EntitiesIndexRouteImport
+      parentRoute: typeof EntitiesRoute
     }
     '/ingestion/batches': {
       id: '/ingestion/batches'
@@ -415,10 +432,12 @@ declare module '@tanstack/react-router' {
 }
 
 interface EntitiesRouteChildren {
+  EntitiesIndexRoute: typeof EntitiesIndexRoute
   EntitiesEntityIdVersionsRoute: typeof EntitiesEntityIdVersionsRoute
 }
 
 const EntitiesRouteChildren: EntitiesRouteChildren = {
+  EntitiesIndexRoute: EntitiesIndexRoute,
   EntitiesEntityIdVersionsRoute: EntitiesEntityIdVersionsRoute,
 }
 
