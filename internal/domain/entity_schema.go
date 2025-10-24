@@ -14,15 +14,19 @@ import (
 type FieldType string
 
 const (
-	FieldTypeString               FieldType = "string"
-	FieldTypeInteger              FieldType = "integer"
-	FieldTypeFloat                FieldType = "float"
-	FieldTypeBoolean              FieldType = "boolean"
-	FieldTypeTimestamp            FieldType = "timestamp"
-	FieldTypeJSON                 FieldType = "json"
-	FieldTypeFileRef              FieldType = "file_reference"
-	FieldTypeGeometry             FieldType = "geometry"
-	FieldTypeTimeseries           FieldType = "timeseries"
+	FieldTypeString     FieldType = "string"
+	FieldTypeInteger    FieldType = "integer"
+	FieldTypeFloat      FieldType = "float"
+	FieldTypeBoolean    FieldType = "boolean"
+	FieldTypeTimestamp  FieldType = "timestamp"
+	FieldTypeJSON       FieldType = "json"
+	FieldTypeFileRef    FieldType = "file_reference"
+	FieldTypeGeometry   FieldType = "geometry"
+	FieldTypeTimeseries FieldType = "timeseries"
+	// FieldTypeReference marks the canonical cross-entity reference string. Only one
+	// field with this type may exist per schema and it must target a specific
+	// entity type via ReferenceEntityType.
+	FieldTypeReference            FieldType = "REFERENCE"
 	FieldTypeEntityReference      FieldType = "ENTITY_REFERENCE"
 	FieldTypeEntityReferenceArray FieldType = "ENTITY_REFERENCE_ARRAY"
 	FieldTypeEntityID             FieldType = "ENTITY_ID"
@@ -30,13 +34,16 @@ const (
 
 // FieldDefinition represents a field definition in a schema
 type FieldDefinition struct {
-	Name                string    `json:"name"`
-	Type                FieldType `json:"type"`
-	Required            bool      `json:"required"`
-	Description         string    `json:"description,omitempty"`
-	Default             string    `json:"default,omitempty"`
-	Validation          string    `json:"validation,omitempty"` // Custom validation rules
-	ReferenceEntityType string    `json:"referenceEntityType,omitempty"`
+	Name        string    `json:"name"`
+	Type        FieldType `json:"type"`
+	Required    bool      `json:"required"`
+	Description string    `json:"description,omitempty"`
+	Default     string    `json:"default,omitempty"`
+	Validation  string    `json:"validation,omitempty"` // Custom validation rules
+	// ReferenceEntityType specifies the related entity type when the field holds a
+	// relationship (ENTITY_REFERENCE, ENTITY_REFERENCE_ARRAY, ENTITY_ID, or
+	// REFERENCE). When Type is FieldTypeReference, this value must be set.
+	ReferenceEntityType string `json:"referenceEntityType,omitempty"`
 }
 
 // SchemaStatus represents lifecycle status of a schema version.

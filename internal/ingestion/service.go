@@ -1240,6 +1240,12 @@ func coerceValue(fieldType domain.FieldType, raw string) (any, error) {
 			return nil, fmt.Errorf("unable to coerce %q to timestamp: %w", raw, err)
 		}
 		return ts, nil
+	case domain.FieldTypeReference:
+		trimmed := strings.TrimSpace(raw)
+		if trimmed == "" {
+			return nil, fmt.Errorf("reference values cannot be empty")
+		}
+		return trimmed, nil
 	case domain.FieldTypeJSON:
 		var out any
 		if err := json.Unmarshal([]byte(raw), &out); err != nil {
