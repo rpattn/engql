@@ -370,6 +370,14 @@ func timestamptzPtr(value pgtype.Timestamptz) *time.Time {
 	return &t
 }
 
+func textPtr(value pgtype.Text) *string {
+	if !value.Valid {
+		return nil
+	}
+	s := value.String
+	return &s
+}
+
 func safeTimestamptz(value pgtype.Timestamptz) time.Time {
 	if value.Valid {
 		return value.Time
@@ -417,6 +425,38 @@ func (r *entityRepository) GetByIDs(ctx context.Context, ids []uuid.UUID) ([]dom
 	}
 
 	return entities, nil
+}
+
+// GetHistoryByVersion retrieves a historical entity snapshot by version.
+func (r *entityRepository) GetHistoryByVersion(ctx context.Context, entityID uuid.UUID, version int64) (domain.EntityHistory, error) {
+	row, err := r.queries.GetEntityHistoryByVersion(ctx, db.GetEntityHistoryByVersionParams{
+		EntityID: entityID,
+		Version:  version,
+	})
+	if err != nil {
+		return domain.EntityHistory{}, fmt.Errorf("failed to get entity history: %w", err)
+	}
+
+	return buildEntityHistory(row)
+}
+
+// ListHistory retrieves all historical versions for an entity.
+func (r *entityRepository) ListHistory(ctx context.Context, entityID uuid.UUID) ([]domain.EntityHistory, error) {
+	rows, err := r.queries.ListEntityHistory(ctx, entityID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list entity history: %w", err)
+	}
+
+	history := make([]domain.EntityHistory, len(rows))
+	for i, row := range rows {
+		snapshot, err := buildEntityHistory(row)
+		if err != nil {
+			return nil, err
+		}
+		history[i] = snapshot
+	}
+
+	return history, nil
 }
 
 // List retrieves entities for an organization applying optional filters.
@@ -809,5 +849,28 @@ func buildEntity(
 		Version:        version,
 		CreatedAt:      createdAt,
 		UpdatedAt:      updatedAt,
+	}, nil
+}
+
+func buildEntityHistory(row db.EntitiesHistory) (domain.EntityHistory, error) {
+	properties, err := domain.FromJSONBProperties(row.Properties)
+	if err != nil {
+		return domain.EntityHistory{}, fmt.Errorf("failed to decode properties for entity history %s: %w", row.ID, err)
+	}
+
+	return domain.EntityHistory{
+		ID:             row.ID,
+		EntityID:       row.EntityID,
+		OrganizationID: row.OrganizationID,
+		SchemaID:       row.SchemaID,
+		EntityType:     row.EntityType,
+		Path:           row.Path,
+		Properties:     properties,
+		CreatedAt:      row.CreatedAt,
+		UpdatedAt:      row.UpdatedAt,
+		Version:        row.Version,
+		ChangeType:     row.ChangeType,
+		ChangedAt:      timestamptzPtr(row.ChangedAt),
+		Reason:         textPtr(row.Reason),
 	}, nil
 }

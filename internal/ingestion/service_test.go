@@ -667,6 +667,14 @@ func (s *stubEntityRepo) GetByIDs(ctx context.Context, ids []uuid.UUID) ([]domai
 	return nil, errors.New("not implemented")
 }
 
+func (s *stubEntityRepo) GetHistoryByVersion(ctx context.Context, entityID uuid.UUID, version int64) (domain.EntityHistory, error) {
+	return domain.EntityHistory{}, errors.New("not implemented")
+}
+
+func (s *stubEntityRepo) ListHistory(ctx context.Context, entityID uuid.UUID) ([]domain.EntityHistory, error) {
+	return nil, errors.New("not implemented")
+}
+
 func (s *stubEntityRepo) List(ctx context.Context, organizationID uuid.UUID, filter *domain.EntityFilter, limit int, offset int) ([]domain.Entity, int, error) {
 	return nil, 0, errors.New("not implemented")
 }

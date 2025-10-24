@@ -60,6 +60,12 @@ type ComplexityRoot struct {
 		Version        func(childComplexity int) int
 	}
 
+	EntityDiffResult struct {
+		Base        func(childComplexity int) int
+		Target      func(childComplexity int) int
+		UnifiedDiff func(childComplexity int) int
+	}
+
 	EntityConnection struct {
 		Entities func(childComplexity int) int
 		PageInfo func(childComplexity int) int
@@ -97,6 +103,14 @@ type ComplexityRoot struct {
 	EntityJoinEdge struct {
 		Left  func(childComplexity int) int
 		Right func(childComplexity int) int
+	}
+
+	EntitySnapshotView struct {
+		CanonicalText func(childComplexity int) int
+		EntityType    func(childComplexity int) int
+		Path          func(childComplexity int) int
+		SchemaID      func(childComplexity int) int
+		Version       func(childComplexity int) int
 	}
 
 	EntitySchema struct {
@@ -172,6 +186,7 @@ type ComplexityRoot struct {
 		EntitiesByIDs                      func(childComplexity int, ids []string) int
 		EntitiesByType                     func(childComplexity int, organizationID string, entityType string) int
 		Entity                             func(childComplexity int, id string) int
+		EntityHistory                      func(childComplexity int, id string) int
 		EntityJoinDefinition               func(childComplexity int, id string) int
 		EntityJoinDefinitions              func(childComplexity int, organizationID string) int
 		EntitySchema                       func(childComplexity int, id string) int
@@ -234,6 +249,8 @@ type QueryResolver interface {
 	Entity(ctx context.Context, id string) (*Entity, error)
 	EntitiesByType(ctx context.Context, organizationID string, entityType string) ([]*Entity, error)
 	EntitiesByIDs(ctx context.Context, ids []string) ([]*Entity, error)
+	EntityDiff(ctx context.Context, id string, baseVersion int, targetVersion int) (*EntityDiffResult, error)
+	EntityHistory(ctx context.Context, id string) ([]*EntitySnapshotView, error)
 	GetEntityAncestors(ctx context.Context, entityID string) ([]*Entity, error)
 	GetEntityDescendants(ctx context.Context, entityID string) ([]*Entity, error)
 	GetEntityChildren(ctx context.Context, entityID string) ([]*Entity, error)
@@ -329,6 +346,25 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Entity.Version(childComplexity), true
+
+	case "EntityDiffResult.base":
+		if e.complexity.EntityDiffResult.Base == nil {
+			break
+		}
+
+		return e.complexity.EntityDiffResult.Base(childComplexity), true
+	case "EntityDiffResult.target":
+		if e.complexity.EntityDiffResult.Target == nil {
+			break
+		}
+
+		return e.complexity.EntityDiffResult.Target(childComplexity), true
+	case "EntityDiffResult.unifiedDiff":
+		if e.complexity.EntityDiffResult.UnifiedDiff == nil {
+			break
+		}
+
+		return e.complexity.EntityDiffResult.UnifiedDiff(childComplexity), true
 
 	case "EntityConnection.entities":
 		if e.complexity.EntityConnection.Entities == nil {
@@ -478,6 +514,37 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.EntityJoinEdge.Right(childComplexity), true
+
+	case "EntitySnapshotView.canonicalText":
+		if e.complexity.EntitySnapshotView.CanonicalText == nil {
+			break
+		}
+
+		return e.complexity.EntitySnapshotView.CanonicalText(childComplexity), true
+	case "EntitySnapshotView.entityType":
+		if e.complexity.EntitySnapshotView.EntityType == nil {
+			break
+		}
+
+		return e.complexity.EntitySnapshotView.EntityType(childComplexity), true
+	case "EntitySnapshotView.path":
+		if e.complexity.EntitySnapshotView.Path == nil {
+			break
+		}
+
+		return e.complexity.EntitySnapshotView.Path(childComplexity), true
+	case "EntitySnapshotView.schemaId":
+		if e.complexity.EntitySnapshotView.SchemaID == nil {
+			break
+		}
+
+		return e.complexity.EntitySnapshotView.SchemaID(childComplexity), true
+	case "EntitySnapshotView.version":
+		if e.complexity.EntitySnapshotView.Version == nil {
+			break
+		}
+
+		return e.complexity.EntitySnapshotView.Version(childComplexity), true
 
 	case "EntitySchema.createdAt":
 		if e.complexity.EntitySchema.CreatedAt == nil {
@@ -887,6 +954,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Query.Entity(childComplexity, args["id"].(string)), true
+	case "Query.entityHistory":
+		if e.complexity.Query.EntityHistory == nil {
+			break
+		}
+
+		args, err := ec.field_Query_entityHistory_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.EntityHistory(childComplexity, args["id"].(string)), true
 	case "Query.entityJoinDefinition":
 		if e.complexity.Query.EntityJoinDefinition == nil {
 			break
@@ -1589,6 +1667,38 @@ func (ec *executionContext) field_Query_entitySchemas_args(ctx context.Context, 
 		return nil, err
 	}
 	args["organizationId"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_entityDiff_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id", ec.unmarshalNString2string)
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "baseVersion", ec.unmarshalNInt2int)
+	if err != nil {
+		return nil, err
+	}
+	args["baseVersion"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "targetVersion", ec.unmarshalNInt2int)
+	if err != nil {
+		return nil, err
+	}
+	args["targetVersion"] = arg2
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_entityHistory_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id", ec.unmarshalNString2string)
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
 	return args, nil
 }
 
@@ -5372,6 +5482,373 @@ func (ec *executionContext) fieldContext_Query_entity(ctx context.Context, field
 	return fc, nil
 }
 
+func (ec *executionContext) _EntityDiffResult_base(ctx context.Context, field graphql.CollectedField, obj *EntityDiffResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityDiffResult_base,
+		func(ctx context.Context) (any, error) {
+			if obj == nil {
+				return nil, nil
+			}
+			return obj.Base, nil
+		},
+		nil,
+		ec.marshalOEntitySnapshotView2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntitySnapshotView,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityDiffResult_base(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityDiffResult",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "version":
+				return ec.fieldContext_EntitySnapshotView_version(ctx, field)
+			case "path":
+				return ec.fieldContext_EntitySnapshotView_path(ctx, field)
+			case "schemaId":
+				return ec.fieldContext_EntitySnapshotView_schemaId(ctx, field)
+			case "entityType":
+				return ec.fieldContext_EntitySnapshotView_entityType(ctx, field)
+			case "canonicalText":
+				return ec.fieldContext_EntitySnapshotView_canonicalText(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type EntitySnapshotView", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityDiffResult_target(ctx context.Context, field graphql.CollectedField, obj *EntityDiffResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityDiffResult_target,
+		func(ctx context.Context) (any, error) {
+			if obj == nil {
+				return nil, nil
+			}
+			return obj.Target, nil
+		},
+		nil,
+		ec.marshalOEntitySnapshotView2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntitySnapshotView,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityDiffResult_target(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityDiffResult",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "version":
+				return ec.fieldContext_EntitySnapshotView_version(ctx, field)
+			case "path":
+				return ec.fieldContext_EntitySnapshotView_path(ctx, field)
+			case "schemaId":
+				return ec.fieldContext_EntitySnapshotView_schemaId(ctx, field)
+			case "entityType":
+				return ec.fieldContext_EntitySnapshotView_entityType(ctx, field)
+			case "canonicalText":
+				return ec.fieldContext_EntitySnapshotView_canonicalText(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type EntitySnapshotView", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityDiffResult_unifiedDiff(ctx context.Context, field graphql.CollectedField, obj *EntityDiffResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityDiffResult_unifiedDiff,
+		func(ctx context.Context) (any, error) {
+			if obj == nil {
+				return nil, nil
+			}
+			return obj.UnifiedDiff, nil
+		},
+		nil,
+		ec.marshalOString2ᚖstring,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityDiffResult_unifiedDiff(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityDiffResult",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntitySnapshotView_version(ctx context.Context, field graphql.CollectedField, obj *EntitySnapshotView) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntitySnapshotView_version,
+		func(ctx context.Context) (any, error) {
+			return obj.Version, nil
+		},
+		nil,
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntitySnapshotView_version(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntitySnapshotView",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntitySnapshotView_path(ctx context.Context, field graphql.CollectedField, obj *EntitySnapshotView) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntitySnapshotView_path,
+		func(ctx context.Context) (any, error) {
+			return obj.Path, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntitySnapshotView_path(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntitySnapshotView",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntitySnapshotView_schemaId(ctx context.Context, field graphql.CollectedField, obj *EntitySnapshotView) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntitySnapshotView_schemaId,
+		func(ctx context.Context) (any, error) {
+			return obj.SchemaID, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntitySnapshotView_schemaId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntitySnapshotView",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntitySnapshotView_entityType(ctx context.Context, field graphql.CollectedField, obj *EntitySnapshotView) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntitySnapshotView_entityType,
+		func(ctx context.Context) (any, error) {
+			return obj.EntityType, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntitySnapshotView_entityType(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntitySnapshotView",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntitySnapshotView_canonicalText(ctx context.Context, field graphql.CollectedField, obj *EntitySnapshotView) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntitySnapshotView_canonicalText,
+		func(ctx context.Context) (any, error) {
+			return obj.CanonicalText, nil
+		},
+		nil,
+		ec.marshalNString2ᚕstringᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntitySnapshotView_canonicalText(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntitySnapshotView",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_entityDiff(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Query_entityDiff,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Query().EntityDiff(ctx, fc.Args["id"].(string), fc.Args["baseVersion"].(int), fc.Args["targetVersion"].(int))
+		},
+		nil,
+		ec.marshalOEntityDiffResult2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityDiffResult,
+		false,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_Query_entityDiff(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "base":
+				return ec.fieldContext_EntityDiffResult_base(ctx, field)
+			case "target":
+				return ec.fieldContext_EntityDiffResult_target(ctx, field)
+			case "unifiedDiff":
+				return ec.fieldContext_EntityDiffResult_unifiedDiff(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type EntityDiffResult", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_entityDiff_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_entityHistory(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Query_entityHistory,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Query().EntityHistory(ctx, fc.Args["id"].(string))
+		},
+		nil,
+		ec.marshalNEntitySnapshotView2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntitySnapshotViewᚄ,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_Query_entityHistory(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "version":
+				return ec.fieldContext_EntitySnapshotView_version(ctx, field)
+			case "path":
+				return ec.fieldContext_EntitySnapshotView_path(ctx, field)
+			case "schemaId":
+				return ec.fieldContext_EntitySnapshotView_schemaId(ctx, field)
+			case "entityType":
+				return ec.fieldContext_EntitySnapshotView_entityType(ctx, field)
+			case "canonicalText":
+				return ec.fieldContext_EntitySnapshotView_canonicalText(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type EntitySnapshotView", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_entityHistory_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Query_entitiesByType(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -8826,7 +9303,49 @@ func (ec *executionContext) unmarshalInputUpdateOrganizationInput(ctx context.Co
 
 // region    **************************** object.gotpl ****************************
 
+var entityDiffResultImplementors = []string{"EntityDiffResult"}
+
 var entityImplementors = []string{"Entity"}
+
+var entitySnapshotViewImplementors = []string{"EntitySnapshotView"}
+
+func (ec *executionContext) _EntityDiffResult(ctx context.Context, sel ast.SelectionSet, obj *EntityDiffResult) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, entityDiffResultImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("EntityDiffResult")
+		case "base":
+			out.Values[i] = ec._EntityDiffResult_base(ctx, field, obj)
+		case "target":
+			out.Values[i] = ec._EntityDiffResult_target(ctx, field, obj)
+		case "unifiedDiff":
+			out.Values[i] = ec._EntityDiffResult_unifiedDiff(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
 
 func (ec *executionContext) _Entity(ctx context.Context, sel ast.SelectionSet, obj *Entity) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, entityImplementors)
@@ -8918,6 +9437,63 @@ func (ec *executionContext) _Entity(ctx context.Context, sel ast.SelectionSet, o
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+func (ec *executionContext) _EntitySnapshotView(ctx context.Context, sel ast.SelectionSet, obj *EntitySnapshotView) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, entitySnapshotViewImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("EntitySnapshotView")
+		case "version":
+			out.Values[i] = ec._EntitySnapshotView_version(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "path":
+			out.Values[i] = ec._EntitySnapshotView_path(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "schemaId":
+			out.Values[i] = ec._EntitySnapshotView_schemaId(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "entityType":
+			out.Values[i] = ec._EntitySnapshotView_entityType(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "canonicalText":
+			out.Values[i] = ec._EntitySnapshotView_canonicalText(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -9949,6 +10525,47 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "entityDiff":
+			field := field
+
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_entityDiff(ctx, field)
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "entityHistory":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_entityHistory(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
 		case "getEntityAncestors":
 			field := field
 
@@ -10751,6 +11368,63 @@ func (ec *executionContext) marshalNEntity2ᚕᚖgithubᚗcomᚋrpattnᚋengql�
 	}
 
 	return ret
+}
+
+func (ec *executionContext) marshalNEntitySnapshotView2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntitySnapshotViewᚄ(ctx context.Context, sel ast.SelectionSet, v []*EntitySnapshotView) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNEntitySnapshotView2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntitySnapshotView(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+
+	if !isLen1 {
+		wg.Wait()
+	}
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNEntitySnapshotView2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntitySnapshotView(ctx context.Context, sel ast.SelectionSet, v *EntitySnapshotView) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._EntitySnapshotView(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalNEntity2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntity(ctx context.Context, sel ast.SelectionSet, v *Entity) graphql.Marshaler {
@@ -11679,6 +12353,20 @@ func (ec *executionContext) marshalOEntity2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgr
 		return graphql.Null
 	}
 	return ec._Entity(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalOEntityDiffResult2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityDiffResult(ctx context.Context, sel ast.SelectionSet, v *EntityDiffResult) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._EntityDiffResult(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalOEntitySnapshotView2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntitySnapshotView(ctx context.Context, sel ast.SelectionSet, v *EntitySnapshotView) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._EntitySnapshotView(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalOEntityFilter2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityFilter(ctx context.Context, v any) (*EntityFilter, error) {

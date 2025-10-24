@@ -56,6 +56,12 @@ type Entity struct {
 	LinkedEntities []*Entity `json:"linkedEntities"`
 }
 
+type EntityDiffResult struct {
+	Base        *EntitySnapshotView `json:"base"`
+	Target      *EntitySnapshotView `json:"target"`
+	UnifiedDiff *string             `json:"unifiedDiff,omitempty"`
+}
+
 type EntityConnection struct {
 	Entities []*Entity `json:"entities"`
 	PageInfo *PageInfo `json:"pageInfo"`
@@ -95,6 +101,14 @@ type EntityJoinDefinition struct {
 	SortCriteria    []*JoinSortCriterion    `json:"sortCriteria"`
 	CreatedAt       string                  `json:"createdAt"`
 	UpdatedAt       string                  `json:"updatedAt"`
+}
+
+type EntitySnapshotView struct {
+	Version       int      `json:"version"`
+	Path          string   `json:"path"`
+	SchemaID      string   `json:"schemaId"`
+	EntityType    string   `json:"entityType"`
+	CanonicalText []string `json:"canonicalText"`
 }
 
 type EntityJoinEdge struct {

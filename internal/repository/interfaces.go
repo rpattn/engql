@@ -37,6 +37,8 @@ type EntityRepository interface {
 	CreateBatch(ctx context.Context, items []EntityBatchItem, opts EntityBatchOptions) (EntityBatchResult, error)
 	GetByID(ctx context.Context, id uuid.UUID) (domain.Entity, error)
 	GetByIDs(ctx context.Context, ids []uuid.UUID) ([]domain.Entity, error)
+	GetHistoryByVersion(ctx context.Context, entityID uuid.UUID, version int64) (domain.EntityHistory, error)
+	ListHistory(ctx context.Context, entityID uuid.UUID) ([]domain.EntityHistory, error)
 	List(ctx context.Context, organizationID uuid.UUID, filter *domain.EntityFilter, limit int, offset int) ([]domain.Entity, int, error)
 	ListByType(ctx context.Context, organizationID uuid.UUID, entityType string) ([]domain.Entity, error)
 	Update(ctx context.Context, entity domain.Entity) (domain.Entity, error)

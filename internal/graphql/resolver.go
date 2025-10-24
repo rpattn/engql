@@ -2,6 +2,7 @@ package graphql
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/rpattn/engql/internal/repository"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 // Resolver handles GraphQL queries and mutations
@@ -287,6 +289,120 @@ func (r *Resolver) GetEntity(ctx context.Context, id string) (*graph.Entity, err
 	}, nil
 }
 
+// EntityDiff compares two versions of an entity and returns a structured diff response.
+func (r *Resolver) EntityDiff(ctx context.Context, id string, baseVersion int, targetVersion int) (*graph.EntityDiffResult, error) {
+	if r.entityRepo == nil {
+		return nil, fmt.Errorf("entity repository not configured")
+	}
+
+	entityID, err := uuid.Parse(id)
+	if err != nil {
+		return nil, fmt.Errorf("invalid entity ID: %w", err)
+	}
+
+	var current *domain.Entity
+	entity, err := r.entityRepo.GetByID(ctx, entityID)
+	if err != nil {
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("failed to load entity: %w", err)
+		}
+	} else {
+		current = &entity
+	}
+
+	baseSnapshot, err := r.loadEntitySnapshot(ctx, entityID, int64(baseVersion), current)
+	if err != nil {
+		return nil, err
+	}
+
+	targetSnapshot, err := r.loadEntitySnapshot(ctx, entityID, int64(targetVersion), current)
+	if err != nil {
+		return nil, err
+	}
+
+	result := &graph.EntityDiffResult{}
+
+	baseView, err := snapshotToGraph(baseSnapshot)
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare base snapshot: %w", err)
+	}
+	result.Base = baseView
+
+	targetView, err := snapshotToGraph(targetSnapshot)
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare target snapshot: %w", err)
+	}
+	result.Target = targetView
+
+	if baseSnapshot != nil && targetSnapshot != nil {
+		diff, err := domain.DiffEntitySnapshots(
+			fmt.Sprintf("version-%d", baseSnapshot.Version),
+			baseSnapshot,
+			fmt.Sprintf("version-%d", targetSnapshot.Version),
+			targetSnapshot,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to compute entity diff: %w", err)
+		}
+		result.UnifiedDiff = &diff
+	}
+
+	return result, nil
+}
+
+// EntityHistory returns the available snapshots for an entity, including the current state when present.
+func (r *Resolver) EntityHistory(ctx context.Context, id string) ([]*graph.EntitySnapshotView, error) {
+	if r.entityRepo == nil {
+		return nil, fmt.Errorf("entity repository not configured")
+	}
+
+	entityID, err := uuid.Parse(id)
+	if err != nil {
+		return nil, fmt.Errorf("invalid entity ID: %w", err)
+	}
+
+	var current *domain.Entity
+	entity, err := r.entityRepo.GetByID(ctx, entityID)
+	if err != nil {
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("failed to load entity: %w", err)
+		}
+	} else {
+		current = &entity
+	}
+
+	history, err := r.entityRepo.ListHistory(ctx, entityID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list entity history: %w", err)
+	}
+
+	snapshots := make([]*graph.EntitySnapshotView, 0, len(history)+1)
+
+	if current != nil {
+		snapshot := domain.NewEntitySnapshotFromEntity(*current)
+		view, err := snapshotToGraph(&snapshot)
+		if err != nil {
+			return nil, fmt.Errorf("failed to prepare current snapshot: %w", err)
+		}
+		snapshots = append(snapshots, view)
+	}
+
+	for _, record := range history {
+		if current != nil && record.Version == current.Version {
+			continue
+		}
+
+		snapshot := domain.NewEntitySnapshotFromHistory(record)
+		view, err := snapshotToGraph(&snapshot)
+		if err != nil {
+			return nil, fmt.Errorf("failed to prepare history snapshot: %w", err)
+		}
+		snapshots = append(snapshots, view)
+	}
+
+	return snapshots, nil
+}
+
 // EntitiesByType returns entities of a specific type for an organization
 func (r *Resolver) EntitiesByType(ctx context.Context, organizationID, entityType string) ([]*graph.Entity, error) {
 	orgID, err := uuid.Parse(organizationID)
@@ -325,4 +441,44 @@ func (r *Resolver) EntitiesByType(ctx context.Context, organizationID, entityTyp
 	}
 
 	return result, nil
+}
+
+func (r *Resolver) loadEntitySnapshot(ctx context.Context, entityID uuid.UUID, version int64, current *domain.Entity) (*domain.EntitySnapshot, error) {
+	if current != nil && current.Version == version {
+		snapshot := domain.NewEntitySnapshotFromEntity(*current)
+		return &snapshot, nil
+	}
+
+	history, err := r.entityRepo.GetHistoryByVersion(ctx, entityID, version)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to load entity history version %d: %w", version, err)
+	}
+
+	snapshot := domain.NewEntitySnapshotFromHistory(history)
+	return &snapshot, nil
+}
+
+func snapshotToGraph(snapshot *domain.EntitySnapshot) (*graph.EntitySnapshotView, error) {
+	if snapshot == nil {
+		return nil, nil
+	}
+
+	lines, err := snapshot.CanonicalText()
+	if err != nil {
+		return nil, err
+	}
+
+	canonical := make([]string, len(lines))
+	copy(canonical, lines)
+
+	return &graph.EntitySnapshotView{
+		Version:       int(snapshot.Version),
+		Path:          snapshot.Path,
+		SchemaID:      snapshot.SchemaID.String(),
+		EntityType:    snapshot.EntityType,
+		CanonicalText: canonical,
+	}, nil
 }

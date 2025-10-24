@@ -176,6 +176,16 @@ func (r *queryResolver) EntitiesByIDs(ctx context.Context, ids []string) ([]*gra
 	return r.Resolver.EntitiesByIDs(ctx, ids)
 }
 
+// EntityDiff is the resolver for the entityDiff field.
+func (r *queryResolver) EntityDiff(ctx context.Context, id string, baseVersion int, targetVersion int) (*graph.EntityDiffResult, error) {
+	return r.Resolver.EntityDiff(ctx, id, baseVersion, targetVersion)
+}
+
+// EntityHistory is the resolver for the entityHistory field.
+func (r *queryResolver) EntityHistory(ctx context.Context, id string) ([]*graph.EntitySnapshotView, error) {
+	return r.Resolver.EntityHistory(ctx, id)
+}
+
 // GetEntityAncestors is the resolver for the getEntityAncestors field.
 func (r *queryResolver) GetEntityAncestors(ctx context.Context, entityID string) ([]*graph.Entity, error) {
 	return r.Resolver.GetEntityAncestors(ctx, entityID)
