@@ -19,6 +19,15 @@ function EntityDetailPage() {
   const detailQuery = useEntityDetailQuery({ id: entityId }, { staleTime: 30_000 })
   const entity = detailQuery.data?.entity ?? null
 
+  const headingLabel = useMemo(() => {
+    if (!entity) {
+      return null
+    }
+
+    const fallback = entity.referenceValue?.trim() || entity.entityType || entity.id
+    return extractEntityDisplayNameFromProperties(entity.properties, fallback)
+  }, [entity])
+
   const propertiesText = useMemo(() => {
     if (!entity) {
       return null
@@ -38,9 +47,11 @@ function EntityDetailPage() {
       </Link>
 
       <div className="space-y-2">
-        <h1 className="text-2xl font-semibold text-gray-900">Entity details</h1>
+        <h1 className="text-2xl font-semibold text-gray-900">
+          {headingLabel ?? 'Entity details'}
+        </h1>
         <p className="text-sm text-gray-600">
-          Full metadata and relationships for entity {entityId}.
+          Detailed metadata and relationships for this entity.
         </p>
       </div>
 
