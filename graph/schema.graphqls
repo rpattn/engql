@@ -114,6 +114,7 @@ type Entity {
   entityType: String!
   path: String!
   properties: String!
+  referenceValue: String
   version: Int!
   createdAt: String!
   updatedAt: String!
@@ -142,6 +143,8 @@ input CreateEntityInput {
   properties: String!
   linkedEntityId: String
   linkedEntityIds: [String!]
+  linkedEntityReference: String
+  linkedEntityReferences: [String!]
 }
 
 input UpdateEntityInput {

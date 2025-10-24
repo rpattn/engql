@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/rpattn/engql/graph"
@@ -17,10 +18,11 @@ import (
 
 // Resolver handles GraphQL queries and mutations
 type Resolver struct {
-	orgRepo          repository.OrganizationRepository
-	entitySchemaRepo repository.EntitySchemaRepository
-	entityRepo       repository.EntityRepository
-	entityJoinRepo   repository.EntityJoinRepository
+	orgRepo             repository.OrganizationRepository
+	entitySchemaRepo    repository.EntitySchemaRepository
+	entityRepo          repository.EntityRepository
+	entityJoinRepo      repository.EntityJoinRepository
+	referenceFieldCache sync.Map
 }
 
 // NewResolver creates a new GraphQL resolver
@@ -197,7 +199,7 @@ func (r *Resolver) Entities(ctx context.Context, organizationID string, filter *
 	// Convert to GraphQL type
 	result := make([]*graph.Entity, len(entities))
 	for i, entity := range entities {
-		mapped, err := mapDomainEntity(entity)
+		mapped, err := r.mapDomainEntity(ctx, entity)
 		if err != nil {
 			return nil, err
 		}
@@ -421,7 +423,7 @@ func (r *Resolver) EntitiesByType(ctx context.Context, organizationID, entityTyp
 	var errs []error
 
 	for _, entity := range entities {
-		gqlEntity, err := mapDomainEntity(entity)
+		gqlEntity, err := r.mapDomainEntity(ctxWithCache, entity)
 		if err != nil {
 			errs = append(errs, err)
 			continue

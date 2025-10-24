@@ -215,6 +215,51 @@ func mergeLinkedIDsIntoProperties(properties map[string]any, linkedIDs []string)
 	properties["linked_ids"] = uniqueOrderedStrings(existing)
 }
 
+func (r *Resolver) ensureReferenceValue(
+	ctx context.Context,
+	schema domain.EntitySchema,
+	organizationID uuid.UUID,
+	entityType string,
+	properties map[string]any,
+	excludeID *uuid.UUID,
+) error {
+	field, found := findSchemaReferenceField(schema)
+	if !found {
+		return nil
+	}
+
+	raw, exists := properties[field.Name]
+	if !exists {
+		return nil
+	}
+
+	referenceValue, ok := raw.(string)
+	if !ok {
+		return fmt.Errorf("reference field %s must be a string", field.Name)
+	}
+
+	normalized := strings.TrimSpace(referenceValue)
+	if normalized == "" {
+		return fmt.Errorf("reference field %s cannot be empty", field.Name)
+	}
+
+	properties[field.Name] = normalized
+
+	matches, err := r.entityRepo.ListByReferences(ctx, organizationID, entityType, []string{normalized})
+	if err != nil {
+		return fmt.Errorf("failed to verify reference uniqueness for field %s: %w", field.Name, err)
+	}
+
+	for _, match := range matches {
+		if excludeID != nil && match.ID == *excludeID {
+			continue
+		}
+		return fmt.Errorf("an entity of type %s already uses reference %q", entityType, normalized)
+	}
+
+	return nil
+}
+
 func normalizeLinkedIDValues(value any) []string {
 	switch v := value.(type) {
 	case nil:
@@ -254,6 +299,16 @@ func gatherRequestedLinkedIDs(input graph.CreateEntityInput) []string {
 			ids = append(ids, trimmed)
 		}
 	}
+	if input.LinkedEntityReference != nil {
+		if trimmed := strings.TrimSpace(*input.LinkedEntityReference); trimmed != "" {
+			ids = append(ids, trimmed)
+		}
+	}
+	for _, raw := range input.LinkedEntityReferences {
+		if trimmed := strings.TrimSpace(raw); trimmed != "" {
+			ids = append(ids, trimmed)
+		}
+	}
 	if len(ids) == 0 {
 		return nil
 	}
@@ -274,6 +329,15 @@ func uniqueOrderedStrings(values []string) []string {
 		result = append(result, val)
 	}
 	return result
+}
+
+func findSchemaReferenceField(schema domain.EntitySchema) (domain.FieldDefinition, bool) {
+	for _, field := range schema.Fields {
+		if field.Type == domain.FieldTypeReference {
+			return field, true
+		}
+	}
+	return domain.FieldDefinition{}, false
 }
 
 // CreateOrganization creates a new organization
@@ -628,6 +692,10 @@ func (r *Resolver) CreateEntity(ctx context.Context, input graph.CreateEntityInp
 		mergeLinkedIDsIntoProperties(properties, requestedLinkedIDs)
 	}
 
+	if err := r.ensureReferenceValue(ctx, schemaVersion, orgID, input.EntityType, properties, nil); err != nil {
+		return nil, err
+	}
+
 	// Convert schema fields slice -> map[string]FieldDefinition
 	fieldDefsMap := make(map[string]validator.FieldDefinition)
 	for _, f := range schemaVersion.Fields {
@@ -669,7 +737,7 @@ func (r *Resolver) CreateEntity(ctx context.Context, input graph.CreateEntityInp
 		return nil, fmt.Errorf("failed to create entity: %w", err)
 	}
 
-	return mapDomainEntity(createdEntity)
+	return r.mapDomainEntity(ctx, createdEntity)
 }
 
 // UpdateEntity updates an existing entity
@@ -685,14 +753,23 @@ func (r *Resolver) UpdateEntity(ctx context.Context, input graph.UpdateEntityInp
 		return nil, fmt.Errorf("failed to get entity: %w", err)
 	}
 
+	existingSchema, err := r.entitySchemaRepo.GetByID(ctx, existingEntity.SchemaID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load schema for entity: %w", err)
+	}
+
 	// Apply updates using immutable pattern
 	updatedEntity := existingEntity
+	targetSchema := existingSchema
+	targetEntityType := existingEntity.EntityType
 	if input.EntityType != nil {
 		schemaVersion, err := r.entitySchemaRepo.GetByName(ctx, existingEntity.OrganizationID, *input.EntityType)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load schema for entity type %s: %w", *input.EntityType, err)
 		}
 		updatedEntity = updatedEntity.WithEntitySchema(*input.EntityType, schemaVersion.ID)
+		targetSchema = schemaVersion
+		targetEntityType = *input.EntityType
 	}
 	if input.Path != nil {
 		updatedEntity = updatedEntity.WithPath(*input.Path)
@@ -703,6 +780,12 @@ func (r *Resolver) UpdateEntity(ctx context.Context, input graph.UpdateEntityInp
 		if err := json.Unmarshal([]byte(*input.Properties), &properties); err != nil {
 			return nil, fmt.Errorf("invalid properties JSON: %w", err)
 		}
+		if properties == nil {
+			properties = make(map[string]any)
+		}
+		if err := r.ensureReferenceValue(ctx, targetSchema, existingEntity.OrganizationID, targetEntityType, properties, &existingEntity.ID); err != nil {
+			return nil, err
+		}
 		updatedEntity = updatedEntity.WithProperties(properties)
 	}
 
@@ -712,7 +795,7 @@ func (r *Resolver) UpdateEntity(ctx context.Context, input graph.UpdateEntityInp
 		return nil, fmt.Errorf("failed to update entity: %w", err)
 	}
 
-	return mapDomainEntity(savedEntity)
+	return r.mapDomainEntity(ctx, savedEntity)
 }
 
 // RollbackEntity restores an entity to a previous version and returns the new state
@@ -736,7 +819,7 @@ func (r *Resolver) RollbackEntity(ctx context.Context, id string, toVersion int,
 		return nil, fmt.Errorf("failed to load rolled back entity: %w", err)
 	}
 
-	return mapDomainEntity(entity)
+	return r.mapDomainEntity(ctx, entity)
 }
 
 // DeleteEntity deletes an entity

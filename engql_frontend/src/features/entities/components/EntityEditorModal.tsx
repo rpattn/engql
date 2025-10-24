@@ -159,9 +159,10 @@ export default function EntityEditorModal({
                   const isNumericField =
                     field.type === FieldType.Integer || field.type === FieldType.Float
                   const isTimestampField = field.type === FieldType.Timestamp
-                  const isReferenceField =
+                  const isEntityLinkField =
                     field.type === FieldType.EntityReference ||
                     field.type === FieldType.EntityReferenceArray
+                  const isCanonicalReferenceField = field.type === FieldType.Reference
 
                   return (
                     <div
@@ -185,7 +186,7 @@ export default function EntityEditorModal({
                         <p className="mt-2 text-xs text-gray-600">{field.description}</p>
                       )}
                       <div className="mt-3">
-                        {isReferenceField ? (
+                        {isEntityLinkField ? (
                           <ReferenceFieldInput
                             organizationId={organizationId}
                             schema={schema}
@@ -216,26 +217,35 @@ export default function EntityEditorModal({
                             className="w-full rounded-md border border-gray-300 px-3 py-2 font-mono text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
                           />
                         ) : (
-                          <input
-                            type={
-                              isNumericField
-                                ? 'number'
-                                : isTimestampField
-                                  ? 'datetime-local'
-                                  : 'text'
-                            }
-                            value={
-                              typeof rawValue === 'string'
-                                ? rawValue
-                                : isTimestampField
-                                  ? ''
-                                  : String(rawValue ?? '')
-                            }
-                            onChange={(event) =>
-                              updateFieldValue(field.name, event.target.value)
-                            }
-                            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
-                          />
+                          <>
+                            <input
+                              type={
+                                isNumericField
+                                  ? 'number'
+                                  : isTimestampField
+                                    ? 'datetime-local'
+                                    : 'text'
+                              }
+                              value={
+                                typeof rawValue === 'string'
+                                  ? rawValue
+                                  : isTimestampField
+                                    ? ''
+                                    : String(rawValue ?? '')
+                              }
+                              onChange={(event) =>
+                                updateFieldValue(field.name, event.target.value)
+                              }
+                              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                            />
+                            {isCanonicalReferenceField && (
+                              <p className="mt-2 text-xs text-gray-500">
+                                Reference values are trimmed and must remain unique for this
+                                entity type. Linked fields resolve against the normalized
+                                value.
+                              </p>
+                            )}
+                          </>
                         )}
                       </div>
                     </div>

@@ -20,6 +20,8 @@ export type CreateEntityInput = {
   entityType: Scalars['String']['input'];
   linkedEntityId?: InputMaybe<Scalars['String']['input']>;
   linkedEntityIds?: InputMaybe<Array<Scalars['String']['input']>>;
+  linkedEntityReference?: InputMaybe<Scalars['String']['input']>;
+  linkedEntityReferences?: InputMaybe<Array<Scalars['String']['input']>>;
   organizationId: Scalars['String']['input'];
   path?: InputMaybe<Scalars['String']['input']>;
   properties: Scalars['String']['input'];
@@ -59,6 +61,7 @@ export type Entity = {
   organizationId: Scalars['String']['output'];
   path: Scalars['String']['output'];
   properties: Scalars['String']['output'];
+  referenceValue?: Maybe<Scalars['String']['output']>;
   schemaId: Scalars['String']['output'];
   updatedAt: Scalars['String']['output'];
   version: Scalars['Int']['output'];
@@ -184,6 +187,7 @@ export enum FieldType {
   Geometry = 'GEOMETRY',
   Integer = 'INTEGER',
   Json = 'JSON',
+  Reference = 'REFERENCE',
   String = 'STRING',
   Timeseries = 'TIMESERIES',
   Timestamp = 'TIMESTAMP'
@@ -594,7 +598,7 @@ export type GetEntitiesByOrgQueryVariables = Exact<{
 }>;
 
 
-export type GetEntitiesByOrgQuery = { __typename?: 'Query', entities: { __typename?: 'EntityConnection', entities: Array<{ __typename?: 'Entity', id: string, entityType: string, version: number, path: string, properties: string, createdAt: string, updatedAt: string }>, pageInfo: { __typename?: 'PageInfo', totalCount: number, hasNextPage: boolean, hasPreviousPage: boolean } } };
+export type GetEntitiesByOrgQuery = { __typename?: 'Query', entities: { __typename?: 'EntityConnection', entities: Array<{ __typename?: 'Entity', id: string, entityType: string, version: number, path: string, properties: string, referenceValue?: string | null, createdAt: string, updatedAt: string }>, pageInfo: { __typename?: 'PageInfo', totalCount: number, hasNextPage: boolean, hasPreviousPage: boolean } } };
 
 export type CreateSchemaMutationVariables = Exact<{
   input: CreateEntitySchemaInput;
@@ -630,7 +634,7 @@ export type EntitiesByTypeFullQueryVariables = Exact<{
 }>;
 
 
-export type EntitiesByTypeFullQuery = { __typename?: 'Query', entitiesByType: Array<{ __typename?: 'Entity', id: string, entityType: string, schemaId: string, version: number, properties: string, linkedEntities: Array<{ __typename?: 'Entity', id: string, entityType: string, properties: string }> }> };
+export type EntitiesByTypeFullQuery = { __typename?: 'Query', entitiesByType: Array<{ __typename?: 'Entity', id: string, entityType: string, schemaId: string, version: number, properties: string, referenceValue?: string | null, linkedEntities: Array<{ __typename?: 'Entity', id: string, entityType: string, properties: string, referenceValue?: string | null }> }> };
 
 export type SchemaVersionsQueryVariables = Exact<{
   organizationId: Scalars['String']['input'];
@@ -654,7 +658,7 @@ export type EntitiesManagementQueryVariables = Exact<{
 }>;
 
 
-export type EntitiesManagementQuery = { __typename?: 'Query', entities: { __typename?: 'EntityConnection', entities: Array<{ __typename?: 'Entity', id: string, organizationId: string, schemaId: string, entityType: string, path: string, properties: string, version: number, createdAt: string, updatedAt: string, linkedEntities: Array<{ __typename?: 'Entity', id: string, entityType: string, properties: string }> }>, pageInfo: { __typename?: 'PageInfo', totalCount: number, hasNextPage: boolean, hasPreviousPage: boolean } } };
+export type EntitiesManagementQuery = { __typename?: 'Query', entities: { __typename?: 'EntityConnection', entities: Array<{ __typename?: 'Entity', id: string, organizationId: string, schemaId: string, entityType: string, path: string, properties: string, referenceValue?: string | null, version: number, createdAt: string, updatedAt: string, linkedEntities: Array<{ __typename?: 'Entity', id: string, entityType: string, properties: string, referenceValue?: string | null }> }>, pageInfo: { __typename?: 'PageInfo', totalCount: number, hasNextPage: boolean, hasPreviousPage: boolean } } };
 
 export type EntityHistoryQueryVariables = Exact<{
   id: Scalars['String']['input'];
@@ -687,7 +691,7 @@ export type EntitiesByTypeQueryVariables = Exact<{
 }>;
 
 
-export type EntitiesByTypeQuery = { __typename?: 'Query', entitiesByType: Array<{ __typename?: 'Entity', id: string, entityType: string, schemaId: string, version: number, properties: string }> };
+export type EntitiesByTypeQuery = { __typename?: 'Query', entitiesByType: Array<{ __typename?: 'Entity', id: string, entityType: string, schemaId: string, version: number, properties: string, referenceValue?: string | null }> };
 
 export type EntitySchemaByNameQueryVariables = Exact<{
   organizationId: Scalars['String']['input'];
@@ -784,6 +788,7 @@ export const GetEntitiesByOrgDocument = `
       version
       path
       properties
+      referenceValue
       createdAt
       updatedAt
     }
@@ -943,10 +948,12 @@ export const EntitiesByTypeFullDocument = `
     schemaId
     version
     properties
+    referenceValue
     linkedEntities {
       id
       entityType
       properties
+      referenceValue
     }
   }
 }
@@ -1066,6 +1073,7 @@ export const EntitiesManagementDocument = `
       entityType
       path
       properties
+      referenceValue
       version
       createdAt
       updatedAt
@@ -1073,6 +1081,7 @@ export const EntitiesManagementDocument = `
         id
         entityType
         properties
+        referenceValue
       }
     }
     pageInfo {
@@ -1217,6 +1226,7 @@ export const EntitiesByTypeDocument = `
     schemaId
     version
     properties
+    referenceValue
   }
 }
     `;

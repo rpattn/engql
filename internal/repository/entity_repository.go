@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -22,6 +23,14 @@ import (
 type entityRepository struct {
 	queries *db.Queries
 	pool    *pgxpool.Pool
+	// cache reference field lookups keyed by schema ID to avoid repeated
+	// schema fetches when normalising entity references.
+	referenceFieldCache sync.Map
+}
+
+type referenceFieldCacheEntry struct {
+	fieldName string
+	found     bool
 }
 
 type skipEntityValidationContextKey struct{}
@@ -62,6 +71,10 @@ func quoteLiteral(value string) string {
 
 // Create creates a new entity
 func (r *entityRepository) Create(ctx context.Context, entity domain.Entity) (domain.Entity, error) {
+	if err := r.ensureReferenceNormalization(ctx, entity.SchemaID, entity.Properties, true); err != nil {
+		return domain.Entity{}, err
+	}
+
 	propertiesJSON, err := entity.GetPropertiesAsJSONB()
 	if err != nil {
 		return domain.Entity{}, fmt.Errorf("failed to marshal properties: %w", err)
@@ -78,7 +91,7 @@ func (r *entityRepository) Create(ctx context.Context, entity domain.Entity) (do
 		return domain.Entity{}, fmt.Errorf("failed to create entity: %w", err)
 	}
 
-	return buildEntity(row.ID, row.OrganizationID, row.SchemaID, row.EntityType, row.Path, row.Properties, row.Version, row.CreatedAt, row.UpdatedAt)
+	return r.buildEntity(ctx, row.ID, row.OrganizationID, row.SchemaID, row.EntityType, row.Path, row.Properties, row.Version, row.CreatedAt, row.UpdatedAt)
 }
 
 // CreateBatch stages entity rows for asynchronous flushing.
@@ -101,13 +114,32 @@ func (r *entityRepository) CreateBatch(ctx context.Context, items []EntityBatchI
 			pathValue = pgtype.Text{String: item.Path, Valid: true}
 		}
 
+		var properties map[string]any
+		if len(item.PropertiesJSON) > 0 {
+			if err := json.Unmarshal(item.PropertiesJSON, &properties); err != nil {
+				return EntityBatchResult{}, fmt.Errorf("failed to decode batch properties: %w", err)
+			}
+		}
+		if properties == nil {
+			properties = make(map[string]any)
+		}
+
+		if err := r.ensureReferenceNormalization(ctx, item.SchemaID, properties, true); err != nil {
+			return EntityBatchResult{}, err
+		}
+
+		normalizedJSON, err := json.Marshal(properties)
+		if err != nil {
+			return EntityBatchResult{}, fmt.Errorf("failed to encode batch properties: %w", err)
+		}
+
 		rows = append(rows, []any{
 			batchID,
 			item.OrganizationID,
 			item.SchemaID,
 			item.EntityType,
 			pathValue,
-			json.RawMessage(item.PropertiesJSON),
+			json.RawMessage(normalizedJSON),
 		})
 	}
 
@@ -401,7 +433,7 @@ func (r *entityRepository) GetByID(ctx context.Context, id uuid.UUID) (domain.En
 		return domain.Entity{}, fmt.Errorf("failed to get entity: %w", err)
 	}
 
-	return buildEntity(row.ID, row.OrganizationID, row.SchemaID, row.EntityType, row.Path, row.Properties, row.Version, row.CreatedAt, row.UpdatedAt)
+	return r.buildEntity(ctx, row.ID, row.OrganizationID, row.SchemaID, row.EntityType, row.Path, row.Properties, row.Version, row.CreatedAt, row.UpdatedAt)
 }
 
 // GetByIDs retrieves multiple entities by their IDs.
@@ -417,7 +449,7 @@ func (r *entityRepository) GetByIDs(ctx context.Context, ids []uuid.UUID) ([]dom
 
 	entities := make([]domain.Entity, len(rows))
 	for i, row := range rows {
-		entity, err := buildEntity(row.ID, row.OrganizationID, row.SchemaID, row.EntityType, row.Path, row.Properties, row.Version, row.CreatedAt, row.UpdatedAt)
+		entity, err := r.buildEntity(ctx, row.ID, row.OrganizationID, row.SchemaID, row.EntityType, row.Path, row.Properties, row.Version, row.CreatedAt, row.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -508,7 +540,7 @@ func (r *entityRepository) List(
 	var totalCount int
 
 	for i, row := range rows {
-		entity, err := buildEntity(row.ID, row.OrganizationID, row.SchemaID, row.EntityType, row.Path, row.Properties, row.Version, row.CreatedAt, row.UpdatedAt)
+		entity, err := r.buildEntity(ctx, row.ID, row.OrganizationID, row.SchemaID, row.EntityType, row.Path, row.Properties, row.Version, row.CreatedAt, row.UpdatedAt)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -534,7 +566,92 @@ func (r *entityRepository) ListByType(ctx context.Context, organizationID uuid.U
 
 	entities := make([]domain.Entity, len(rows))
 	for i, row := range rows {
-		entity, err := buildEntity(row.ID, row.OrganizationID, row.SchemaID, row.EntityType, row.Path, row.Properties, row.Version, row.CreatedAt, row.UpdatedAt)
+		entity, err := r.buildEntity(ctx, row.ID, row.OrganizationID, row.SchemaID, row.EntityType, row.Path, row.Properties, row.Version, row.CreatedAt, row.UpdatedAt)
+		if err != nil {
+			return nil, err
+		}
+		entities[i] = entity
+	}
+
+	return entities, nil
+}
+
+// GetByReference resolves an entity by its canonical reference value.
+func (r *entityRepository) GetByReference(ctx context.Context, organizationID uuid.UUID, entityType string, referenceValue string) (domain.Entity, error) {
+	fieldName, found, err := r.referenceFieldForType(ctx, organizationID, entityType)
+	if err != nil {
+		return domain.Entity{}, err
+	}
+	if !found {
+		return domain.Entity{}, fmt.Errorf("entity type %s does not declare a reference field", entityType)
+	}
+
+	normalized := strings.TrimSpace(referenceValue)
+	if normalized == "" {
+		return domain.Entity{}, fmt.Errorf("reference value cannot be empty")
+	}
+
+	row, err := r.queries.GetEntityByReference(ctx, db.GetEntityByReferenceParams{
+		OrganizationID: organizationID,
+		EntityType:     entityType,
+		FieldName:      fieldName,
+		ReferenceValue: normalized,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.Entity{}, fmt.Errorf("no %s entity found for reference %q: %w", entityType, normalized, err)
+		}
+		return domain.Entity{}, fmt.Errorf("failed to lookup entity by reference: %w", err)
+	}
+
+	return r.buildEntity(ctx, row.ID, row.OrganizationID, row.SchemaID, row.EntityType, row.Path, row.Properties, row.Version, row.CreatedAt, row.UpdatedAt)
+}
+
+// ListByReferences resolves every entity whose reference matches one of the provided values.
+func (r *entityRepository) ListByReferences(ctx context.Context, organizationID uuid.UUID, entityType string, referenceValues []string) ([]domain.Entity, error) {
+	if len(referenceValues) == 0 {
+		return []domain.Entity{}, nil
+	}
+
+	fieldName, found, err := r.referenceFieldForType(ctx, organizationID, entityType)
+	if err != nil {
+		return nil, err
+	}
+	if !found {
+		return nil, fmt.Errorf("entity type %s does not declare a reference field", entityType)
+	}
+
+	normalized := make([]string, 0, len(referenceValues))
+	seen := make(map[string]struct{}, len(referenceValues))
+	for _, value := range referenceValues {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		if _, exists := seen[trimmed]; exists {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		normalized = append(normalized, trimmed)
+	}
+
+	if len(normalized) == 0 {
+		return []domain.Entity{}, nil
+	}
+
+	rows, err := r.queries.ListEntitiesByReferences(ctx, db.ListEntitiesByReferencesParams{
+		OrganizationID:  organizationID,
+		EntityType:      entityType,
+		FieldName:       fieldName,
+		ReferenceValues: normalized,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list entities by reference: %w", err)
+	}
+
+	entities := make([]domain.Entity, len(rows))
+	for i, row := range rows {
+		entity, err := r.buildEntity(ctx, row.ID, row.OrganizationID, row.SchemaID, row.EntityType, row.Path, row.Properties, row.Version, row.CreatedAt, row.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -546,6 +663,10 @@ func (r *entityRepository) ListByType(ctx context.Context, organizationID uuid.U
 
 // Update updates an entity
 func (r *entityRepository) Update(ctx context.Context, entity domain.Entity) (domain.Entity, error) {
+	if err := r.ensureReferenceNormalization(ctx, entity.SchemaID, entity.Properties, true); err != nil {
+		return domain.Entity{}, err
+	}
+
 	propertiesJSON, err := entity.GetPropertiesAsJSONB()
 	if err != nil {
 		return domain.Entity{}, fmt.Errorf("failed to marshal properties: %w", err)
@@ -562,7 +683,7 @@ func (r *entityRepository) Update(ctx context.Context, entity domain.Entity) (do
 		return domain.Entity{}, fmt.Errorf("failed to update entity: %w", err)
 	}
 
-	return buildEntity(row.ID, row.OrganizationID, row.SchemaID, row.EntityType, row.Path, row.Properties, row.Version, row.CreatedAt, row.UpdatedAt)
+	return r.buildEntity(ctx, row.ID, row.OrganizationID, row.SchemaID, row.EntityType, row.Path, row.Properties, row.Version, row.CreatedAt, row.UpdatedAt)
 }
 
 // Delete deletes an entity
@@ -684,7 +805,7 @@ func (r *entityRepository) GetAncestors(ctx context.Context, organizationID uuid
 
 	entities := make([]domain.Entity, len(rows))
 	for i, row := range rows {
-		entity, err := buildEntity(row.ID, row.OrganizationID, row.SchemaID, row.EntityType, row.Path, row.Properties, row.Version, row.CreatedAt, row.UpdatedAt)
+		entity, err := r.buildEntity(ctx, row.ID, row.OrganizationID, row.SchemaID, row.EntityType, row.Path, row.Properties, row.Version, row.CreatedAt, row.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -706,7 +827,7 @@ func (r *entityRepository) GetDescendants(ctx context.Context, organizationID uu
 
 	entities := make([]domain.Entity, len(rows))
 	for i, row := range rows {
-		entity, err := buildEntity(row.ID, row.OrganizationID, row.SchemaID, row.EntityType, row.Path, row.Properties, row.Version, row.CreatedAt, row.UpdatedAt)
+		entity, err := r.buildEntity(ctx, row.ID, row.OrganizationID, row.SchemaID, row.EntityType, row.Path, row.Properties, row.Version, row.CreatedAt, row.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -728,7 +849,7 @@ func (r *entityRepository) GetChildren(ctx context.Context, organizationID uuid.
 
 	entities := make([]domain.Entity, len(rows))
 	for i, row := range rows {
-		entity, err := buildEntity(row.ID, row.OrganizationID, row.SchemaID, row.EntityType, row.Path, row.Properties, row.Version, row.CreatedAt, row.UpdatedAt)
+		entity, err := r.buildEntity(ctx, row.ID, row.OrganizationID, row.SchemaID, row.EntityType, row.Path, row.Properties, row.Version, row.CreatedAt, row.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -750,7 +871,7 @@ func (r *entityRepository) GetSiblings(ctx context.Context, organizationID uuid.
 
 	entities := make([]domain.Entity, len(rows))
 	for i, row := range rows {
-		entity, err := buildEntity(row.ID, row.OrganizationID, row.SchemaID, row.EntityType, row.Path, row.Properties, row.Version, row.CreatedAt, row.UpdatedAt)
+		entity, err := r.buildEntity(ctx, row.ID, row.OrganizationID, row.SchemaID, row.EntityType, row.Path, row.Properties, row.Version, row.CreatedAt, row.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -775,7 +896,16 @@ func (r *entityRepository) FilterByProperty(ctx context.Context, organizationID 
 		return nil, fmt.Errorf("failed to filter entities by property: %w", err)
 	}
 
-	return convertFilterRows(rows)
+	entities := make([]domain.Entity, len(rows))
+	for i, row := range rows {
+		entity, err := r.buildEntity(ctx, row.ID, row.OrganizationID, row.SchemaID, row.EntityType, row.Path, row.Properties, row.Version, row.CreatedAt, row.UpdatedAt)
+		if err != nil {
+			return nil, err
+		}
+		entities[i] = entity
+	}
+
+	return entities, nil
 }
 
 // Count returns the total count of entities for an organization
@@ -799,31 +929,104 @@ func (r *entityRepository) CountByType(ctx context.Context, organizationID uuid.
 	return count, nil
 }
 
-func convertEntityListRows(rows []db.ListEntitiesRow) ([]domain.Entity, error) {
-	entities := make([]domain.Entity, len(rows))
-	for i, row := range rows {
-		entity, err := buildEntity(row.ID, row.OrganizationID, row.SchemaID, row.EntityType, row.Path, row.Properties, row.Version, row.CreatedAt, row.UpdatedAt)
-		if err != nil {
-			return nil, err
-		}
-		entities[i] = entity
+func (r *entityRepository) ensureReferenceNormalization(ctx context.Context, schemaID uuid.UUID, properties map[string]any, strict bool) error {
+	if properties == nil {
+		return nil
 	}
-	return entities, nil
+
+	fieldName, found, err := r.referenceFieldForSchema(ctx, schemaID)
+	if err != nil {
+		return err
+	}
+	if !found {
+		return nil
+	}
+
+	raw, exists := properties[fieldName]
+	if !exists {
+		return nil
+	}
+
+	str, ok := raw.(string)
+	if !ok {
+		if strict {
+			return fmt.Errorf("reference field %s must be a string", fieldName)
+		}
+		return nil
+	}
+
+	normalized := strings.TrimSpace(str)
+	if normalized == "" {
+		if strict {
+			return fmt.Errorf("reference field %s cannot be empty", fieldName)
+		}
+		properties[fieldName] = normalized
+		return nil
+	}
+
+	properties[fieldName] = normalized
+	return nil
 }
 
-func convertFilterRows(rows []db.FilterEntitiesByPropertyRow) ([]domain.Entity, error) {
-	entities := make([]domain.Entity, len(rows))
-	for i, row := range rows {
-		entity, err := buildEntity(row.ID, row.OrganizationID, row.SchemaID, row.EntityType, row.Path, row.Properties, row.Version, row.CreatedAt, row.UpdatedAt)
-		if err != nil {
-			return nil, err
-		}
-		entities[i] = entity
+func (r *entityRepository) referenceFieldForSchema(ctx context.Context, schemaID uuid.UUID) (string, bool, error) {
+	if cached, ok := r.referenceFieldCache.Load(schemaID); ok {
+		entry := cached.(referenceFieldCacheEntry)
+		return entry.fieldName, entry.found, nil
 	}
-	return entities, nil
+
+	row, err := r.queries.GetEntitySchema(ctx, schemaID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			r.referenceFieldCache.Store(schemaID, referenceFieldCacheEntry{found: false})
+			return "", false, nil
+		}
+		return "", false, fmt.Errorf("failed to load entity schema %s: %w", schemaID, err)
+	}
+
+	fieldName, found, err := extractReferenceField(row.Fields)
+	if err != nil {
+		return "", false, err
+	}
+
+	r.referenceFieldCache.Store(schemaID, referenceFieldCacheEntry{fieldName: fieldName, found: found})
+	return fieldName, found, nil
 }
 
-func buildEntity(
+func (r *entityRepository) referenceFieldForType(ctx context.Context, organizationID uuid.UUID, entityType string) (string, bool, error) {
+	row, err := r.queries.GetEntitySchemaByName(ctx, db.GetEntitySchemaByNameParams{
+		OrganizationID: organizationID,
+		Name:           entityType,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", false, nil
+		}
+		return "", false, fmt.Errorf("failed to load schema for entity type %s: %w", entityType, err)
+	}
+
+	return extractReferenceField(row.Fields)
+}
+
+func extractReferenceField(fieldsJSON []byte) (string, bool, error) {
+	fields, err := domain.FromJSONBFields(fieldsJSON)
+	if err != nil {
+		return "", false, fmt.Errorf("failed to parse schema fields: %w", err)
+	}
+
+	for _, field := range fields {
+		if strings.EqualFold(string(field.Type), string(domain.FieldTypeReference)) {
+			if field.Name == "" {
+				return "", false, fmt.Errorf("reference field must declare a name")
+			}
+			return field.Name, true, nil
+		}
+	}
+
+	return "", false, nil
+}
+
+func (r *entityRepository) buildEntity(
+	ctx context.Context,
 	id uuid.UUID,
 	orgID uuid.UUID,
 	schemaID uuid.UUID,
@@ -837,6 +1040,10 @@ func buildEntity(
 	properties, err := domain.FromJSONBProperties(propertiesJSON)
 	if err != nil {
 		return domain.Entity{}, fmt.Errorf("failed to decode properties for entity %s: %w", id, err)
+	}
+
+	if err := r.ensureReferenceNormalization(ctx, schemaID, properties, false); err != nil {
+		return domain.Entity{}, err
 	}
 
 	return domain.Entity{

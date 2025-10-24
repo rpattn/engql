@@ -10,12 +10,14 @@ import (
 )
 
 type CreateEntityInput struct {
-	OrganizationID  string   `json:"organizationId"`
-	EntityType      string   `json:"entityType"`
-	Path            *string  `json:"path,omitempty"`
-	Properties      string   `json:"properties"`
-	LinkedEntityID  *string  `json:"linkedEntityId,omitempty"`
-	LinkedEntityIds []string `json:"linkedEntityIds,omitempty"`
+	OrganizationID         string   `json:"organizationId"`
+	EntityType             string   `json:"entityType"`
+	Path                   *string  `json:"path,omitempty"`
+	Properties             string   `json:"properties"`
+	LinkedEntityID         *string  `json:"linkedEntityId,omitempty"`
+	LinkedEntityIds        []string `json:"linkedEntityIds,omitempty"`
+	LinkedEntityReference  *string  `json:"linkedEntityReference,omitempty"`
+	LinkedEntityReferences []string `json:"linkedEntityReferences,omitempty"`
 }
 
 type CreateEntityJoinDefinitionInput struct {
@@ -50,6 +52,7 @@ type Entity struct {
 	EntityType     string    `json:"entityType"`
 	Path           string    `json:"path"`
 	Properties     string    `json:"properties"`
+	ReferenceValue *string   `json:"referenceValue,omitempty"`
 	Version        int       `json:"version"`
 	CreatedAt      string    `json:"createdAt"`
 	UpdatedAt      string    `json:"updatedAt"`
