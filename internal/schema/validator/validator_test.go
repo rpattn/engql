@@ -28,13 +28,13 @@ func TestValidateFields_MultipleReferenceFields(t *testing.T) {
 	}
 }
 
-func TestValidateFields_ReferenceMissingTarget(t *testing.T) {
+func TestValidateFields_ReferenceFieldMayOmitTarget(t *testing.T) {
 	fields := []domain.FieldDefinition{
 		{Name: "ref", Type: domain.FieldTypeReference},
 	}
 
-	if err := ValidateFields(fields); err == nil {
-		t.Fatalf("expected error when reference field lacks target entity type")
+	if err := ValidateFields(fields); err != nil {
+		t.Fatalf("expected validation to allow reference fields without a target, got %v", err)
 	}
 }
 
