@@ -114,9 +114,6 @@ export default function EntityTable({
                 <th className="px-4 py-3 text-left font-semibold text-gray-600">
                   Created
                 </th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-600">
-                  Properties
-                </th>
                 <th className="px-4 py-3 text-right font-semibold text-gray-600">
                   Actions
                 </th>
@@ -127,11 +124,13 @@ export default function EntityTable({
                 <tr key={entity.id} className="bg-white align-top">
                   <td className="px-4 py-4">
                     <div className="font-medium text-gray-900">
-                      {entity.entityType}
-                    </div>
-                    <div className="mt-1 text-xs text-gray-500">ID: {entity.id}</div>
-                    <div className="mt-1 text-xs text-gray-500">
-                      Schema ID: {entity.schemaId}
+                      <Link
+                        to="/entity/$entityId"
+                        params={{ entityId: entity.id }}
+                        className="text-blue-600 transition hover:text-blue-700 hover:underline"
+                      >
+                        {entity.entityType}
+                      </Link>
                     </div>
                   </td>
                   <td className="px-4 py-4">
@@ -168,11 +167,6 @@ export default function EntityTable({
                     <div className="text-xs text-gray-500">
                       {formatRelative(entity.createdAt)}
                     </div>
-                  </td>
-                  <td className="px-4 py-4">
-                    <pre className="max-h-32 overflow-auto rounded bg-gray-50 px-3 py-2 text-xs text-gray-700">
-                      {formatJsonPreviewLimited(entity.properties)}
-                    </pre>
                   </td>
                   <td className="px-4 py-4">
                     <div className="flex justify-end gap-2">

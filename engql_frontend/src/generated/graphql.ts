@@ -660,6 +660,13 @@ export type EntitiesManagementQueryVariables = Exact<{
 
 export type EntitiesManagementQuery = { __typename?: 'Query', entities: { __typename?: 'EntityConnection', entities: Array<{ __typename?: 'Entity', id: string, organizationId: string, schemaId: string, entityType: string, path: string, properties: string, referenceValue?: string | null, version: number, createdAt: string, updatedAt: string, linkedEntities: Array<{ __typename?: 'Entity', id: string, entityType: string, properties: string, referenceValue?: string | null }> }>, pageInfo: { __typename?: 'PageInfo', totalCount: number, hasNextPage: boolean, hasPreviousPage: boolean } } };
 
+export type EntityDetailQueryVariables = Exact<{
+  id: Scalars['String']['input'];
+}>;
+
+
+export type EntityDetailQuery = { __typename?: 'Query', entity?: { __typename?: 'Entity', id: string, organizationId: string, schemaId: string, entityType: string, path: string, properties: string, referenceValue?: string | null, version: number, createdAt: string, updatedAt: string, linkedEntities: Array<{ __typename?: 'Entity', id: string, entityType: string, properties: string, referenceValue?: string | null }> } | null };
+
 export type EntityHistoryQueryVariables = Exact<{
   id: Scalars['String']['input'];
 }>;
@@ -1113,6 +1120,50 @@ useEntitiesManagementQuery.getKey = (variables: EntitiesManagementQueryVariables
 
 
 useEntitiesManagementQuery.fetcher = (variables: EntitiesManagementQueryVariables, options?: RequestInit['headers']) => graphqlRequest<EntitiesManagementQuery, EntitiesManagementQueryVariables>(EntitiesManagementDocument, variables, options);
+
+export const EntityDetailDocument = `
+    query EntityDetail($id: String!) {
+  entity(id: $id) {
+    id
+    organizationId
+    schemaId
+    entityType
+    path
+    properties
+    referenceValue
+    version
+    createdAt
+    updatedAt
+    linkedEntities {
+      id
+      entityType
+      properties
+      referenceValue
+    }
+  }
+}
+    `;
+
+export const useEntityDetailQuery = <
+      TData = EntityDetailQuery,
+      TError = unknown
+    >(
+      variables: EntityDetailQueryVariables,
+      options?: Omit<UseQueryOptions<EntityDetailQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<EntityDetailQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<EntityDetailQuery, TError, TData>(
+      {
+    queryKey: ['EntityDetail', variables],
+    queryFn: () => graphqlRequest<EntityDetailQuery, EntityDetailQueryVariables>(EntityDetailDocument, variables),
+    ...options
+  }
+    )};
+
+useEntityDetailQuery.getKey = (variables: EntityDetailQueryVariables) => ['EntityDetail', variables];
+
+
+useEntityDetailQuery.fetcher = (variables: EntityDetailQueryVariables, options?: RequestInit['headers']) => graphqlRequest<EntityDetailQuery, EntityDetailQueryVariables>(EntityDetailDocument, variables, options);
 
 export const EntityHistoryDocument = `
     query EntityHistory($id: String!) {

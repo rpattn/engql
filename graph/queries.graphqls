@@ -158,6 +158,27 @@ query EntitiesManagement(
   }
 }
 
+query EntityDetail($id: String!) {
+  entity(id: $id) {
+    id
+    organizationId
+    schemaId
+    entityType
+    path
+    properties
+    referenceValue
+    version
+    createdAt
+    updatedAt
+    linkedEntities {
+      id
+      entityType
+      properties
+      referenceValue
+    }
+  }
+}
+
 query EntityHistory($id: String!) {
   entityHistory(id: $id) {
     version

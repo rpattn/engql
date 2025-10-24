@@ -275,20 +275,12 @@ func (r *Resolver) GetEntity(ctx context.Context, id string) (*graph.Entity, err
 		return nil, fmt.Errorf("failed to get entity: %w", err)
 	}
 
-	propertiesJSON, err := entity.GetPropertiesAsJSONB()
+	gqlEntity, err := r.mapDomainEntity(ctx, entity)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal properties: %w", err)
+		return nil, err
 	}
 
-	return &graph.Entity{
-		ID:             entity.ID.String(),
-		OrganizationID: entity.OrganizationID.String(),
-		EntityType:     entity.EntityType,
-		Path:           entity.Path,
-		Properties:     string(propertiesJSON),
-		CreatedAt:      entity.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:      entity.UpdatedAt.Format(time.RFC3339),
-	}, nil
+	return gqlEntity, nil
 }
 
 // EntityDiff compares two versions of an entity and returns a structured diff response.
