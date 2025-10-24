@@ -231,6 +231,32 @@ func referenceCacheKey(orgID uuid.UUID, entityType, reference string) string {
 	return "ref:" + orgID.String() + ":" + strings.ToLower(entityType) + ":" + reference
 }
 
+func convertReferenceValuesToIDs(
+	refMap map[string][]*graph.Entity,
+	idParents map[string][]*graph.Entity,
+	missingIDs map[string]struct{},
+) (bool, []string) {
+	handled := false
+	invalid := make([]string, 0)
+
+	for refValue, parents := range refMap {
+		parsed, err := uuid.Parse(refValue)
+		if err != nil {
+			invalid = append(invalid, refValue)
+			continue
+		}
+
+		handled = true
+		id := parsed.String()
+		if missingIDs != nil {
+			missingIDs[id] = struct{}{}
+		}
+		idParents[id] = append(idParents[id], parents...)
+	}
+
+	return handled, invalid
+}
+
 func (r *Resolver) referenceFieldNameForType(
 	ctx context.Context,
 	cache map[referenceGroupKey]referenceFieldCacheEntry,
@@ -558,6 +584,13 @@ func (r *Resolver) hydrateLinkedEntities(ctx context.Context, parents []*graph.E
 			continue
 		}
 		if !found {
+			handled, invalidRefs := convertReferenceValuesToIDs(refMap, idParents, missingIDs)
+			for _, refValue := range invalidRefs {
+				errs = append(errs, fmt.Errorf("entity type %s does not declare a reference field and value %q is not a valid entity ID", actualType, refValue))
+			}
+			if handled {
+				continue
+			}
 			errs = append(errs, fmt.Errorf("entity type %s does not declare a reference field", actualType))
 			continue
 		}
