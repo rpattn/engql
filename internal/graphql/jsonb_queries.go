@@ -546,32 +546,6 @@ func (r *Resolver) hydrateLinkedEntities(ctx context.Context, parents []*graph.E
 		return combineErrors(errs)
 	}
 
-	if len(missingIDs) > 0 {
-		missing := make([]string, 0, len(missingIDs))
-		for id := range missingIDs {
-			missing = append(missing, id)
-		}
-
-		linkedEntities, err := r.EntitiesByIDs(ctx, missing)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("failed loading linked entities: %w", err))
-		} else {
-			for _, entity := range linkedEntities {
-				if entity != nil && entity.ID != "" {
-					cache[entity.ID] = entity
-				}
-			}
-		}
-
-		for id, parents := range idParents {
-			if child, ok := cache[id]; ok && child != nil {
-				for _, parent := range parents {
-					appendUniqueLinkedEntity(parent, child)
-				}
-			}
-		}
-	}
-
 	for group, refMap := range referenceParents {
 		actualType := referenceGroupTypes[group]
 		if actualType == "" {
@@ -635,6 +609,37 @@ func (r *Resolver) hydrateLinkedEntities(ctx context.Context, parents []*graph.E
 				}
 			} else {
 				errs = append(errs, fmt.Errorf("no %s entity found for reference %q", actualType, refValue))
+			}
+		}
+	}
+
+	if len(missingIDs) > 0 {
+		missing := make([]string, 0, len(missingIDs))
+		for id := range missingIDs {
+			if cached, ok := cache[id]; ok && cached != nil {
+				continue
+			}
+			missing = append(missing, id)
+		}
+
+		if len(missing) > 0 {
+			linkedEntities, err := r.EntitiesByIDs(ctx, missing)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("failed loading linked entities: %w", err))
+			} else {
+				for _, entity := range linkedEntities {
+					if entity != nil && entity.ID != "" {
+						cache[entity.ID] = entity
+					}
+				}
+			}
+		}
+
+		for id, parents := range idParents {
+			if child, ok := cache[id]; ok && child != nil {
+				for _, parent := range parents {
+					appendUniqueLinkedEntity(parent, child)
+				}
 			}
 		}
 	}
