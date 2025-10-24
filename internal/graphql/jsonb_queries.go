@@ -154,7 +154,9 @@ func collectLinkedEntityIDs(props map[string]any, schema *domain.EntitySchema) [
 		}
 
 		targetType := strings.TrimSpace(fieldDef.ReferenceEntityType)
-		if !found && schema != nil && targetType == "" {
+		if schema != nil && targetType == "" {
+			// When schemas omit an explicit reference entity type, default to the
+			// parent schema so ID-based hydration can still occur.
 			targetType = schema.Name
 		}
 
@@ -562,10 +564,14 @@ func (r *Resolver) hydrateLinkedEntities(ctx context.Context, parents []*graph.E
 			for _, refValue := range invalidRefs {
 				errs = append(errs, fmt.Errorf("entity type %s does not declare a reference field and value %q is not a valid entity ID", actualType, refValue))
 			}
-			if handled {
+			if handled || len(invalidRefs) > 0 {
 				continue
 			}
-			errs = append(errs, fmt.Errorf("entity type %s does not declare a reference field", actualType))
+
+			// Without a reference field and no convertible identifiers, we cannot
+			// hydrate linked entities, but this should not prevent the parent
+			// entities from being returned. Skip quietly so the query can succeed
+			// without linked data.
 			continue
 		}
 

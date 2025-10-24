@@ -162,6 +162,93 @@ func TestHydrateLinkedEntitiesFallsBackToIDLookupWhenReferenceFieldMissing(t *te
 	}
 }
 
+func TestHydrateLinkedEntitiesHandlesMissingReferenceEntityType(t *testing.T) {
+	orgID := uuid.New()
+	parentSchemaID := uuid.New()
+	childSchemaID := uuid.New()
+	childID := uuid.New()
+
+	schemaRepo := &stubLinkedSchemaRepo{
+		schemas: map[string]domain.EntitySchema{
+			schemaKey(orgID, "Parent"): {
+				ID:             parentSchemaID,
+				OrganizationID: orgID,
+				Name:           "Parent",
+				Fields: []domain.FieldDefinition{
+					{
+						Name:                "linkedEntities",
+						Type:                domain.FieldTypeEntityReferenceArray,
+						ReferenceEntityType: "",
+					},
+				},
+			},
+			schemaKey(orgID, "Child"): {
+				ID:             childSchemaID,
+				OrganizationID: orgID,
+				Name:           "Child",
+				Fields:         []domain.FieldDefinition{},
+			},
+		},
+	}
+
+	childEntity := domain.Entity{
+		ID:             childID,
+		OrganizationID: orgID,
+		SchemaID:       childSchemaID,
+		EntityType:     "Child",
+		Properties: map[string]any{
+			"name": "child",
+		},
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	entityRepo := &stubLinkedEntityRepo{
+		entities: map[uuid.UUID]domain.Entity{
+			childID: childEntity,
+		},
+	}
+
+	resolver := &Resolver{
+		entityRepo:       entityRepo,
+		entitySchemaRepo: schemaRepo,
+	}
+
+	parent := &graph.Entity{
+		ID:             uuid.New().String(),
+		OrganizationID: orgID.String(),
+		EntityType:     "Parent",
+		Properties:     fmt.Sprintf("{\"linkedEntities\":[\"%s\"]}", childID.String()),
+	}
+
+	loaderMiddleware := middleware.DataLoaderMiddleware(entityRepo)
+	ctxCh := make(chan context.Context, 1)
+	handler := loaderMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctxCh <- r.Context()
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	handler.ServeHTTP(httptest.NewRecorder(), req)
+
+	var ctx context.Context
+	select {
+	case ctx = <-ctxCh:
+	case <-time.After(2 * time.Second):
+		t.Fatalf("timed out waiting for dataloader context")
+	}
+
+	if err := resolver.hydrateLinkedEntities(ctx, []*graph.Entity{parent}); err != nil {
+		t.Fatalf("unexpected hydration error: %v", err)
+	}
+
+	if len(parent.LinkedEntities) != 1 {
+		t.Fatalf("expected 1 linked entity, got %d", len(parent.LinkedEntities))
+	}
+	if parent.LinkedEntities[0].ID != childID.String() {
+		t.Fatalf("expected linked entity %s, got %s", childID.String(), parent.LinkedEntities[0].ID)
+	}
+}
+
 type stubLinkedSchemaRepo struct {
 	schemas map[string]domain.EntitySchema
 }
