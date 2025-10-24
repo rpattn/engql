@@ -196,14 +196,29 @@ func (r *Resolver) Entities(ctx context.Context, organizationID string, filter *
 		return nil, fmt.Errorf("failed to list entities: %w", err)
 	}
 
-	// Convert to GraphQL type
-	result := make([]*graph.Entity, len(entities))
-	for i, entity := range entities {
-		mapped, err := r.mapDomainEntity(ctx, entity)
+	ctxWithCache, cache := ensureEntityCache(ctx)
+
+	result := make([]*graph.Entity, 0, len(entities))
+	var errs []error
+
+	for _, entity := range entities {
+		mapped, err := r.mapDomainEntity(ctxWithCache, entity)
 		if err != nil {
-			return nil, err
+			errs = append(errs, err)
+			continue
 		}
-		result[i] = mapped
+		result = append(result, mapped)
+		if mapped.ID != "" {
+			cache[mapped.ID] = mapped
+		}
+	}
+
+	if err := r.hydrateLinkedEntities(ctxWithCache, result); err != nil {
+		errs = append(errs, err)
+	}
+
+	if err := combineErrors(errs); err != nil {
+		return nil, err
 	}
 
 	hasNextPage := offset+limit < totalCount
