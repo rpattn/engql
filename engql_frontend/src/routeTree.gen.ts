@@ -16,6 +16,7 @@ import { Route as EntitiesRouteImport } from './routes/entities'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as EntitiesIndexRouteImport } from './routes/entities.index'
 import { Route as IngestionBatchesRouteImport } from './routes/ingestion/batches'
+import { Route as EntityEntityIdRouteImport } from './routes/entity/$entityId'
 import { Route as DemoTanstackQueryRouteImport } from './routes/demo/tanstack-query'
 import { Route as DemoTableRouteImport } from './routes/demo/table'
 import { Route as EntitiesEntityIdVersionsRouteImport } from './routes/entities/$entityId/versions'
@@ -64,6 +65,11 @@ const IngestionBatchesRoute = IngestionBatchesRouteImport.update({
   id: '/batches',
   path: '/batches',
   getParentRoute: () => IngestionRoute,
+} as any)
+const EntityEntityIdRoute = EntityEntityIdRouteImport.update({
+  id: '/entity/$entityId',
+  path: '/entity/$entityId',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const DemoTanstackQueryRoute = DemoTanstackQueryRouteImport.update({
   id: '/demo/tanstack-query',
@@ -140,6 +146,7 @@ export interface FileRoutesByFullPath {
   '/join-testing': typeof JoinTestingRoute
   '/demo/table': typeof DemoTableRoute
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
+  '/entity/$entityId': typeof EntityEntityIdRoute
   '/ingestion/batches': typeof IngestionBatchesRoute
   '/entities/': typeof EntitiesIndexRoute
   '/demo/api/names': typeof DemoApiNamesRoute
@@ -161,6 +168,7 @@ export interface FileRoutesByTo {
   '/join-testing': typeof JoinTestingRoute
   '/demo/table': typeof DemoTableRoute
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
+  '/entity/$entityId': typeof EntityEntityIdRoute
   '/ingestion/batches': typeof IngestionBatchesRoute
   '/entities': typeof EntitiesIndexRoute
   '/demo/api/names': typeof DemoApiNamesRoute
@@ -184,6 +192,7 @@ export interface FileRoutesById {
   '/join-testing': typeof JoinTestingRoute
   '/demo/table': typeof DemoTableRoute
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
+  '/entity/$entityId': typeof EntityEntityIdRoute
   '/ingestion/batches': typeof IngestionBatchesRoute
   '/entities/': typeof EntitiesIndexRoute
   '/demo/api/names': typeof DemoApiNamesRoute
@@ -208,6 +217,7 @@ export interface FileRouteTypes {
     | '/join-testing'
     | '/demo/table'
     | '/demo/tanstack-query'
+    | '/entity/$entityId'
     | '/ingestion/batches'
     | '/entities/'
     | '/demo/api/names'
@@ -229,6 +239,7 @@ export interface FileRouteTypes {
     | '/join-testing'
     | '/demo/table'
     | '/demo/tanstack-query'
+    | '/entity/$entityId'
     | '/ingestion/batches'
     | '/entities'
     | '/demo/api/names'
@@ -251,6 +262,7 @@ export interface FileRouteTypes {
     | '/join-testing'
     | '/demo/table'
     | '/demo/tanstack-query'
+    | '/entity/$entityId'
     | '/ingestion/batches'
     | '/entities/'
     | '/demo/api/names'
@@ -274,6 +286,7 @@ export interface RootRouteChildren {
   JoinTestingRoute: typeof JoinTestingRoute
   DemoTableRoute: typeof DemoTableRoute
   DemoTanstackQueryRoute: typeof DemoTanstackQueryRoute
+  EntityEntityIdRoute: typeof EntityEntityIdRoute
   DemoApiNamesRoute: typeof DemoApiNamesRoute
   DemoApiTqTodosRoute: typeof DemoApiTqTodosRoute
   DemoFormAddressRoute: typeof DemoFormAddressRoute
@@ -336,6 +349,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/ingestion/batches'
       preLoaderRoute: typeof IngestionBatchesRouteImport
       parentRoute: typeof IngestionRoute
+    }
+    '/entity/$entityId': {
+      id: '/entity/$entityId'
+      path: '/entity/$entityId'
+      fullPath: '/entity/$entityId'
+      preLoaderRoute: typeof EntityEntityIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/demo/tanstack-query': {
       id: '/demo/tanstack-query'
@@ -465,6 +485,7 @@ const rootRouteChildren: RootRouteChildren = {
   JoinTestingRoute: JoinTestingRoute,
   DemoTableRoute: DemoTableRoute,
   DemoTanstackQueryRoute: DemoTanstackQueryRoute,
+  EntityEntityIdRoute: EntityEntityIdRoute,
   DemoApiNamesRoute: DemoApiNamesRoute,
   DemoApiTqTodosRoute: DemoApiTqTodosRoute,
   DemoFormAddressRoute: DemoFormAddressRoute,

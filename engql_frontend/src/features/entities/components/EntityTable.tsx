@@ -127,12 +127,19 @@ export default function EntityTable({
                 <tr key={entity.id} className="bg-white align-top">
                   <td className="px-4 py-4">
                     <div className="font-medium text-gray-900">
-                      {entity.entityType}
+                      <Link
+                        to="/entity/$entityId"
+                        params={{ entityId: entity.id }}
+                        className="text-blue-600 transition hover:text-blue-700 hover:underline"
+                      >
+                        {entity.entityType}
+                      </Link>
                     </div>
-                    <div className="mt-1 text-xs text-gray-500">ID: {entity.id}</div>
-                    <div className="mt-1 text-xs text-gray-500">
-                      Schema ID: {entity.schemaId}
-                    </div>
+                    {entity.referenceValue && (
+                      <div className="mt-1 text-xs text-gray-500">
+                        Reference: {entity.referenceValue}
+                      </div>
+                    )}
                   </td>
                   <td className="px-4 py-4">
                     {entity.path ? (
