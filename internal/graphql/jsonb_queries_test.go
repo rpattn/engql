@@ -75,6 +75,79 @@ func TestConvertReferenceValuesToIDsReportsInvalidValues(t *testing.T) {
 	}
 }
 
+func TestReferenceValueFromEntityDefaultsToEntityIDWhenReferenceFieldMissing(t *testing.T) {
+	orgID := uuid.New()
+	entityID := uuid.New()
+
+	schemaRepo := &stubLinkedSchemaRepo{
+		schemas: map[string]domain.EntitySchema{
+			schemaKey(orgID, "Example"): {
+				OrganizationID: orgID,
+				Name:           "Example",
+				Fields:         []domain.FieldDefinition{},
+			},
+		},
+	}
+
+	resolver := &Resolver{entitySchemaRepo: schemaRepo}
+
+	domainEntity := domain.Entity{
+		ID:             entityID,
+		OrganizationID: orgID,
+		EntityType:     "Example",
+		Properties: map[string]any{
+			"name": "sample",
+		},
+	}
+
+	ref, err := resolver.referenceValueFromEntity(context.Background(), domainEntity)
+	if err != nil {
+		t.Fatalf("unexpected error retrieving reference value: %v", err)
+	}
+	if ref == nil || *ref != entityID.String() {
+		t.Fatalf("expected fallback reference %s, got %v", entityID.String(), ref)
+	}
+}
+
+func TestReferenceValueFromEntityFallsBackToIDWhenReferenceValueMissing(t *testing.T) {
+	orgID := uuid.New()
+	entityID := uuid.New()
+
+	schemaRepo := &stubLinkedSchemaRepo{
+		schemas: map[string]domain.EntitySchema{
+			schemaKey(orgID, "Example"): {
+				OrganizationID: orgID,
+				Name:           "Example",
+				Fields: []domain.FieldDefinition{
+					{
+						Name: "ref",
+						Type: domain.FieldTypeReference,
+					},
+				},
+			},
+		},
+	}
+
+	resolver := &Resolver{entitySchemaRepo: schemaRepo}
+
+	domainEntity := domain.Entity{
+		ID:             entityID,
+		OrganizationID: orgID,
+		EntityType:     "Example",
+		Properties: map[string]any{
+			"name": "sample",
+		},
+	}
+
+	ref, err := resolver.referenceValueFromEntity(context.Background(), domainEntity)
+	if err != nil {
+		t.Fatalf("unexpected error retrieving reference value: %v", err)
+	}
+	if ref == nil || *ref != entityID.String() {
+		t.Fatalf("expected fallback reference %s, got %v", entityID.String(), ref)
+	}
+}
+
 func TestHydrateLinkedEntitiesFallsBackToIDLookupWhenReferenceFieldMissing(t *testing.T) {
 	orgID := uuid.New()
 	parentSchemaID := uuid.New()
@@ -159,6 +232,69 @@ func TestHydrateLinkedEntitiesFallsBackToIDLookupWhenReferenceFieldMissing(t *te
 	}
 	if parent.LinkedEntities[0].ID != childID.String() {
 		t.Fatalf("expected linked entity %s, got %s", childID.String(), parent.LinkedEntities[0].ID)
+	}
+}
+
+func TestHydrateLinkedEntitiesSkipsInvalidIDsWithoutReferenceField(t *testing.T) {
+	orgID := uuid.New()
+
+	schemaRepo := &stubLinkedSchemaRepo{
+		schemas: map[string]domain.EntitySchema{
+			schemaKey(orgID, "Parent"): {
+				OrganizationID: orgID,
+				Name:           "Parent",
+				Fields: []domain.FieldDefinition{
+					{
+						Name:                "linkedEntities",
+						Type:                domain.FieldTypeEntityReferenceArray,
+						ReferenceEntityType: "Child",
+					},
+				},
+			},
+			schemaKey(orgID, "Child"): {
+				OrganizationID: orgID,
+				Name:           "Child",
+				Fields:         []domain.FieldDefinition{},
+			},
+		},
+	}
+
+	entityRepo := &stubLinkedEntityRepo{entities: map[uuid.UUID]domain.Entity{}}
+
+	resolver := &Resolver{
+		entityRepo:       entityRepo,
+		entitySchemaRepo: schemaRepo,
+	}
+
+	parent := &graph.Entity{
+		ID:             uuid.New().String(),
+		OrganizationID: orgID.String(),
+		EntityType:     "Parent",
+		Properties:     "{\"linkedEntities\":[\"not-a-uuid\"]}",
+	}
+
+	loaderMiddleware := middleware.DataLoaderMiddleware(entityRepo)
+	ctxCh := make(chan context.Context, 1)
+	handler := loaderMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctxCh <- r.Context()
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	handler.ServeHTTP(httptest.NewRecorder(), req)
+
+	var ctx context.Context
+	select {
+	case ctx = <-ctxCh:
+	case <-time.After(2 * time.Second):
+		t.Fatalf("timed out waiting for dataloader context")
+	}
+
+	if err := resolver.hydrateLinkedEntities(ctx, []*graph.Entity{parent}); err != nil {
+		t.Fatalf("unexpected hydration error: %v", err)
+	}
+
+	if parent.LinkedEntities != nil && len(parent.LinkedEntities) != 0 {
+		t.Fatalf("expected no linked entities, got %#v", parent.LinkedEntities)
 	}
 }
 

@@ -90,31 +90,51 @@ func (r *Resolver) referenceValueFromEntity(ctx context.Context, entity domain.E
 		return nil, nil
 	}
 
+	fallbackID := ""
+	if entity.ID != uuid.Nil {
+		fallbackID = entity.ID.String()
+	}
+
 	if entity.Properties == nil {
-		return nil, nil
+		if fallbackID == "" {
+			return nil, nil
+		}
+		return &fallbackID, nil
 	}
 
 	fieldName, found, err := r.referenceFieldNameForType(ctx, nil, entity.OrganizationID, entity.EntityType)
 	if err != nil {
 		return nil, err
 	}
-	if !found {
-		return nil, nil
+	if !found || strings.TrimSpace(fieldName) == "" {
+		if fallbackID == "" {
+			return nil, nil
+		}
+		return &fallbackID, nil
 	}
 
 	raw, exists := entity.Properties[fieldName]
 	if !exists {
-		return nil, nil
+		if fallbackID == "" {
+			return nil, nil
+		}
+		return &fallbackID, nil
 	}
 
 	value, ok := raw.(string)
 	if !ok {
-		return nil, nil
+		if fallbackID == "" {
+			return nil, nil
+		}
+		return &fallbackID, nil
 	}
 
 	trimmed := strings.TrimSpace(value)
 	if trimmed == "" {
-		return nil, nil
+		if fallbackID == "" {
+			return nil, nil
+		}
+		return &fallbackID, nil
 	}
 
 	return &trimmed, nil
@@ -561,8 +581,10 @@ func (r *Resolver) hydrateLinkedEntities(ctx context.Context, parents []*graph.E
 		}
 		if !found {
 			handled, invalidRefs := convertReferenceValuesToIDs(refMap, idParents, missingIDs)
-			for _, refValue := range invalidRefs {
-				errs = append(errs, fmt.Errorf("entity type %s does not declare a reference field and value %q is not a valid entity ID", actualType, refValue))
+			if len(invalidRefs) > 0 {
+				// Without a declared reference field we treat link values as entity IDs by default.
+				// When a value is not a valid UUID we skip hydration instead of returning an error so the
+				// parent entities can still be resolved.
 			}
 			if handled || len(invalidRefs) > 0 {
 				continue
