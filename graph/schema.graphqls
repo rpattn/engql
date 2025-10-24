@@ -120,6 +120,20 @@ type Entity {
   linkedEntities: [Entity!]! @goField(forceResolver: true)
 }
 
+type EntitySnapshotView {
+  version: Int!
+  path: String!
+  schemaId: String!
+  entityType: String!
+  canonicalText: [String!]!
+}
+
+type EntityDiffResult {
+  base: EntitySnapshotView
+  target: EntitySnapshotView
+  unifiedDiff: String
+}
+
 input CreateEntityInput {
   organizationId: String!
   entityType: String!
@@ -272,7 +286,9 @@ type Query {
   entity(id: String!): Entity
   entitiesByType(organizationId: String!, entityType: String!): [Entity!]!
   entitiesByIDs(ids: [String!]!): [Entity!]!
-  
+  entityDiff(id: String!, baseVersion: Int!, targetVersion: Int!): EntityDiffResult
+  entityHistory(id: String!): [EntitySnapshotView!]!
+
   # Hierarchical queries
   getEntityAncestors(entityId: String!): [Entity!]!
   getEntityDescendants(entityId: String!): [Entity!]!

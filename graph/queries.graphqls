@@ -153,6 +153,36 @@ query EntitiesManagement(
   }
 }
 
+query EntityHistory($id: String!) {
+  entityHistory(id: $id) {
+    version
+    path
+    schemaId
+    entityType
+    canonicalText
+  }
+}
+
+query EntityDiff($id: String!, $baseVersion: Int!, $targetVersion: Int!) {
+  entityDiff(id: $id, baseVersion: $baseVersion, targetVersion: $targetVersion) {
+    base {
+      version
+      path
+      schemaId
+      entityType
+      canonicalText
+    }
+    target {
+      version
+      path
+      schemaId
+      entityType
+      canonicalText
+    }
+    unifiedDiff
+  }
+}
+
 # --- Rollback an Entity to a previous version ---
 mutation RollbackEntity($id: String!, $toVersion: Int!, $reason: String) {
   rollbackEntity(id: $id, toVersion: $toVersion, reason: $reason) {

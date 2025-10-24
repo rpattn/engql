@@ -70,6 +70,13 @@ export type EntityConnection = {
   pageInfo: PageInfo;
 };
 
+export type EntityDiffResult = {
+  __typename?: 'EntityDiffResult';
+  base?: Maybe<EntitySnapshotView>;
+  target?: Maybe<EntitySnapshotView>;
+  unifiedDiff?: Maybe<Scalars['String']['output']>;
+};
+
 export type EntityFilter = {
   entityType?: InputMaybe<Scalars['String']['input']>;
   pathFilter?: InputMaybe<PathFilter>;
@@ -127,6 +134,15 @@ export type EntitySchema = {
   status: SchemaStatus;
   updatedAt: Scalars['String']['output'];
   version: Scalars['String']['output'];
+};
+
+export type EntitySnapshotView = {
+  __typename?: 'EntitySnapshotView';
+  canonicalText: Array<Scalars['String']['output']>;
+  entityType: Scalars['String']['output'];
+  path: Scalars['String']['output'];
+  schemaId: Scalars['String']['output'];
+  version: Scalars['Int']['output'];
 };
 
 export type ExecuteEntityJoinInput = {
@@ -348,6 +364,8 @@ export type Query = {
   entitiesByIDs: Array<Entity>;
   entitiesByType: Array<Entity>;
   entity?: Maybe<Entity>;
+  entityDiff?: Maybe<EntityDiffResult>;
+  entityHistory: Array<EntitySnapshotView>;
   entityJoinDefinition?: Maybe<EntityJoinDefinition>;
   entityJoinDefinitions: Array<EntityJoinDefinition>;
   entitySchema?: Maybe<EntitySchema>;
@@ -391,6 +409,18 @@ export type QueryEntitiesByTypeArgs = {
 
 
 export type QueryEntityArgs = {
+  id: Scalars['String']['input'];
+};
+
+
+export type QueryEntityDiffArgs = {
+  baseVersion: Scalars['Int']['input'];
+  id: Scalars['String']['input'];
+  targetVersion: Scalars['Int']['input'];
+};
+
+
+export type QueryEntityHistoryArgs = {
   id: Scalars['String']['input'];
 };
 
@@ -625,6 +655,22 @@ export type EntitiesManagementQueryVariables = Exact<{
 
 
 export type EntitiesManagementQuery = { __typename?: 'Query', entities: { __typename?: 'EntityConnection', entities: Array<{ __typename?: 'Entity', id: string, organizationId: string, schemaId: string, entityType: string, path: string, properties: string, version: number, createdAt: string, updatedAt: string, linkedEntities: Array<{ __typename?: 'Entity', id: string, entityType: string, properties: string }> }>, pageInfo: { __typename?: 'PageInfo', totalCount: number, hasNextPage: boolean, hasPreviousPage: boolean } } };
+
+export type EntityHistoryQueryVariables = Exact<{
+  id: Scalars['String']['input'];
+}>;
+
+
+export type EntityHistoryQuery = { __typename?: 'Query', entityHistory: Array<{ __typename?: 'EntitySnapshotView', version: number, path: string, schemaId: string, entityType: string, canonicalText: Array<string> }> };
+
+export type EntityDiffQueryVariables = Exact<{
+  id: Scalars['String']['input'];
+  baseVersion: Scalars['Int']['input'];
+  targetVersion: Scalars['Int']['input'];
+}>;
+
+
+export type EntityDiffQuery = { __typename?: 'Query', entityDiff?: { __typename?: 'EntityDiffResult', unifiedDiff?: string | null, base?: { __typename?: 'EntitySnapshotView', version: number, path: string, schemaId: string, entityType: string, canonicalText: Array<string> } | null, target?: { __typename?: 'EntitySnapshotView', version: number, path: string, schemaId: string, entityType: string, canonicalText: Array<string> } | null } | null };
 
 export type RollbackEntityMutationVariables = Exact<{
   id: Scalars['String']['input'];
@@ -1058,6 +1104,82 @@ useEntitiesManagementQuery.getKey = (variables: EntitiesManagementQueryVariables
 
 
 useEntitiesManagementQuery.fetcher = (variables: EntitiesManagementQueryVariables, options?: RequestInit['headers']) => graphqlRequest<EntitiesManagementQuery, EntitiesManagementQueryVariables>(EntitiesManagementDocument, variables, options);
+
+export const EntityHistoryDocument = `
+    query EntityHistory($id: String!) {
+  entityHistory(id: $id) {
+    version
+    path
+    schemaId
+    entityType
+    canonicalText
+  }
+}
+    `;
+
+export const useEntityHistoryQuery = <
+      TData = EntityHistoryQuery,
+      TError = unknown
+    >(
+      variables: EntityHistoryQueryVariables,
+      options?: Omit<UseQueryOptions<EntityHistoryQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<EntityHistoryQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<EntityHistoryQuery, TError, TData>(
+      {
+    queryKey: ['EntityHistory', variables],
+    queryFn: () => graphqlRequest<EntityHistoryQuery, EntityHistoryQueryVariables>(EntityHistoryDocument, variables),
+    ...options
+  }
+    )};
+
+useEntityHistoryQuery.getKey = (variables: EntityHistoryQueryVariables) => ['EntityHistory', variables];
+
+
+useEntityHistoryQuery.fetcher = (variables: EntityHistoryQueryVariables, options?: RequestInit['headers']) => graphqlRequest<EntityHistoryQuery, EntityHistoryQueryVariables>(EntityHistoryDocument, variables, options);
+
+export const EntityDiffDocument = `
+    query EntityDiff($id: String!, $baseVersion: Int!, $targetVersion: Int!) {
+  entityDiff(id: $id, baseVersion: $baseVersion, targetVersion: $targetVersion) {
+    base {
+      version
+      path
+      schemaId
+      entityType
+      canonicalText
+    }
+    target {
+      version
+      path
+      schemaId
+      entityType
+      canonicalText
+    }
+    unifiedDiff
+  }
+}
+    `;
+
+export const useEntityDiffQuery = <
+      TData = EntityDiffQuery,
+      TError = unknown
+    >(
+      variables: EntityDiffQueryVariables,
+      options?: Omit<UseQueryOptions<EntityDiffQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<EntityDiffQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<EntityDiffQuery, TError, TData>(
+      {
+    queryKey: ['EntityDiff', variables],
+    queryFn: () => graphqlRequest<EntityDiffQuery, EntityDiffQueryVariables>(EntityDiffDocument, variables),
+    ...options
+  }
+    )};
+
+useEntityDiffQuery.getKey = (variables: EntityDiffQueryVariables) => ['EntityDiff', variables];
+
+
+useEntityDiffQuery.fetcher = (variables: EntityDiffQueryVariables, options?: RequestInit['headers']) => graphqlRequest<EntityDiffQuery, EntityDiffQueryVariables>(EntityDiffDocument, variables, options);
 
 export const RollbackEntityDocument = `
     mutation RollbackEntity($id: String!, $toVersion: Int!, $reason: String) {

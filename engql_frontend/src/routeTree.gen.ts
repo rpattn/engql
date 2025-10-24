@@ -14,9 +14,11 @@ import { Route as IngestionRouteImport } from './routes/ingestion'
 import { Route as EntitySchemasRouteImport } from './routes/entity-schemas'
 import { Route as EntitiesRouteImport } from './routes/entities'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as EntitiesIndexRouteImport } from './routes/entities.index'
 import { Route as IngestionBatchesRouteImport } from './routes/ingestion/batches'
 import { Route as DemoTanstackQueryRouteImport } from './routes/demo/tanstack-query'
 import { Route as DemoTableRouteImport } from './routes/demo/table'
+import { Route as EntitiesEntityIdVersionsRouteImport } from './routes/entities/$entityId/versions'
 import { Route as DemoStartServerFuncsRouteImport } from './routes/demo/start.server-funcs'
 import { Route as DemoStartApiRequestRouteImport } from './routes/demo/start.api-request'
 import { Route as DemoFormSimpleRouteImport } from './routes/demo/form.simple'
@@ -53,6 +55,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EntitiesIndexRoute = EntitiesIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => EntitiesRoute,
+} as any)
 const IngestionBatchesRoute = IngestionBatchesRouteImport.update({
   id: '/batches',
   path: '/batches',
@@ -68,6 +75,12 @@ const DemoTableRoute = DemoTableRouteImport.update({
   path: '/demo/table',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EntitiesEntityIdVersionsRoute =
+  EntitiesEntityIdVersionsRouteImport.update({
+    id: '/$entityId/versions',
+    path: '/$entityId/versions',
+    getParentRoute: () => EntitiesRoute,
+  } as any)
 const DemoStartServerFuncsRoute = DemoStartServerFuncsRouteImport.update({
   id: '/demo/start/server-funcs',
   path: '/demo/start/server-funcs',
@@ -121,19 +134,21 @@ const DemoStartSsrDataOnlyRoute = DemoStartSsrDataOnlyRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/entities': typeof EntitiesRoute
+  '/entities': typeof EntitiesRouteWithChildren
   '/entity-schemas': typeof EntitySchemasRoute
   '/ingestion': typeof IngestionRouteWithChildren
   '/join-testing': typeof JoinTestingRoute
   '/demo/table': typeof DemoTableRoute
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
   '/ingestion/batches': typeof IngestionBatchesRoute
+  '/entities/': typeof EntitiesIndexRoute
   '/demo/api/names': typeof DemoApiNamesRoute
   '/demo/api/tq-todos': typeof DemoApiTqTodosRoute
   '/demo/form/address': typeof DemoFormAddressRoute
   '/demo/form/simple': typeof DemoFormSimpleRoute
   '/demo/start/api-request': typeof DemoStartApiRequestRoute
   '/demo/start/server-funcs': typeof DemoStartServerFuncsRoute
+  '/entities/$entityId/versions': typeof EntitiesEntityIdVersionsRoute
   '/demo/start/ssr/data-only': typeof DemoStartSsrDataOnlyRoute
   '/demo/start/ssr/full-ssr': typeof DemoStartSsrFullSsrRoute
   '/demo/start/ssr/spa-mode': typeof DemoStartSsrSpaModeRoute
@@ -141,19 +156,20 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/entities': typeof EntitiesRoute
   '/entity-schemas': typeof EntitySchemasRoute
   '/ingestion': typeof IngestionRouteWithChildren
   '/join-testing': typeof JoinTestingRoute
   '/demo/table': typeof DemoTableRoute
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
   '/ingestion/batches': typeof IngestionBatchesRoute
+  '/entities': typeof EntitiesIndexRoute
   '/demo/api/names': typeof DemoApiNamesRoute
   '/demo/api/tq-todos': typeof DemoApiTqTodosRoute
   '/demo/form/address': typeof DemoFormAddressRoute
   '/demo/form/simple': typeof DemoFormSimpleRoute
   '/demo/start/api-request': typeof DemoStartApiRequestRoute
   '/demo/start/server-funcs': typeof DemoStartServerFuncsRoute
+  '/entities/$entityId/versions': typeof EntitiesEntityIdVersionsRoute
   '/demo/start/ssr/data-only': typeof DemoStartSsrDataOnlyRoute
   '/demo/start/ssr/full-ssr': typeof DemoStartSsrFullSsrRoute
   '/demo/start/ssr/spa-mode': typeof DemoStartSsrSpaModeRoute
@@ -162,19 +178,21 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/entities': typeof EntitiesRoute
+  '/entities': typeof EntitiesRouteWithChildren
   '/entity-schemas': typeof EntitySchemasRoute
   '/ingestion': typeof IngestionRouteWithChildren
   '/join-testing': typeof JoinTestingRoute
   '/demo/table': typeof DemoTableRoute
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
   '/ingestion/batches': typeof IngestionBatchesRoute
+  '/entities/': typeof EntitiesIndexRoute
   '/demo/api/names': typeof DemoApiNamesRoute
   '/demo/api/tq-todos': typeof DemoApiTqTodosRoute
   '/demo/form/address': typeof DemoFormAddressRoute
   '/demo/form/simple': typeof DemoFormSimpleRoute
   '/demo/start/api-request': typeof DemoStartApiRequestRoute
   '/demo/start/server-funcs': typeof DemoStartServerFuncsRoute
+  '/entities/$entityId/versions': typeof EntitiesEntityIdVersionsRoute
   '/demo/start/ssr/data-only': typeof DemoStartSsrDataOnlyRoute
   '/demo/start/ssr/full-ssr': typeof DemoStartSsrFullSsrRoute
   '/demo/start/ssr/spa-mode': typeof DemoStartSsrSpaModeRoute
@@ -191,12 +209,14 @@ export interface FileRouteTypes {
     | '/demo/table'
     | '/demo/tanstack-query'
     | '/ingestion/batches'
+    | '/entities/'
     | '/demo/api/names'
     | '/demo/api/tq-todos'
     | '/demo/form/address'
     | '/demo/form/simple'
     | '/demo/start/api-request'
     | '/demo/start/server-funcs'
+    | '/entities/$entityId/versions'
     | '/demo/start/ssr/data-only'
     | '/demo/start/ssr/full-ssr'
     | '/demo/start/ssr/spa-mode'
@@ -204,19 +224,20 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/entities'
     | '/entity-schemas'
     | '/ingestion'
     | '/join-testing'
     | '/demo/table'
     | '/demo/tanstack-query'
     | '/ingestion/batches'
+    | '/entities'
     | '/demo/api/names'
     | '/demo/api/tq-todos'
     | '/demo/form/address'
     | '/demo/form/simple'
     | '/demo/start/api-request'
     | '/demo/start/server-funcs'
+    | '/entities/$entityId/versions'
     | '/demo/start/ssr/data-only'
     | '/demo/start/ssr/full-ssr'
     | '/demo/start/ssr/spa-mode'
@@ -231,12 +252,14 @@ export interface FileRouteTypes {
     | '/demo/table'
     | '/demo/tanstack-query'
     | '/ingestion/batches'
+    | '/entities/'
     | '/demo/api/names'
     | '/demo/api/tq-todos'
     | '/demo/form/address'
     | '/demo/form/simple'
     | '/demo/start/api-request'
     | '/demo/start/server-funcs'
+    | '/entities/$entityId/versions'
     | '/demo/start/ssr/data-only'
     | '/demo/start/ssr/full-ssr'
     | '/demo/start/ssr/spa-mode'
@@ -245,7 +268,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  EntitiesRoute: typeof EntitiesRoute
+  EntitiesRoute: typeof EntitiesRouteWithChildren
   EntitySchemasRoute: typeof EntitySchemasRoute
   IngestionRoute: typeof IngestionRouteWithChildren
   JoinTestingRoute: typeof JoinTestingRoute
@@ -300,6 +323,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/entities/': {
+      id: '/entities/'
+      path: '/'
+      fullPath: '/entities/'
+      preLoaderRoute: typeof EntitiesIndexRouteImport
+      parentRoute: typeof EntitiesRoute
+    }
     '/ingestion/batches': {
       id: '/ingestion/batches'
       path: '/batches'
@@ -320,6 +350,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/demo/table'
       preLoaderRoute: typeof DemoTableRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/entities/$entityId/versions': {
+      id: '/entities/$entityId/versions'
+      path: '/$entityId/versions'
+      fullPath: '/entities/$entityId/versions'
+      preLoaderRoute: typeof EntitiesEntityIdVersionsRouteImport
+      parentRoute: typeof EntitiesRoute
     }
     '/demo/start/server-funcs': {
       id: '/demo/start/server-funcs'
@@ -394,6 +431,20 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface EntitiesRouteChildren {
+  EntitiesIndexRoute: typeof EntitiesIndexRoute
+  EntitiesEntityIdVersionsRoute: typeof EntitiesEntityIdVersionsRoute
+}
+
+const EntitiesRouteChildren: EntitiesRouteChildren = {
+  EntitiesIndexRoute: EntitiesIndexRoute,
+  EntitiesEntityIdVersionsRoute: EntitiesEntityIdVersionsRoute,
+}
+
+const EntitiesRouteWithChildren = EntitiesRoute._addFileChildren(
+  EntitiesRouteChildren,
+)
+
 interface IngestionRouteChildren {
   IngestionBatchesRoute: typeof IngestionBatchesRoute
 }
@@ -408,7 +459,7 @@ const IngestionRouteWithChildren = IngestionRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  EntitiesRoute: EntitiesRoute,
+  EntitiesRoute: EntitiesRouteWithChildren,
   EntitySchemasRoute: EntitySchemasRoute,
   IngestionRoute: IngestionRouteWithChildren,
   JoinTestingRoute: JoinTestingRoute,

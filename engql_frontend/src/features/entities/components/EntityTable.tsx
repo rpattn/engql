@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { Filter, Pencil, Trash2 } from 'lucide-react'
+import { Link } from '@tanstack/react-router'
+import { Filter, History, Pencil, Trash2 } from 'lucide-react'
 import type { Entity, FieldDefinition } from '../../../generated/graphql'
 import { FieldType } from '../../../generated/graphql'
 import ColumnFilterPopover from './ColumnFilterPopover'
@@ -175,6 +176,14 @@ export default function EntityTable({
                   </td>
                   <td className="px-4 py-4">
                     <div className="flex justify-end gap-2">
+                      <Link
+                        to="/entities/$entityId/versions"
+                        params={{ entityId: entity.id }}
+                        className="flex items-center gap-1 rounded-md border border-indigo-200 px-3 py-1.5 text-xs font-medium text-indigo-600 transition hover:border-indigo-300 hover:bg-indigo-50"
+                      >
+                        <History className="h-3.5 w-3.5" />
+                        Versions
+                      </Link>
                       <button
                         type="button"
                         onClick={() => onEdit(entity)}
