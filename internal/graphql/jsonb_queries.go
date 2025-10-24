@@ -86,12 +86,14 @@ func (r *Resolver) mapDomainEntity(ctx context.Context, e domain.Entity) (*graph
 }
 
 func (r *Resolver) referenceValueFromEntity(ctx context.Context, entity domain.Entity) (*string, error) {
+	fallback := entity.ID.String()
+
 	if strings.TrimSpace(entity.EntityType) == "" || entity.OrganizationID == uuid.Nil {
-		return nil, nil
+		return &fallback, nil
 	}
 
 	if entity.Properties == nil {
-		return nil, nil
+		return &fallback, nil
 	}
 
 	fieldName, found, err := r.referenceFieldNameForType(ctx, nil, entity.OrganizationID, entity.EntityType)
@@ -99,22 +101,22 @@ func (r *Resolver) referenceValueFromEntity(ctx context.Context, entity domain.E
 		return nil, err
 	}
 	if !found {
-		return nil, nil
+		return &fallback, nil
 	}
 
 	raw, exists := entity.Properties[fieldName]
 	if !exists {
-		return nil, nil
+		return &fallback, nil
 	}
 
 	value, ok := raw.(string)
 	if !ok {
-		return nil, nil
+		return &fallback, nil
 	}
 
 	trimmed := strings.TrimSpace(value)
 	if trimmed == "" {
-		return nil, nil
+		return &fallback, nil
 	}
 
 	return &trimmed, nil
