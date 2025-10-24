@@ -26,8 +26,9 @@ type Querier interface {
 	GetEntity(ctx context.Context, id uuid.UUID) (GetEntityRow, error)
 	GetEntityAncestors(ctx context.Context, arg GetEntityAncestorsParams) ([]GetEntityAncestorsRow, error)
 	GetEntityChildren(ctx context.Context, arg GetEntityChildrenParams) ([]GetEntityChildrenRow, error)
-	GetEntityCount(ctx context.Context, organizationID uuid.UUID) (int64, error)
-	GetEntityCountByType(ctx context.Context, arg GetEntityCountByTypeParams) (int64, error)
+        GetEntityCount(ctx context.Context, organizationID uuid.UUID) (int64, error)
+        GetEntityCountByType(ctx context.Context, arg GetEntityCountByTypeParams) (int64, error)
+        GetEntityByReference(ctx context.Context, arg GetEntityByReferenceParams) (GetEntityByReferenceRow, error)
 	GetEntityDescendants(ctx context.Context, arg GetEntityDescendantsParams) ([]GetEntityDescendantsRow, error)
 	GetEntityHistoryByVersion(ctx context.Context, arg GetEntityHistoryByVersionParams) (EntitiesHistory, error)
 	GetEntityJoin(ctx context.Context, id uuid.UUID) (GetEntityJoinRow, error)
@@ -41,8 +42,9 @@ type Querier interface {
 	InsertEntityHistoryRecord(ctx context.Context, arg InsertEntityHistoryRecordParams) error
 	// Track background flush batches for staged entity ingestion.
 	InsertEntityIngestBatch(ctx context.Context, arg InsertEntityIngestBatchParams) error
-	ListEntities(ctx context.Context, arg ListEntitiesParams) ([]ListEntitiesRow, error)
-	ListEntitiesByType(ctx context.Context, arg ListEntitiesByTypeParams) ([]ListEntitiesByTypeRow, error)
+        ListEntities(ctx context.Context, arg ListEntitiesParams) ([]ListEntitiesRow, error)
+        ListEntitiesByType(ctx context.Context, arg ListEntitiesByTypeParams) ([]ListEntitiesByTypeRow, error)
+        ListEntitiesByReferences(ctx context.Context, arg ListEntitiesByReferencesParams) ([]ListEntitiesByReferencesRow, error)
 	ListEntityHistory(ctx context.Context, entityID uuid.UUID) ([]EntitiesHistory, error)
 	ListEntityIngestBatchesByStatus(ctx context.Context, arg ListEntityIngestBatchesByStatusParams) ([]EntityIngestBatch, error)
 	ListEntityJoinsByOrganization(ctx context.Context, organizationID uuid.UUID) ([]ListEntityJoinsByOrganizationRow, error)

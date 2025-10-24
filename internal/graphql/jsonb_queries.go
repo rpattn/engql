@@ -20,6 +20,30 @@ type contextKey string
 
 const entityCacheContextKey contextKey = "entityCache"
 
+type linkIdentifier struct {
+	id         uuid.UUID
+	hasID      bool
+	reference  string
+	entityType string
+}
+
+type referenceGroupKey struct {
+	orgID      uuid.UUID
+	entityType string
+}
+
+type referenceFieldCacheEntry struct {
+	fieldName string
+	found     bool
+}
+
+func (li linkIdentifier) cacheKey() string {
+	if li.hasID {
+		return "id:" + li.id.String()
+	}
+	return "ref:" + strings.ToLower(li.entityType) + ":" + li.reference
+}
+
 func ensureEntityCache(ctx context.Context) (context.Context, map[string]*graph.Entity) {
 	if ctx == nil {
 		cache := make(map[string]*graph.Entity)
@@ -34,13 +58,13 @@ func ensureEntityCache(ctx context.Context) (context.Context, map[string]*graph.
 	return context.WithValue(ctx, entityCacheContextKey, cache), cache
 }
 
-func mapDomainEntity(e domain.Entity) (*graph.Entity, error) {
+func (r *Resolver) mapDomainEntity(ctx context.Context, e domain.Entity) (*graph.Entity, error) {
 	propsJSON, err := e.GetPropertiesAsJSONB()
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal properties for entity %s: %w", e.ID, err)
 	}
 
-	return &graph.Entity{
+	gqlEntity := &graph.Entity{
 		ID:             e.ID.String(),
 		OrganizationID: e.OrganizationID.String(),
 		SchemaID:       e.SchemaID.String(),
@@ -50,52 +74,129 @@ func mapDomainEntity(e domain.Entity) (*graph.Entity, error) {
 		Version:        int(e.Version),
 		CreatedAt:      e.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:      e.UpdatedAt.Format(time.RFC3339),
-	}, nil
+	}
+
+	if ref, err := r.referenceValueFromEntity(ctx, e); err == nil {
+		gqlEntity.ReferenceValue = ref
+	} else {
+		return nil, err
+	}
+
+	return gqlEntity, nil
 }
 
-func collectLinkedEntityIDs(props map[string]any, schema *domain.EntitySchema) []string {
+func (r *Resolver) referenceValueFromEntity(ctx context.Context, entity domain.Entity) (*string, error) {
+	if strings.TrimSpace(entity.EntityType) == "" || entity.OrganizationID == uuid.Nil {
+		return nil, nil
+	}
+
+	if entity.Properties == nil {
+		return nil, nil
+	}
+
+	fieldName, found, err := r.referenceFieldNameForType(ctx, nil, entity.OrganizationID, entity.EntityType)
+	if err != nil {
+		return nil, err
+	}
+	if !found {
+		return nil, nil
+	}
+
+	raw, exists := entity.Properties[fieldName]
+	if !exists {
+		return nil, nil
+	}
+
+	value, ok := raw.(string)
+	if !ok {
+		return nil, nil
+	}
+
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return nil, nil
+	}
+
+	return &trimmed, nil
+}
+
+func collectLinkedEntityIDs(props map[string]any, schema *domain.EntitySchema) []linkIdentifier {
 	if props == nil {
 		return nil
 	}
 
-	ids := make([]string, 0)
+	var result []linkIdentifier
 	seen := make(map[string]struct{})
 
-	addIDs := func(value any) {
-		for _, id := range normalizeLinkedIDValues(value) {
-			if id == "" {
-				continue
-			}
-			if _, exists := seen[id]; exists {
-				continue
-			}
-			seen[id] = struct{}{}
-			ids = append(ids, id)
-		}
-	}
-
-	for key, value := range props {
-		if isLinkedFieldName(key) {
-			addIDs(value)
-		}
-	}
-
+	fieldsByName := make(map[string]domain.FieldDefinition)
 	if schema != nil {
 		for _, field := range schema.Fields {
-			switch field.Type {
-			case domain.FieldTypeEntityReference, domain.FieldTypeEntityID:
-				if value, ok := props[field.Name]; ok {
-					addIDs(value)
-				}
-			case domain.FieldTypeEntityReferenceArray:
-				if value, ok := props[field.Name]; ok {
-					addIDs(value)
-				}
-			}
+			fieldsByName[strings.ToLower(field.Name)] = field
 		}
 	}
 
-	return ids
+	for key, rawValue := range props {
+		normalizedValues := normalizeLinkedIDValues(rawValue)
+		if len(normalizedValues) == 0 {
+			continue
+		}
+
+		lowerKey := strings.ToLower(key)
+		fieldDef, found := fieldsByName[lowerKey]
+		if !found && !isLinkedFieldName(key) {
+			continue
+		}
+
+		preferReference := false
+		switch fieldDef.Type {
+		case domain.FieldTypeEntityReference, domain.FieldTypeEntityReferenceArray, domain.FieldTypeReference:
+			preferReference = true
+		}
+
+		targetType := strings.TrimSpace(fieldDef.ReferenceEntityType)
+		if !found && schema != nil && targetType == "" {
+			targetType = schema.Name
+		}
+
+		for _, value := range normalizedValues {
+			identifier, ok := buildLinkIdentifier(value, targetType, preferReference)
+			if !ok {
+				continue
+			}
+			cacheKey := identifier.cacheKey()
+			if _, exists := seen[cacheKey]; exists {
+				continue
+			}
+			seen[cacheKey] = struct{}{}
+			result = append(result, identifier)
+		}
+	}
+
+	return result
+}
+
+func buildLinkIdentifier(value string, targetType string, preferReference bool) (linkIdentifier, bool) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return linkIdentifier{}, false
+	}
+
+	if preferReference {
+		if targetType == "" {
+			return linkIdentifier{}, false
+		}
+		return linkIdentifier{reference: trimmed, entityType: targetType}, true
+	}
+
+	if id, err := uuid.Parse(trimmed); err == nil {
+		return linkIdentifier{id: id, hasID: true, entityType: targetType}, true
+	}
+
+	if targetType == "" {
+		return linkIdentifier{}, false
+	}
+
+	return linkIdentifier{reference: trimmed, entityType: targetType}, true
 }
 
 func combineErrors(errs []error) error {
@@ -112,6 +213,62 @@ func combineErrors(errs []error) error {
 	}
 
 	return errors.New(strings.Join(messages, "; "))
+}
+
+func appendUniqueLinkedEntity(parent *graph.Entity, child *graph.Entity) {
+	if parent == nil || child == nil {
+		return
+	}
+	for _, existing := range parent.LinkedEntities {
+		if existing != nil && existing.ID == child.ID {
+			return
+		}
+	}
+	parent.LinkedEntities = append(parent.LinkedEntities, child)
+}
+
+func referenceCacheKey(orgID uuid.UUID, entityType, reference string) string {
+	return "ref:" + orgID.String() + ":" + strings.ToLower(entityType) + ":" + reference
+}
+
+func (r *Resolver) referenceFieldNameForType(
+	ctx context.Context,
+	cache map[referenceGroupKey]referenceFieldCacheEntry,
+	orgID uuid.UUID,
+	entityType string,
+) (string, bool, error) {
+	key := referenceGroupKey{orgID: orgID, entityType: strings.ToLower(entityType)}
+	if cache != nil {
+		if entry, ok := cache[key]; ok {
+			return entry.fieldName, entry.found, nil
+		}
+	} else if cached, ok := r.referenceFieldCache.Load(key); ok {
+		entry := cached.(referenceFieldCacheEntry)
+		return entry.fieldName, entry.found, nil
+	}
+
+	schema, err := r.entitySchemaRepo.GetByName(ctx, orgID, entityType)
+	if err != nil {
+		return "", false, fmt.Errorf("failed to load schema for %s: %w", entityType, err)
+	}
+
+	fieldName := ""
+	found := false
+	for _, field := range schema.Fields {
+		if field.Type == domain.FieldTypeReference {
+			fieldName = field.Name
+			found = true
+			break
+		}
+	}
+
+	entry := referenceFieldCacheEntry{fieldName: fieldName, found: found}
+	if cache != nil {
+		cache[key] = entry
+	} else {
+		r.referenceFieldCache.Store(key, entry)
+	}
+	return fieldName, found, nil
 }
 
 // SearchEntitiesByProperty performs JSONB property-based search
@@ -134,20 +291,11 @@ func (r *Resolver) SearchEntitiesByProperty(ctx context.Context, organizationID 
 	// Convert to GraphQL format
 	result := make([]*graph.Entity, len(entities))
 	for i, entity := range entities {
-		propertiesJSON, err := entity.GetPropertiesAsJSONB()
+		mapped, err := r.mapDomainEntity(ctx, entity)
 		if err != nil {
-			return nil, fmt.Errorf("failed to marshal properties: %w", err)
+			return nil, err
 		}
-
-		result[i] = &graph.Entity{
-			ID:             entity.ID.String(),
-			OrganizationID: entity.OrganizationID.String(),
-			EntityType:     entity.EntityType,
-			Path:           entity.Path,
-			Properties:     string(propertiesJSON),
-			CreatedAt:      entity.CreatedAt.Format(time.RFC3339),
-			UpdatedAt:      entity.UpdatedAt.Format(time.RFC3339),
-		}
+		result[i] = mapped
 	}
 
 	return result, nil
@@ -224,7 +372,7 @@ func (r *Resolver) EntitiesByIDs(ctx context.Context, ids []string) ([]*graph.En
 				continue
 			}
 
-			gqlEntity, err := mapDomainEntity(entity)
+			gqlEntity, err := r.mapDomainEntity(ctx, entity)
 			if err != nil {
 				partialErrs = append(partialErrs, err)
 				continue
@@ -262,9 +410,11 @@ func (r *Resolver) hydrateLinkedEntities(ctx context.Context, parents []*graph.E
 	ctx, cache := ensureEntityCache(ctx)
 
 	schemaCache := make(map[string]*domain.EntitySchema)
-
-	parentMissing := make(map[*graph.Entity][]string)
-	missingSet := make(map[string]struct{})
+	referenceFieldCache := make(map[referenceGroupKey]referenceFieldCacheEntry)
+	idParents := make(map[string][]*graph.Entity)
+	referenceParents := make(map[referenceGroupKey]map[string][]*graph.Entity)
+	referenceGroupTypes := make(map[referenceGroupKey]string)
+	missingIDs := make(map[string]struct{})
 	var errs []error
 
 	for _, parent := range parents {
@@ -272,23 +422,17 @@ func (r *Resolver) hydrateLinkedEntities(ctx context.Context, parents []*graph.E
 			continue
 		}
 
-		if parent.ID != "" {
-			cache[parent.ID] = parent
+		if parent.LinkedEntities == nil {
+			parent.LinkedEntities = []*graph.Entity{}
 		}
 
-		if len(parent.LinkedEntities) > 0 {
-			for _, child := range parent.LinkedEntities {
-				if child != nil && child.ID != "" {
-					cache[child.ID] = child
-				}
-			}
-			continue
+		if parent.ID != "" {
+			cache[parent.ID] = parent
 		}
 
 		var props map[string]any
 		if err := json.Unmarshal([]byte(parent.Properties), &props); err != nil {
 			errs = append(errs, fmt.Errorf("entity %s: invalid properties JSON: %w", parent.ID, err))
-			parent.LinkedEntities = []*graph.Entity{}
 			continue
 		}
 
@@ -308,49 +452,156 @@ func (r *Resolver) hydrateLinkedEntities(ctx context.Context, parents []*graph.E
 			}
 		}
 
-		linkedIDs := collectLinkedEntityIDs(props, schema)
-		if len(linkedIDs) == 0 {
-			parent.LinkedEntities = []*graph.Entity{}
+		if len(parent.LinkedEntities) > 0 {
+			for _, child := range parent.LinkedEntities {
+				if child != nil && child.ID != "" {
+					cache[child.ID] = child
+				}
+			}
 			continue
 		}
 
-		for _, id := range linkedIDs {
-			if id == "" {
+		identifiers := collectLinkedEntityIDs(props, schema)
+		if len(identifiers) == 0 {
+			continue
+		}
+
+		var orgUUID uuid.UUID
+		var orgParsed bool
+		if parent.OrganizationID != "" {
+			if parsed, err := uuid.Parse(parent.OrganizationID); err == nil {
+				orgUUID = parsed
+				orgParsed = true
+			}
+		}
+
+		for _, identifier := range identifiers {
+			if identifier.hasID {
+				idKey := identifier.id.String()
+				if child, ok := cache[idKey]; ok && child != nil {
+					appendUniqueLinkedEntity(parent, child)
+					continue
+				}
+				missingIDs[idKey] = struct{}{}
+				idParents[idKey] = append(idParents[idKey], parent)
 				continue
 			}
-			if child, ok := cache[id]; ok && child != nil {
-				parent.LinkedEntities = append(parent.LinkedEntities, child)
+
+			if identifier.reference == "" {
 				continue
 			}
-			missingSet[id] = struct{}{}
-			parentMissing[parent] = append(parentMissing[parent], id)
+			if !orgParsed {
+				errs = append(errs, fmt.Errorf("entity %s missing valid organization id for reference %q", parent.ID, identifier.reference))
+				continue
+			}
+			if identifier.entityType == "" {
+				errs = append(errs, fmt.Errorf("entity %s link to reference %q lacks target entity type", parent.ID, identifier.reference))
+				continue
+			}
+
+			refKey := referenceCacheKey(orgUUID, identifier.entityType, identifier.reference)
+			if child, ok := cache[refKey]; ok && child != nil {
+				appendUniqueLinkedEntity(parent, child)
+				continue
+			}
+
+			group := referenceGroupKey{orgID: orgUUID, entityType: strings.ToLower(identifier.entityType)}
+			if _, ok := referenceGroupTypes[group]; !ok {
+				referenceGroupTypes[group] = identifier.entityType
+			}
+			if referenceParents[group] == nil {
+				referenceParents[group] = make(map[string][]*graph.Entity)
+			}
+			referenceParents[group][identifier.reference] = append(referenceParents[group][identifier.reference], parent)
 		}
 	}
 
-	if len(missingSet) == 0 {
+	if len(missingIDs) == 0 && len(referenceParents) == 0 {
 		return combineErrors(errs)
 	}
 
-	missing := make([]string, 0, len(missingSet))
-	for id := range missingSet {
-		missing = append(missing, id)
-	}
+	if len(missingIDs) > 0 {
+		missing := make([]string, 0, len(missingIDs))
+		for id := range missingIDs {
+			missing = append(missing, id)
+		}
 
-	linkedEntities, err := r.EntitiesByIDs(ctx, missing)
-	if err != nil {
-		errs = append(errs, fmt.Errorf("failed loading linked entities: %w", err))
-	}
+		linkedEntities, err := r.EntitiesByIDs(ctx, missing)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed loading linked entities: %w", err))
+		} else {
+			for _, entity := range linkedEntities {
+				if entity != nil && entity.ID != "" {
+					cache[entity.ID] = entity
+				}
+			}
+		}
 
-	for _, entity := range linkedEntities {
-		if entity != nil && entity.ID != "" {
-			cache[entity.ID] = entity
+		for id, parents := range idParents {
+			if child, ok := cache[id]; ok && child != nil {
+				for _, parent := range parents {
+					appendUniqueLinkedEntity(parent, child)
+				}
+			}
 		}
 	}
 
-	for parent, ids := range parentMissing {
-		for _, id := range ids {
-			if child, ok := cache[id]; ok && child != nil {
-				parent.LinkedEntities = append(parent.LinkedEntities, child)
+	for group, refMap := range referenceParents {
+		actualType := referenceGroupTypes[group]
+		if actualType == "" {
+			continue
+		}
+
+		refField, found, err := r.referenceFieldNameForType(ctx, referenceFieldCache, group.orgID, actualType)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		if !found {
+			errs = append(errs, fmt.Errorf("entity type %s does not declare a reference field", actualType))
+			continue
+		}
+
+		references := make([]string, 0, len(refMap))
+		for ref := range refMap {
+			references = append(references, ref)
+		}
+
+		domainEntities, err := r.entityRepo.ListByReferences(ctx, group.orgID, actualType, references)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed loading %s references: %w", actualType, err))
+			continue
+		}
+
+		resolved := make(map[string]*graph.Entity, len(domainEntities))
+		for _, entity := range domainEntities {
+			mapped, err := r.mapDomainEntity(ctx, entity)
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
+			cache[mapped.ID] = mapped
+
+			refValue := ""
+			if val, ok := entity.Properties[refField]; ok {
+				if str, ok := val.(string); ok {
+					refValue = strings.TrimSpace(str)
+				}
+			}
+			if refValue != "" {
+				refKey := referenceCacheKey(group.orgID, actualType, refValue)
+				cache[refKey] = mapped
+				resolved[refValue] = mapped
+			}
+		}
+
+		for refValue, parents := range refMap {
+			if child, ok := resolved[refValue]; ok {
+				for _, parent := range parents {
+					appendUniqueLinkedEntity(parent, child)
+				}
+			} else {
+				errs = append(errs, fmt.Errorf("no %s entity found for reference %q", actualType, refValue))
 			}
 		}
 	}
@@ -373,20 +624,11 @@ func (r *Resolver) SearchEntitiesByMultipleProperties(ctx context.Context, organ
 	// Convert to GraphQL format
 	result := make([]*graph.Entity, len(entities))
 	for i, entity := range entities {
-		propertiesJSON, err := entity.GetPropertiesAsJSONB()
+		mapped, err := r.mapDomainEntity(ctx, entity)
 		if err != nil {
-			return nil, fmt.Errorf("failed to marshal properties: %w", err)
+			return nil, err
 		}
-
-		result[i] = &graph.Entity{
-			ID:             entity.ID.String(),
-			OrganizationID: entity.OrganizationID.String(),
-			EntityType:     entity.EntityType,
-			Path:           entity.Path,
-			Properties:     string(propertiesJSON),
-			CreatedAt:      entity.CreatedAt.Format(time.RFC3339),
-			UpdatedAt:      entity.UpdatedAt.Format(time.RFC3339),
-		}
+		result[i] = mapped
 	}
 
 	return result, nil
@@ -428,20 +670,11 @@ func (r *Resolver) SearchEntitiesByPropertyRange(ctx context.Context, organizati
 	// Convert to GraphQL format
 	result := make([]*graph.Entity, len(filteredEntities))
 	for i, entity := range filteredEntities {
-		propertiesJSON, err := entity.GetPropertiesAsJSONB()
+		mapped, err := r.mapDomainEntity(ctx, entity)
 		if err != nil {
-			return nil, fmt.Errorf("failed to marshal properties: %w", err)
+			return nil, err
 		}
-
-		result[i] = &graph.Entity{
-			ID:             entity.ID.String(),
-			OrganizationID: entity.OrganizationID.String(),
-			EntityType:     entity.EntityType,
-			Path:           entity.Path,
-			Properties:     string(propertiesJSON),
-			CreatedAt:      entity.CreatedAt.Format(time.RFC3339),
-			UpdatedAt:      entity.UpdatedAt.Format(time.RFC3339),
-		}
+		result[i] = mapped
 	}
 
 	return result, nil
@@ -472,20 +705,11 @@ func (r *Resolver) SearchEntitiesByPropertyExists(ctx context.Context, organizat
 	// Convert to GraphQL format
 	result := make([]*graph.Entity, len(filteredEntities))
 	for i, entity := range filteredEntities {
-		propertiesJSON, err := entity.GetPropertiesAsJSONB()
+		mapped, err := r.mapDomainEntity(ctx, entity)
 		if err != nil {
-			return nil, fmt.Errorf("failed to marshal properties: %w", err)
+			return nil, err
 		}
-
-		result[i] = &graph.Entity{
-			ID:             entity.ID.String(),
-			OrganizationID: entity.OrganizationID.String(),
-			EntityType:     entity.EntityType,
-			Path:           entity.Path,
-			Properties:     string(propertiesJSON),
-			CreatedAt:      entity.CreatedAt.Format(time.RFC3339),
-			UpdatedAt:      entity.UpdatedAt.Format(time.RFC3339),
-		}
+		result[i] = mapped
 	}
 
 	return result, nil
@@ -523,20 +747,11 @@ func (r *Resolver) SearchEntitiesByPropertyContains(ctx context.Context, organiz
 	// Convert to GraphQL format
 	result := make([]*graph.Entity, len(filteredEntities))
 	for i, entity := range filteredEntities {
-		propertiesJSON, err := entity.GetPropertiesAsJSONB()
+		mapped, err := r.mapDomainEntity(ctx, entity)
 		if err != nil {
-			return nil, fmt.Errorf("failed to marshal properties: %w", err)
+			return nil, err
 		}
-
-		result[i] = &graph.Entity{
-			ID:             entity.ID.String(),
-			OrganizationID: entity.OrganizationID.String(),
-			EntityType:     entity.EntityType,
-			Path:           entity.Path,
-			Properties:     string(propertiesJSON),
-			CreatedAt:      entity.CreatedAt.Format(time.RFC3339),
-			UpdatedAt:      entity.UpdatedAt.Format(time.RFC3339),
-		}
+		result[i] = mapped
 	}
 
 	return result, nil

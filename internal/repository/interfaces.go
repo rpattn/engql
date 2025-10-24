@@ -39,6 +39,8 @@ type EntityRepository interface {
 	GetByIDs(ctx context.Context, ids []uuid.UUID) ([]domain.Entity, error)
 	List(ctx context.Context, organizationID uuid.UUID, filter *domain.EntityFilter, limit int, offset int) ([]domain.Entity, int, error)
 	ListByType(ctx context.Context, organizationID uuid.UUID, entityType string) ([]domain.Entity, error)
+	GetByReference(ctx context.Context, organizationID uuid.UUID, entityType string, referenceValue string) (domain.Entity, error)
+	ListByReferences(ctx context.Context, organizationID uuid.UUID, entityType string, referenceValues []string) ([]domain.Entity, error)
 	Update(ctx context.Context, entity domain.Entity) (domain.Entity, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 	RollbackEntity(ctx context.Context, id string, toVersion int64, reason string) error

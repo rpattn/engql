@@ -4,7 +4,6 @@ import type {
   FieldDefinition,
 } from '../../../generated/graphql'
 import { FieldType } from '../../../generated/graphql'
-import { FieldType } from '../../../generated/graphql'
 
 export type FieldInputValue = string | boolean | string[]
 
@@ -56,6 +55,10 @@ export function createLinkedEntityMap(linkedEntities: Array<Entity>): Map<string
   const map = new Map<string, Entity>()
   for (const linked of linkedEntities) {
     map.set(linked.id, linked)
+    const reference = linked.referenceValue?.trim()
+    if (reference) {
+      map.set(reference, linked)
+    }
   }
   return map
 }
@@ -118,6 +121,8 @@ export function formatFieldInputValue(
         return value ? [value] : []
       }
       return []
+    case FieldType.Reference:
+      return typeof value === 'string' ? value : String(value ?? '')
     case FieldType.Json:
       try {
         return JSON.stringify(value, null, 2)
@@ -161,6 +166,8 @@ export function defaultFieldInputValue(field: FieldDefinition): FieldInputValue 
       return false
     case FieldType.EntityReferenceArray:
       return []
+    case FieldType.Reference:
+      return ''
     case FieldType.Json:
       return ''
     default:

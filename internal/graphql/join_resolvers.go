@@ -278,7 +278,7 @@ func (r *Resolver) ExecuteEntityJoin(ctx context.Context, input graph.ExecuteEnt
 		return nil, fmt.Errorf("failed to execute join: %w", err)
 	}
 
-	graphEdges, err := convertJoinEdgesToGraph(edges)
+	graphEdges, err := r.convertJoinEdgesToGraph(ctx, edges)
 	if err != nil {
 		return nil, err
 	}
@@ -377,14 +377,14 @@ func convertGraphSortsToDomain(sorts []*graph.JoinSortInput) []domain.JoinSortCr
 	return result
 }
 
-func convertJoinEdgesToGraph(edges []domain.EntityJoinEdge) ([]*graph.EntityJoinEdge, error) {
+func (r *Resolver) convertJoinEdgesToGraph(ctx context.Context, edges []domain.EntityJoinEdge) ([]*graph.EntityJoinEdge, error) {
 	result := make([]*graph.EntityJoinEdge, 0, len(edges))
 	for _, edge := range edges {
-		left, err := mapDomainEntity(edge.Left)
+		left, err := r.mapDomainEntity(ctx, edge.Left)
 		if err != nil {
 			return nil, err
 		}
-		right, err := mapDomainEntity(edge.Right)
+		right, err := r.mapDomainEntity(ctx, edge.Right)
 		if err != nil {
 			return nil, err
 		}

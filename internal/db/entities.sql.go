@@ -705,6 +705,118 @@ func (q *Queries) ListEntitiesByType(ctx context.Context, arg ListEntitiesByType
 	return items, nil
 }
 
+const GetEntityByReference = `-- name: GetEntityByReference :one
+SELECT id, organization_id, schema_id, entity_type, path, properties, version, created_at, updated_at
+FROM entities
+WHERE organization_id = $1
+  AND entity_type = $2
+  AND properties ->> $3 = $4
+LIMIT 1
+`
+
+type GetEntityByReferenceParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	EntityType     string    `json:"entity_type"`
+	FieldName      string    `json:"field_name"`
+	ReferenceValue string    `json:"reference_value"`
+}
+
+type GetEntityByReferenceRow struct {
+	ID             uuid.UUID       `json:"id"`
+	OrganizationID uuid.UUID       `json:"organization_id"`
+	SchemaID       uuid.UUID       `json:"schema_id"`
+	EntityType     string          `json:"entity_type"`
+	Path           string          `json:"path"`
+	Properties     json.RawMessage `json:"properties"`
+	Version        int64           `json:"version"`
+	CreatedAt      time.Time       `json:"created_at"`
+	UpdatedAt      time.Time       `json:"updated_at"`
+}
+
+func (q *Queries) GetEntityByReference(ctx context.Context, arg GetEntityByReferenceParams) (GetEntityByReferenceRow, error) {
+	row := q.db.QueryRow(ctx, GetEntityByReference,
+		arg.OrganizationID,
+		arg.EntityType,
+		arg.FieldName,
+		arg.ReferenceValue,
+	)
+	var i GetEntityByReferenceRow
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.SchemaID,
+		&i.EntityType,
+		&i.Path,
+		&i.Properties,
+		&i.Version,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const ListEntitiesByReferences = `-- name: ListEntitiesByReferences :many
+SELECT id, organization_id, schema_id, entity_type, path, properties, version, created_at, updated_at
+FROM entities
+WHERE organization_id = $1
+  AND entity_type = $2
+  AND properties ->> $3 = ANY($4::text[])
+`
+
+type ListEntitiesByReferencesParams struct {
+	OrganizationID  uuid.UUID `json:"organization_id"`
+	EntityType      string    `json:"entity_type"`
+	FieldName       string    `json:"field_name"`
+	ReferenceValues []string  `json:"reference_values"`
+}
+
+type ListEntitiesByReferencesRow struct {
+	ID             uuid.UUID       `json:"id"`
+	OrganizationID uuid.UUID       `json:"organization_id"`
+	SchemaID       uuid.UUID       `json:"schema_id"`
+	EntityType     string          `json:"entity_type"`
+	Path           string          `json:"path"`
+	Properties     json.RawMessage `json:"properties"`
+	Version        int64           `json:"version"`
+	CreatedAt      time.Time       `json:"created_at"`
+	UpdatedAt      time.Time       `json:"updated_at"`
+}
+
+func (q *Queries) ListEntitiesByReferences(ctx context.Context, arg ListEntitiesByReferencesParams) ([]ListEntitiesByReferencesRow, error) {
+	rows, err := q.db.Query(ctx, ListEntitiesByReferences,
+		arg.OrganizationID,
+		arg.EntityType,
+		arg.FieldName,
+		arg.ReferenceValues,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListEntitiesByReferencesRow{}
+	for rows.Next() {
+		var i ListEntitiesByReferencesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrganizationID,
+			&i.SchemaID,
+			&i.EntityType,
+			&i.Path,
+			&i.Properties,
+			&i.Version,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const ListEntityHistory = `-- name: ListEntityHistory :many
 SELECT id, entity_id, organization_id, schema_id, entity_type, path, properties, created_at, updated_at, version, change_type, changed_at, reason
 FROM entities_history
