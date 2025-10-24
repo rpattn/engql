@@ -161,6 +161,14 @@ func (jv *JSONBValidator) validateFieldType(fieldName string, value any, expecte
 		if !jv.isTimeseries(value) {
 			return fmt.Errorf("field '%s' must be a valid timeseries, got %T", fieldName, value)
 		}
+	case graph.FieldTypeReference:
+		strVal, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("field '%s' must be a reference string, got %T", fieldName, value)
+		}
+		if strings.TrimSpace(strVal) == "" {
+			return fmt.Errorf("field '%s' must be a non-empty reference string", fieldName)
+		}
 	case graph.FieldTypeEntityID:
 		strVal, ok := value.(string)
 		if !ok {
