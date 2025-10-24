@@ -263,3 +263,163 @@ func TestLinkedEntitiesAutoResolution(t *testing.T) {
 	}
 	t.Log("[cleanup] removed organization")
 }
+
+func TestLinkedEntitiesResolveReferenceValues(t *testing.T) {
+	createOrg := `
+                mutation ($input: CreateOrganizationInput!) {
+                        createOrganization(input: $input) { id name }
+                }
+        `
+	orgResp := sendGraphQLRequest(t, createOrg, map[string]interface{}{
+		"input": map[string]interface{}{
+			"name":        "Reference Link Org",
+			"description": "Org for reference-based link coverage",
+		},
+	})
+	orgID := orgResp["createOrganization"].(map[string]interface{})["id"].(string)
+
+	createSchema := `
+                mutation ($input: CreateEntitySchemaInput!) {
+                        createEntitySchema(input: $input) { id name }
+                }
+        `
+
+	teamSchemaResp := sendGraphQLRequest(t, createSchema, map[string]interface{}{
+		"input": map[string]interface{}{
+			"organizationId": orgID,
+			"name":           "Team",
+			"fields": []map[string]interface{}{
+				{"name": "name", "type": "STRING", "required": true},
+				{"name": "code", "type": "REFERENCE", "required": true, "referenceEntityType": "Team"},
+			},
+		},
+	})
+	teamSchemaID := teamSchemaResp["createEntitySchema"].(map[string]interface{})["id"].(string)
+
+	serviceSchemaResp := sendGraphQLRequest(t, createSchema, map[string]interface{}{
+		"input": map[string]interface{}{
+			"organizationId": orgID,
+			"name":           "Service",
+			"fields": []map[string]interface{}{
+				{"name": "name", "type": "STRING", "required": true},
+				{"name": "code", "type": "REFERENCE", "required": true, "referenceEntityType": "Service"},
+				{"name": "dependencies", "type": "ENTITY_REFERENCE_ARRAY", "referenceEntityType": "Service"},
+				{"name": "owner", "type": "ENTITY_REFERENCE", "referenceEntityType": "Team"},
+				{"name": "support", "type": "ENTITY_ID", "referenceEntityType": "Team"},
+			},
+		},
+	})
+	serviceSchemaID := serviceSchemaResp["createEntitySchema"].(map[string]interface{})["id"].(string)
+
+	createEntity := `
+                mutation ($input: CreateEntityInput!) {
+                        createEntity(input: $input) { id properties }
+                }
+        `
+
+	teamProps, _ := json.Marshal(map[string]interface{}{
+		"name": "Platform",
+		"code": "TEAM-001",
+	})
+	teamResp := sendGraphQLRequest(t, createEntity, map[string]interface{}{
+		"input": map[string]interface{}{
+			"organizationId": orgID,
+			"entityType":     "Team",
+			"path":           "teams.platform",
+			"properties":     string(teamProps),
+		},
+	})
+	teamID := teamResp["createEntity"].(map[string]interface{})["id"].(string)
+
+	serviceOneProps, _ := json.Marshal(map[string]interface{}{
+		"name":         "Compute",
+		"code":         "SVC-001",
+		"owner":        "TEAM-001",
+		"support":      "TEAM-001",
+		"dependencies": []string{},
+	})
+	svcOneResp := sendGraphQLRequest(t, createEntity, map[string]interface{}{
+		"input": map[string]interface{}{
+			"organizationId": orgID,
+			"entityType":     "Service",
+			"path":           "services.compute",
+			"properties":     string(serviceOneProps),
+		},
+	})
+	serviceOneID := svcOneResp["createEntity"].(map[string]interface{})["id"].(string)
+
+	serviceTwoProps, _ := json.Marshal(map[string]interface{}{
+		"name":         "Ingress",
+		"code":         "SVC-002",
+		"owner":        "TEAM-001",
+		"support":      teamID,
+		"dependencies": []string{"SVC-001"},
+	})
+	svcTwoResp := sendGraphQLRequest(t, createEntity, map[string]interface{}{
+		"input": map[string]interface{}{
+			"organizationId": orgID,
+			"entityType":     "Service",
+			"path":           "services.ingress",
+			"properties":     string(serviceTwoProps),
+		},
+	})
+	serviceTwoID := svcTwoResp["createEntity"].(map[string]interface{})["id"].(string)
+
+	linkedQuery := `
+                query ($ids: [String!]!) {
+                        entitiesByIDs(ids: $ids) {
+                                id
+                                linkedEntities { id entityType }
+                        }
+                }
+        `
+
+	svcTwoLinked := sendGraphQLRequest(t, linkedQuery, map[string]interface{}{"ids": []string{serviceTwoID}})["entitiesByIDs"].([]interface{})
+	if len(svcTwoLinked) != 1 {
+		t.Fatalf("? expected one service record, got %d", len(svcTwoLinked))
+	}
+	twoLinks := svcTwoLinked[0].(map[string]interface{})["linkedEntities"].([]interface{})
+	if len(twoLinks) != 2 {
+		t.Fatalf("? service two expected two linked entities (team + dependency), got %#v", twoLinks)
+	}
+	twoSet := make(map[string]string)
+	for _, raw := range twoLinks {
+		entry := raw.(map[string]interface{})
+		twoSet[entry["id"].(string)] = entry["entityType"].(string)
+	}
+	if _, ok := twoSet[teamID]; !ok {
+		t.Fatalf("? service two missing linked team %s", teamID)
+	}
+	if entityType, ok := twoSet[serviceOneID]; !ok || entityType != "Service" {
+		t.Fatalf("? service two missing dependency %s, map %#v", serviceOneID, twoSet)
+	}
+
+	svcOneLinked := sendGraphQLRequest(t, linkedQuery, map[string]interface{}{"ids": []string{serviceOneID}})["entitiesByIDs"].([]interface{})
+	oneLinks := svcOneLinked[0].(map[string]interface{})["linkedEntities"].([]interface{})
+	if len(oneLinks) != 1 {
+		t.Fatalf("? service one expected single linked team, got %#v", oneLinks)
+	}
+	linkedTeam := oneLinks[0].(map[string]interface{})
+	if linkedTeam["id"].(string) != teamID {
+		t.Fatalf("? service one resolved unexpected linked entity %#v", linkedTeam)
+	}
+
+	deleteEntity := `
+                mutation ($id: String!) { deleteEntity(id: $id) }
+        `
+	for _, id := range []string{serviceTwoID, serviceOneID, teamID} {
+		sendGraphQLRequest(t, deleteEntity, map[string]interface{}{"id": id})
+	}
+
+	deleteSchema := `
+                mutation ($id: String!) { deleteEntitySchema(id: $id) }
+        `
+	for _, schemaID := range []string{serviceSchemaID, teamSchemaID} {
+		sendGraphQLRequest(t, deleteSchema, map[string]interface{}{"id": schemaID})
+	}
+
+	deleteOrg := `
+                mutation ($id: String!) { deleteOrganization(id: $id) }
+        `
+	sendGraphQLRequest(t, deleteOrg, map[string]interface{}{"id": orgID})
+}

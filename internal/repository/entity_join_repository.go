@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/rpattn/engql/internal/domain"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -185,10 +187,18 @@ func (r *entityJoinRepository) ExecuteJoin(ctx context.Context, join domain.Enti
 		if join.JoinFieldType != nil && *join.JoinFieldType == domain.FieldTypeEntityReferenceArray {
 			fromBuilder.WriteString(fmt.Sprintf("JOIN LATERAL jsonb_array_elements_text(COALESCE("+
 				"%s.properties -> %s::text, '[]'::jsonb)) AS jf(value) ON TRUE ", leftAlias, builder.placeholder(joinFieldIdx)))
-			fromBuilder.WriteString(fmt.Sprintf("JOIN entities %s ON %s.id::text = jf.value ", rightAlias, rightAlias))
+			joinCondition := fmt.Sprintf("%s.id::text = jf.value", rightAlias)
+			if rightReferenceFieldFound {
+				joinCondition = fmt.Sprintf("(%s OR %s.properties ->> %s::text = jf.value)", joinCondition, rightAlias, builder.placeholder(rightReferenceFieldIdx))
+			}
+			fromBuilder.WriteString(fmt.Sprintf("JOIN entities %s ON %s ", rightAlias, joinCondition))
 		} else {
-			fromBuilder.WriteString(fmt.Sprintf("JOIN entities %s ON %s.id::text = %s.properties ->> %s::text ",
-				rightAlias, rightAlias, leftAlias, builder.placeholder(joinFieldIdx)))
+			leftValue := fmt.Sprintf("%s.properties ->> %s::text", leftAlias, builder.placeholder(joinFieldIdx))
+			joinCondition := fmt.Sprintf("%s.id::text = %s", rightAlias, leftValue)
+			if rightReferenceFieldFound {
+				joinCondition = fmt.Sprintf("(%s OR %s.properties ->> %s::text = %s)", joinCondition, rightAlias, builder.placeholder(rightReferenceFieldIdx), leftValue)
+			}
+			fromBuilder.WriteString(fmt.Sprintf("JOIN entities %s ON %s ", rightAlias, joinCondition))
 		}
 	case domain.JoinTypeCross:
 		fromBuilder.WriteString(fmt.Sprintf("CROSS JOIN entities %s ", rightAlias))
@@ -323,6 +333,21 @@ func (r *entityJoinRepository) ExecuteJoin(ctx context.Context, join domain.Enti
 	}
 
 	return edges, total, nil
+}
+
+func (r *entityJoinRepository) referenceFieldForType(ctx context.Context, organizationID uuid.UUID, entityType string) (string, bool, error) {
+	row, err := r.queries.GetEntitySchemaByName(ctx, db.GetEntitySchemaByNameParams{
+		OrganizationID: organizationID,
+		Name:           entityType,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", false, fmt.Errorf("schema for entity type %s not found", entityType)
+		}
+		return "", false, fmt.Errorf("failed to load schema for entity type %s: %w", entityType, err)
+	}
+
+	return extractReferenceField(row.Fields)
 }
 
 func convertCreateRow(row db.CreateEntityJoinRow) db.EntityJoin {

@@ -2028,6 +2028,35 @@ func (ec *executionContext) fieldContext_Entity_properties(_ context.Context, fi
 	return fc, nil
 }
 
+func (ec *executionContext) _Entity_referenceValue(ctx context.Context, field graphql.CollectedField, obj *Entity) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Entity_referenceValue,
+		func(ctx context.Context) (any, error) {
+			return obj.ReferenceValue, nil
+		},
+		nil,
+		ec.marshalOString2ᚖstring,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_Entity_referenceValue(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Entity",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Entity_version(ctx context.Context, field graphql.CollectedField, obj *Entity) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -2151,6 +2180,8 @@ func (ec *executionContext) fieldContext_Entity_linkedEntities(_ context.Context
 				return ec.fieldContext_Entity_path(ctx, field)
 			case "properties":
 				return ec.fieldContext_Entity_properties(ctx, field)
+			case "referenceValue":
+				return ec.fieldContext_Entity_referenceValue(ctx, field)
 			case "version":
 				return ec.fieldContext_Entity_version(ctx, field)
 			case "createdAt":
@@ -2202,6 +2233,8 @@ func (ec *executionContext) fieldContext_EntityConnection_entities(_ context.Con
 				return ec.fieldContext_Entity_path(ctx, field)
 			case "properties":
 				return ec.fieldContext_Entity_properties(ctx, field)
+			case "referenceValue":
+				return ec.fieldContext_Entity_referenceValue(ctx, field)
 			case "version":
 				return ec.fieldContext_Entity_version(ctx, field)
 			case "createdAt":
@@ -2290,6 +2323,8 @@ func (ec *executionContext) fieldContext_EntityHierarchy_current(_ context.Conte
 				return ec.fieldContext_Entity_path(ctx, field)
 			case "properties":
 				return ec.fieldContext_Entity_properties(ctx, field)
+			case "referenceValue":
+				return ec.fieldContext_Entity_referenceValue(ctx, field)
 			case "version":
 				return ec.fieldContext_Entity_version(ctx, field)
 			case "createdAt":
@@ -2341,6 +2376,8 @@ func (ec *executionContext) fieldContext_EntityHierarchy_ancestors(_ context.Con
 				return ec.fieldContext_Entity_path(ctx, field)
 			case "properties":
 				return ec.fieldContext_Entity_properties(ctx, field)
+			case "referenceValue":
+				return ec.fieldContext_Entity_referenceValue(ctx, field)
 			case "version":
 				return ec.fieldContext_Entity_version(ctx, field)
 			case "createdAt":
@@ -2392,6 +2429,8 @@ func (ec *executionContext) fieldContext_EntityHierarchy_children(_ context.Cont
 				return ec.fieldContext_Entity_path(ctx, field)
 			case "properties":
 				return ec.fieldContext_Entity_properties(ctx, field)
+			case "referenceValue":
+				return ec.fieldContext_Entity_referenceValue(ctx, field)
 			case "version":
 				return ec.fieldContext_Entity_version(ctx, field)
 			case "createdAt":
@@ -2443,6 +2482,8 @@ func (ec *executionContext) fieldContext_EntityHierarchy_siblings(_ context.Cont
 				return ec.fieldContext_Entity_path(ctx, field)
 			case "properties":
 				return ec.fieldContext_Entity_properties(ctx, field)
+			case "referenceValue":
+				return ec.fieldContext_Entity_referenceValue(ctx, field)
 			case "version":
 				return ec.fieldContext_Entity_version(ctx, field)
 			case "createdAt":
@@ -3000,6 +3041,8 @@ func (ec *executionContext) fieldContext_EntityJoinEdge_left(_ context.Context, 
 				return ec.fieldContext_Entity_path(ctx, field)
 			case "properties":
 				return ec.fieldContext_Entity_properties(ctx, field)
+			case "referenceValue":
+				return ec.fieldContext_Entity_referenceValue(ctx, field)
 			case "version":
 				return ec.fieldContext_Entity_version(ctx, field)
 			case "createdAt":
@@ -3051,6 +3094,8 @@ func (ec *executionContext) fieldContext_EntityJoinEdge_right(_ context.Context,
 				return ec.fieldContext_Entity_path(ctx, field)
 			case "properties":
 				return ec.fieldContext_Entity_properties(ctx, field)
+			case "referenceValue":
+				return ec.fieldContext_Entity_referenceValue(ctx, field)
 			case "version":
 				return ec.fieldContext_Entity_version(ctx, field)
 			case "createdAt":
@@ -4139,6 +4184,8 @@ func (ec *executionContext) fieldContext_Mutation_rollbackEntity(ctx context.Con
 				return ec.fieldContext_Entity_path(ctx, field)
 			case "properties":
 				return ec.fieldContext_Entity_properties(ctx, field)
+			case "referenceValue":
+				return ec.fieldContext_Entity_referenceValue(ctx, field)
 			case "version":
 				return ec.fieldContext_Entity_version(ctx, field)
 			case "createdAt":
@@ -4202,6 +4249,8 @@ func (ec *executionContext) fieldContext_Mutation_createEntity(ctx context.Conte
 				return ec.fieldContext_Entity_path(ctx, field)
 			case "properties":
 				return ec.fieldContext_Entity_properties(ctx, field)
+			case "referenceValue":
+				return ec.fieldContext_Entity_referenceValue(ctx, field)
 			case "version":
 				return ec.fieldContext_Entity_version(ctx, field)
 			case "createdAt":
@@ -4265,6 +4314,8 @@ func (ec *executionContext) fieldContext_Mutation_updateEntity(ctx context.Conte
 				return ec.fieldContext_Entity_path(ctx, field)
 			case "properties":
 				return ec.fieldContext_Entity_properties(ctx, field)
+			case "referenceValue":
+				return ec.fieldContext_Entity_referenceValue(ctx, field)
 			case "version":
 				return ec.fieldContext_Entity_version(ctx, field)
 			case "createdAt":
@@ -5346,6 +5397,8 @@ func (ec *executionContext) fieldContext_Query_entity(ctx context.Context, field
 				return ec.fieldContext_Entity_path(ctx, field)
 			case "properties":
 				return ec.fieldContext_Entity_properties(ctx, field)
+			case "referenceValue":
+				return ec.fieldContext_Entity_referenceValue(ctx, field)
 			case "version":
 				return ec.fieldContext_Entity_version(ctx, field)
 			case "createdAt":
@@ -5409,6 +5462,8 @@ func (ec *executionContext) fieldContext_Query_entitiesByType(ctx context.Contex
 				return ec.fieldContext_Entity_path(ctx, field)
 			case "properties":
 				return ec.fieldContext_Entity_properties(ctx, field)
+			case "referenceValue":
+				return ec.fieldContext_Entity_referenceValue(ctx, field)
 			case "version":
 				return ec.fieldContext_Entity_version(ctx, field)
 			case "createdAt":
@@ -5472,6 +5527,8 @@ func (ec *executionContext) fieldContext_Query_entitiesByIDs(ctx context.Context
 				return ec.fieldContext_Entity_path(ctx, field)
 			case "properties":
 				return ec.fieldContext_Entity_properties(ctx, field)
+			case "referenceValue":
+				return ec.fieldContext_Entity_referenceValue(ctx, field)
 			case "version":
 				return ec.fieldContext_Entity_version(ctx, field)
 			case "createdAt":
@@ -5535,6 +5592,8 @@ func (ec *executionContext) fieldContext_Query_getEntityAncestors(ctx context.Co
 				return ec.fieldContext_Entity_path(ctx, field)
 			case "properties":
 				return ec.fieldContext_Entity_properties(ctx, field)
+			case "referenceValue":
+				return ec.fieldContext_Entity_referenceValue(ctx, field)
 			case "version":
 				return ec.fieldContext_Entity_version(ctx, field)
 			case "createdAt":
@@ -5598,6 +5657,8 @@ func (ec *executionContext) fieldContext_Query_getEntityDescendants(ctx context.
 				return ec.fieldContext_Entity_path(ctx, field)
 			case "properties":
 				return ec.fieldContext_Entity_properties(ctx, field)
+			case "referenceValue":
+				return ec.fieldContext_Entity_referenceValue(ctx, field)
 			case "version":
 				return ec.fieldContext_Entity_version(ctx, field)
 			case "createdAt":
@@ -5661,6 +5722,8 @@ func (ec *executionContext) fieldContext_Query_getEntityChildren(ctx context.Con
 				return ec.fieldContext_Entity_path(ctx, field)
 			case "properties":
 				return ec.fieldContext_Entity_properties(ctx, field)
+			case "referenceValue":
+				return ec.fieldContext_Entity_referenceValue(ctx, field)
 			case "version":
 				return ec.fieldContext_Entity_version(ctx, field)
 			case "createdAt":
@@ -5724,6 +5787,8 @@ func (ec *executionContext) fieldContext_Query_getEntitySiblings(ctx context.Con
 				return ec.fieldContext_Entity_path(ctx, field)
 			case "properties":
 				return ec.fieldContext_Entity_properties(ctx, field)
+			case "referenceValue":
+				return ec.fieldContext_Entity_referenceValue(ctx, field)
 			case "version":
 				return ec.fieldContext_Entity_version(ctx, field)
 			case "createdAt":
@@ -5838,6 +5903,8 @@ func (ec *executionContext) fieldContext_Query_searchEntitiesByProperty(ctx cont
 				return ec.fieldContext_Entity_path(ctx, field)
 			case "properties":
 				return ec.fieldContext_Entity_properties(ctx, field)
+			case "referenceValue":
+				return ec.fieldContext_Entity_referenceValue(ctx, field)
 			case "version":
 				return ec.fieldContext_Entity_version(ctx, field)
 			case "createdAt":
@@ -5901,6 +5968,8 @@ func (ec *executionContext) fieldContext_Query_searchEntitiesByMultiplePropertie
 				return ec.fieldContext_Entity_path(ctx, field)
 			case "properties":
 				return ec.fieldContext_Entity_properties(ctx, field)
+			case "referenceValue":
+				return ec.fieldContext_Entity_referenceValue(ctx, field)
 			case "version":
 				return ec.fieldContext_Entity_version(ctx, field)
 			case "createdAt":
@@ -5964,6 +6033,8 @@ func (ec *executionContext) fieldContext_Query_searchEntitiesByPropertyRange(ctx
 				return ec.fieldContext_Entity_path(ctx, field)
 			case "properties":
 				return ec.fieldContext_Entity_properties(ctx, field)
+			case "referenceValue":
+				return ec.fieldContext_Entity_referenceValue(ctx, field)
 			case "version":
 				return ec.fieldContext_Entity_version(ctx, field)
 			case "createdAt":
@@ -6027,6 +6098,8 @@ func (ec *executionContext) fieldContext_Query_searchEntitiesByPropertyExists(ct
 				return ec.fieldContext_Entity_path(ctx, field)
 			case "properties":
 				return ec.fieldContext_Entity_properties(ctx, field)
+			case "referenceValue":
+				return ec.fieldContext_Entity_referenceValue(ctx, field)
 			case "version":
 				return ec.fieldContext_Entity_version(ctx, field)
 			case "createdAt":
@@ -6090,6 +6163,8 @@ func (ec *executionContext) fieldContext_Query_searchEntitiesByPropertyContains(
 				return ec.fieldContext_Entity_path(ctx, field)
 			case "properties":
 				return ec.fieldContext_Entity_properties(ctx, field)
+			case "referenceValue":
+				return ec.fieldContext_Entity_referenceValue(ctx, field)
 			case "version":
 				return ec.fieldContext_Entity_version(ctx, field)
 			case "createdAt":
@@ -8002,7 +8077,7 @@ func (ec *executionContext) unmarshalInputCreateEntityInput(ctx context.Context,
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"organizationId", "entityType", "path", "properties", "linkedEntityId", "linkedEntityIds"}
+	fieldsInOrder := [...]string{"organizationId", "entityType", "path", "properties", "linkedEntityId", "linkedEntityIds", "linkedEntityReference", "linkedEntityReferences"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -8032,6 +8107,8 @@ func (ec *executionContext) unmarshalInputCreateEntityInput(ctx context.Context,
 			it.Path = data
 		case "properties":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("properties"))
+		case "referenceValue":
+			return ec.fieldContext_Entity_referenceValue(ctx, field)
 			data, err := ec.unmarshalNString2string(ctx, v)
 			if err != nil {
 				return it, err
@@ -8051,6 +8128,20 @@ func (ec *executionContext) unmarshalInputCreateEntityInput(ctx context.Context,
 				return it, err
 			}
 			it.LinkedEntityIds = data
+		case "linkedEntityReference":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("linkedEntityReference"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.LinkedEntityReference = data
+		case "linkedEntityReferences":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("linkedEntityReferences"))
+			data, err := ec.unmarshalOString2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.LinkedEntityReferences = data
 		}
 	}
 
@@ -8628,6 +8719,8 @@ func (ec *executionContext) unmarshalInputUpdateEntityInput(ctx context.Context,
 			it.Path = data
 		case "properties":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("properties"))
+		case "referenceValue":
+			return ec.fieldContext_Entity_referenceValue(ctx, field)
 			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
 			if err != nil {
 				return it, err
@@ -8864,6 +8957,8 @@ func (ec *executionContext) _Entity(ctx context.Context, sel ast.SelectionSet, o
 			}
 		case "properties":
 			out.Values[i] = ec._Entity_properties(ctx, field, obj)
+		case "referenceValue":
+			return ec.fieldContext_Entity_referenceValue(ctx, field)
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&out.Invalids, 1)
 			}

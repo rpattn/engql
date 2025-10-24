@@ -450,3 +450,163 @@ func TestEntityCrossJoinDefinition(t *testing.T) {
 	`
 	sendGraphQLRequest(t, deleteOrg, map[string]interface{}{"id": orgID})
 }
+
+func TestReferenceJoinResolvesReferenceValues(t *testing.T) {
+	createOrg := `
+                mutation ($input: CreateOrganizationInput!) {
+                        createOrganization(input: $input) { id name }
+                }
+        `
+	orgResp := sendGraphQLRequest(t, createOrg, map[string]interface{}{
+		"input": map[string]interface{}{
+			"name":        "Reference Join Org",
+			"description": "Org for reference join execution",
+		},
+	})
+	orgID := orgResp["createOrganization"].(map[string]interface{})["id"].(string)
+
+	createSchema := `
+                mutation ($input: CreateEntitySchemaInput!) {
+                        createEntitySchema(input: $input) { id name }
+                }
+        `
+
+	teamSchema := map[string]interface{}{
+		"input": map[string]interface{}{
+			"organizationId": orgID,
+			"name":           "Team",
+			"fields": []map[string]interface{}{
+				{"name": "name", "type": "STRING", "required": true},
+				{"name": "code", "type": "REFERENCE", "required": true, "referenceEntityType": "Team"},
+			},
+		},
+	}
+	teamSchemaResp := sendGraphQLRequest(t, createSchema, teamSchema)
+	teamSchemaID := teamSchemaResp["createEntitySchema"].(map[string]interface{})["id"].(string)
+
+	serviceSchema := map[string]interface{}{
+		"input": map[string]interface{}{
+			"organizationId": orgID,
+			"name":           "Service",
+			"fields": []map[string]interface{}{
+				{"name": "name", "type": "STRING", "required": true},
+				{"name": "owner", "type": "ENTITY_REFERENCE", "referenceEntityType": "Team", "required": true},
+			},
+		},
+	}
+	serviceSchemaResp := sendGraphQLRequest(t, createSchema, serviceSchema)
+	serviceSchemaID := serviceSchemaResp["createEntitySchema"].(map[string]interface{})["id"].(string)
+
+	createEntity := `
+                mutation ($input: CreateEntityInput!) {
+                        createEntity(input: $input) { id properties }
+                }
+        `
+
+	teamProps, _ := json.Marshal(map[string]interface{}{
+		"name": "Identity",
+		"code": "TEAM-REF",
+	})
+	teamResp := sendGraphQLRequest(t, createEntity, map[string]interface{}{
+		"input": map[string]interface{}{
+			"organizationId": orgID,
+			"entityType":     "Team",
+			"path":           "teams.identity",
+			"properties":     string(teamProps),
+		},
+	})
+	teamID := teamResp["createEntity"].(map[string]interface{})["id"].(string)
+
+	serviceProps, _ := json.Marshal(map[string]interface{}{
+		"name":  "Gateway",
+		"owner": "TEAM-REF",
+	})
+	serviceResp := sendGraphQLRequest(t, createEntity, map[string]interface{}{
+		"input": map[string]interface{}{
+			"organizationId": orgID,
+			"entityType":     "Service",
+			"path":           "services.gateway",
+			"properties":     string(serviceProps),
+		},
+	})
+	serviceID := serviceResp["createEntity"].(map[string]interface{})["id"].(string)
+
+	createJoin := `
+                mutation ($input: CreateEntityJoinDefinitionInput!) {
+                        createEntityJoinDefinition(input: $input) { id joinField }
+                }
+        `
+	joinResp := sendGraphQLRequest(t, createJoin, map[string]interface{}{
+		"input": map[string]interface{}{
+			"organizationId":  orgID,
+			"name":            "ServiceTeams",
+			"leftEntityType":  "Service",
+			"rightEntityType": "Team",
+			"joinField":       "owner",
+		},
+	})
+	joinID := joinResp["createEntityJoinDefinition"].(map[string]interface{})["id"].(string)
+
+	executeJoin := `
+                query ($input: ExecuteEntityJoinInput!) {
+                        executeEntityJoin(input: $input) {
+                                edges {
+                                        left { id }
+                                        right { id }
+                                }
+                                pageInfo { totalCount }
+                        }
+                }
+        `
+	execResp := sendGraphQLRequest(t, executeJoin, map[string]interface{}{
+		"input": map[string]interface{}{
+			"joinId": joinID,
+			"pagination": map[string]interface{}{
+				"limit":  5,
+				"offset": 0,
+			},
+		},
+	})
+	execData := execResp["executeEntityJoin"].(map[string]interface{})
+	edges := execData["edges"].([]interface{})
+	if len(edges) != 1 {
+		t.Fatalf("? expected one join edge, got %d", len(edges))
+	}
+	edge := edges[0].(map[string]interface{})
+	leftID := edge["left"].(map[string]interface{})["id"].(string)
+	rightID := edge["right"].(map[string]interface{})["id"].(string)
+	if leftID != serviceID {
+		t.Fatalf("? join resolved unexpected service %s", leftID)
+	}
+	if rightID != teamID {
+		t.Fatalf("? join resolved unexpected team %s", rightID)
+	}
+	total := int(execData["pageInfo"].(map[string]interface{})["totalCount"].(float64))
+	if total != 1 {
+		t.Fatalf("? expected totalCount 1, got %d", total)
+	}
+
+	deleteJoin := `
+                mutation ($id: String!) { deleteEntityJoinDefinition(id: $id) }
+        `
+	sendGraphQLRequest(t, deleteJoin, map[string]interface{}{"id": joinID})
+
+	deleteEntity := `
+                mutation ($id: String!) { deleteEntity(id: $id) }
+        `
+	for _, id := range []string{serviceID, teamID} {
+		sendGraphQLRequest(t, deleteEntity, map[string]interface{}{"id": id})
+	}
+
+	deleteSchema := `
+                mutation ($id: String!) { deleteEntitySchema(id: $id) }
+        `
+	for _, schemaID := range []string{serviceSchemaID, teamSchemaID} {
+		sendGraphQLRequest(t, deleteSchema, map[string]interface{}{"id": schemaID})
+	}
+
+	deleteOrg := `
+                mutation ($id: String!) { deleteOrganization(id: $id) }
+        `
+	sendGraphQLRequest(t, deleteOrg, map[string]interface{}{"id": orgID})
+}

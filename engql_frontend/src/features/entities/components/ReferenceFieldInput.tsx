@@ -19,7 +19,12 @@ type ReferenceFieldInputProps = {
 
 type ReferenceOption = {
   id: string
+  value: string
+  referenceValue?: string
   label: string
+  primaryLabel: string
+  displayName: string
+  searchTokens: string[]
 }
 
 export default function ReferenceFieldInput({
@@ -50,10 +55,44 @@ export default function ReferenceFieldInput({
   const allEntities = entitiesQuery.data?.entitiesByType ?? []
 
   const suggestions = useMemo<ReferenceOption[]>(() => {
-    return allEntities.map((entity) => ({
-      id: entity.id,
-      label: extractEntityDisplayNameFromProperties(entity.properties, entity.id),
-    }))
+    return allEntities.map((entity) => {
+      const reference = entity.referenceValue?.trim() ?? ''
+      const displayName = extractEntityDisplayNameFromProperties(
+        entity.properties,
+        entity.id,
+      )
+      const labelParts = new Set<string>()
+
+      if (reference) {
+        labelParts.add(reference)
+      }
+      if (displayName) {
+        labelParts.add(displayName)
+      }
+      labelParts.add(entity.id)
+
+      const label = Array.from(labelParts).join(' • ')
+      const referenceValue = reference || undefined
+      const value = referenceValue ?? entity.id
+      const primaryLabel = referenceValue ?? displayName ?? entity.id
+
+      const searchTokens = [
+        referenceValue?.toLowerCase(),
+        displayName?.toLowerCase(),
+        entity.id.toLowerCase(),
+        primaryLabel.toLowerCase(),
+      ].filter((token): token is string => Boolean(token && token.length > 0))
+
+      return {
+        id: entity.id,
+        value,
+        referenceValue,
+        label,
+        primaryLabel,
+        displayName,
+        searchTokens,
+      }
+    })
   }, [allEntities])
 
   const [labels, setLabels] = useState<Record<string, string>>({})
@@ -66,8 +105,19 @@ export default function ReferenceFieldInput({
       let changed = false
       const next = { ...current }
       for (const suggestion of suggestions) {
-        if (next[suggestion.id] !== suggestion.label) {
-          next[suggestion.id] = suggestion.label
+        if (next[suggestion.id] !== suggestion.primaryLabel) {
+          next[suggestion.id] = suggestion.primaryLabel
+          changed = true
+        }
+        if (next[suggestion.value] !== suggestion.primaryLabel) {
+          next[suggestion.value] = suggestion.primaryLabel
+          changed = true
+        }
+        if (
+          suggestion.referenceValue &&
+          next[suggestion.referenceValue] !== suggestion.primaryLabel
+        ) {
+          next[suggestion.referenceValue] = suggestion.primaryLabel
           changed = true
         }
       }
@@ -103,7 +153,7 @@ export default function ReferenceFieldInput({
     })
   }, [value, isArrayField])
 
-  const selectedIds = isArrayField
+  const selectedValues = isArrayField
     ? Array.isArray(value)
       ? value
       : typeof value === 'string' && value.length > 0
@@ -119,14 +169,23 @@ export default function ReferenceFieldInput({
     }
     const searchLower = trimmedSearch.toLowerCase()
     return suggestions
-      .filter((option) => option.label.toLowerCase().includes(searchLower))
+      .filter((option) => {
+        if (option.label.toLowerCase().includes(searchLower)) {
+          return true
+        }
+        return option.searchTokens.some((token) => token.includes(searchLower))
+      })
       .slice(0, 20)
   }, [suggestions, trimmedSearch])
 
   const handleSelect = (option: ReferenceOption) => {
     setLabels((current) => ({
       ...current,
-      [option.id]: option.label,
+      [option.id]: option.primaryLabel,
+      [option.value]: option.primaryLabel,
+      ...(option.referenceValue
+        ? { [option.referenceValue]: option.primaryLabel }
+        : {}),
     }))
 
     if (isArrayField) {
@@ -135,15 +194,15 @@ export default function ReferenceFieldInput({
         : typeof value === 'string' && value.length > 0
           ? [value]
           : []
-      if (currentIds.includes(option.id)) {
+      if (currentIds.includes(option.value)) {
         setSearchTerm('')
         return
       }
-      const next = [...currentIds, option.id]
+      const next = [...currentIds, option.value]
       onChange(next)
       setSearchTerm('')
     } else {
-      onChange(option.id)
+      onChange(option.value)
       setSearchTerm('')
     }
   }
@@ -173,10 +232,10 @@ export default function ReferenceFieldInput({
       <div className="space-y-2">
         {isArrayField ? (
           <div className="flex flex-wrap gap-2">
-            {selectedIds.length === 0 ? (
+            {selectedValues.length === 0 ? (
               <span className="text-xs text-gray-500">No entities selected.</span>
             ) : (
-              selectedIds.map((id) => (
+              selectedValues.map((id) => (
                 <span
                   key={id}
                   className="inline-flex items-center gap-2 rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700"
@@ -196,17 +255,17 @@ export default function ReferenceFieldInput({
           </div>
         ) : (
           <div className="flex items-center gap-3">
-            {selectedIds.length > 0 ? (
+            {selectedValues.length > 0 ? (
               <span className="inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
-                {labels[selectedIds[0]] ?? selectedIds[0]}
+                {labels[selectedValues[0]] ?? selectedValues[0]}
               </span>
             ) : (
               <span className="text-xs text-gray-500">No entity selected.</span>
             )}
-            {selectedIds.length > 0 && (
+            {selectedValues.length > 0 && (
               <button
                 type="button"
-                onClick={() => handleRemove(selectedIds[0]!)}
+                onClick={() => handleRemove(selectedValues[0]!)}
                 className="text-xs font-medium text-red-500 hover:text-red-600"
               >
                 Clear
@@ -228,7 +287,7 @@ export default function ReferenceFieldInput({
           type="text"
           value={searchTerm}
           onChange={(event) => setSearchTerm(event.target.value)}
-          placeholder="Search by name (min. 2 characters)"
+          placeholder="Search by name or reference (min. 2 characters)"
           disabled={!organizationId || !shouldFetch}
           className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:bg-gray-100"
         />
@@ -239,7 +298,7 @@ export default function ReferenceFieldInput({
         )}
         {organizationId && shouldFetch && trimmedSearch.length < 2 && (
           <p className="mt-1 text-xs text-gray-500">
-            Enter at least two characters to search by name.
+            Enter at least two characters to search by name or reference value.
           </p>
         )}
         {!targetEntityType && (
@@ -259,19 +318,35 @@ export default function ReferenceFieldInput({
             ) : filteredOptions.length > 0 ? (
               <ul>
                 {filteredOptions.map((option) => {
-                  const isSelected = selectedIds.includes(option.id)
+                  const isSelected = selectedValues.includes(option.value)
                   return (
-                    <li key={option.id}>
+                    <li key={option.value}>
                       <button
                         type="button"
                         onClick={() => handleSelect(option)}
-                        className={`flex w-full items-center justify-between px-4 py-2 text-left text-sm transition ${
+                        className={`flex w-full items-start justify-between gap-4 px-4 py-3 text-left text-sm transition ${
                           isSelected ? 'bg-blue-50 text-blue-700' : 'hover:bg-gray-100'
                         }`}
+                        aria-label={`Select ${option.primaryLabel}`}
                       >
-                        <span>{option.label}</span>
+                        <div className="flex flex-col text-left">
+                          <span className="text-sm font-medium text-gray-900">
+                            {option.primaryLabel}
+                          </span>
+                          <div className="mt-1 space-y-0.5 text-xs text-gray-500">
+                            {option.referenceValue && (
+                              <div>Reference: {option.referenceValue}</div>
+                            )}
+                            <div>ID: {option.id}</div>
+                            {option.displayName &&
+                              option.displayName !== option.primaryLabel &&
+                              option.displayName !== option.referenceValue && (
+                                <div>Display name: {option.displayName}</div>
+                              )}
+                          </div>
+                        </div>
                         {isSelected && (
-                          <span className="text-xs font-semibold uppercase text-blue-600">
+                          <span className="mt-1 text-xs font-semibold uppercase text-blue-600">
                             Selected
                           </span>
                         )}

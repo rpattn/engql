@@ -317,5 +317,18 @@ function renderFieldValue(
 }
 
 function extractEntityLabel(entity: Entity): string {
-  return extractEntityDisplayNameFromProperties(entity.properties, entity.id)
+  const reference = entity.referenceValue?.trim()
+  const displayName = extractEntityDisplayNameFromProperties(
+    entity.properties,
+    entity.id,
+  )
+
+  if (reference) {
+    if (displayName && displayName !== reference) {
+      return `${reference} • ${displayName}`
+    }
+    return reference
+  }
+
+  return displayName
 }
