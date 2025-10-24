@@ -24,8 +24,9 @@ const (
 	FieldTypeGeometry   FieldType = "geometry"
 	FieldTypeTimeseries FieldType = "timeseries"
 	// FieldTypeReference marks the canonical cross-entity reference string. Only one
-	// field with this type may exist per schema and it must target a specific
-	// entity type via ReferenceEntityType.
+	// field with this type may exist per schema. When a schema wants to
+	// associate the reference to another entity type it may do so via
+	// ReferenceEntityType, but the association is optional.
 	FieldTypeReference            FieldType = "REFERENCE"
 	FieldTypeEntityReference      FieldType = "ENTITY_REFERENCE"
 	FieldTypeEntityReferenceArray FieldType = "ENTITY_REFERENCE_ARRAY"
@@ -42,7 +43,8 @@ type FieldDefinition struct {
 	Validation  string    `json:"validation,omitempty"` // Custom validation rules
 	// ReferenceEntityType specifies the related entity type when the field holds a
 	// relationship (ENTITY_REFERENCE, ENTITY_REFERENCE_ARRAY, ENTITY_ID, or
-	// REFERENCE). When Type is FieldTypeReference, this value must be set.
+	// REFERENCE). FieldTypeReference values may omit the association when the
+	// reference is standalone.
 	ReferenceEntityType string `json:"referenceEntityType,omitempty"`
 }
 

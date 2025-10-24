@@ -31,9 +31,6 @@ func ValidateFields(fields []domain.FieldDefinition) error {
 			if referenceField != "" {
 				return fmt.Errorf("schema may declare only one REFERENCE field (found %s and %s)", referenceField, field.Name)
 			}
-			if trimmedRefType == "" {
-				return fmt.Errorf("REFERENCE field %s must specify referenceEntityType", field.Name)
-			}
 			referenceField = field.Name
 		}
 	}
