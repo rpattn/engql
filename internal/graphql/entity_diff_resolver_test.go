@@ -70,6 +70,14 @@ func (s *stubEntityRepository) ListByType(ctx context.Context, organizationID uu
 	panic("not implemented")
 }
 
+func (s *stubEntityRepository) GetByReference(ctx context.Context, organizationID uuid.UUID, entityType string, referenceValue string) (domain.Entity, error) {
+	panic("not implemented")
+}
+
+func (s *stubEntityRepository) ListByReferences(ctx context.Context, organizationID uuid.UUID, entityType string, referenceValues []string) ([]domain.Entity, error) {
+	panic("not implemented")
+}
+
 func (s *stubEntityRepository) Update(ctx context.Context, entity domain.Entity) (domain.Entity, error) {
 	panic("not implemented")
 }

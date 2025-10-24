@@ -90,31 +90,51 @@ func (r *Resolver) referenceValueFromEntity(ctx context.Context, entity domain.E
 		return nil, nil
 	}
 
+	fallbackID := ""
+	if entity.ID != uuid.Nil {
+		fallbackID = entity.ID.String()
+	}
+
 	if entity.Properties == nil {
-		return nil, nil
+		if fallbackID == "" {
+			return nil, nil
+		}
+		return &fallbackID, nil
 	}
 
 	fieldName, found, err := r.referenceFieldNameForType(ctx, nil, entity.OrganizationID, entity.EntityType)
 	if err != nil {
 		return nil, err
 	}
-	if !found {
-		return nil, nil
+	if !found || strings.TrimSpace(fieldName) == "" {
+		if fallbackID == "" {
+			return nil, nil
+		}
+		return &fallbackID, nil
 	}
 
 	raw, exists := entity.Properties[fieldName]
 	if !exists {
-		return nil, nil
+		if fallbackID == "" {
+			return nil, nil
+		}
+		return &fallbackID, nil
 	}
 
 	value, ok := raw.(string)
 	if !ok {
-		return nil, nil
+		if fallbackID == "" {
+			return nil, nil
+		}
+		return &fallbackID, nil
 	}
 
 	trimmed := strings.TrimSpace(value)
 	if trimmed == "" {
-		return nil, nil
+		if fallbackID == "" {
+			return nil, nil
+		}
+		return &fallbackID, nil
 	}
 
 	return &trimmed, nil
@@ -154,7 +174,9 @@ func collectLinkedEntityIDs(props map[string]any, schema *domain.EntitySchema) [
 		}
 
 		targetType := strings.TrimSpace(fieldDef.ReferenceEntityType)
-		if !found && schema != nil && targetType == "" {
+		if schema != nil && targetType == "" {
+			// When schemas omit an explicit reference entity type, default to the
+			// parent schema so ID-based hydration can still occur.
 			targetType = schema.Name
 		}
 
@@ -229,6 +251,32 @@ func appendUniqueLinkedEntity(parent *graph.Entity, child *graph.Entity) {
 
 func referenceCacheKey(orgID uuid.UUID, entityType, reference string) string {
 	return "ref:" + orgID.String() + ":" + strings.ToLower(entityType) + ":" + reference
+}
+
+func convertReferenceValuesToIDs(
+	refMap map[string][]*graph.Entity,
+	idParents map[string][]*graph.Entity,
+	missingIDs map[string]struct{},
+) (bool, []string) {
+	handled := false
+	invalid := make([]string, 0)
+
+	for refValue, parents := range refMap {
+		parsed, err := uuid.Parse(refValue)
+		if err != nil {
+			invalid = append(invalid, refValue)
+			continue
+		}
+
+		handled = true
+		id := parsed.String()
+		if missingIDs != nil {
+			missingIDs[id] = struct{}{}
+		}
+		idParents[id] = append(idParents[id], parents...)
+	}
+
+	return handled, invalid
 }
 
 func (r *Resolver) referenceFieldNameForType(
@@ -520,32 +568,6 @@ func (r *Resolver) hydrateLinkedEntities(ctx context.Context, parents []*graph.E
 		return combineErrors(errs)
 	}
 
-	if len(missingIDs) > 0 {
-		missing := make([]string, 0, len(missingIDs))
-		for id := range missingIDs {
-			missing = append(missing, id)
-		}
-
-		linkedEntities, err := r.EntitiesByIDs(ctx, missing)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("failed loading linked entities: %w", err))
-		} else {
-			for _, entity := range linkedEntities {
-				if entity != nil && entity.ID != "" {
-					cache[entity.ID] = entity
-				}
-			}
-		}
-
-		for id, parents := range idParents {
-			if child, ok := cache[id]; ok && child != nil {
-				for _, parent := range parents {
-					appendUniqueLinkedEntity(parent, child)
-				}
-			}
-		}
-	}
-
 	for group, refMap := range referenceParents {
 		actualType := referenceGroupTypes[group]
 		if actualType == "" {
@@ -558,7 +580,20 @@ func (r *Resolver) hydrateLinkedEntities(ctx context.Context, parents []*graph.E
 			continue
 		}
 		if !found {
-			errs = append(errs, fmt.Errorf("entity type %s does not declare a reference field", actualType))
+			handled, invalidRefs := convertReferenceValuesToIDs(refMap, idParents, missingIDs)
+			if len(invalidRefs) > 0 {
+				// Without a declared reference field we treat link values as entity IDs by default.
+				// When a value is not a valid UUID we skip hydration instead of returning an error so the
+				// parent entities can still be resolved.
+			}
+			if handled || len(invalidRefs) > 0 {
+				continue
+			}
+
+			// Without a reference field and no convertible identifiers, we cannot
+			// hydrate linked entities, but this should not prevent the parent
+			// entities from being returned. Skip quietly so the query can succeed
+			// without linked data.
 			continue
 		}
 
@@ -602,6 +637,37 @@ func (r *Resolver) hydrateLinkedEntities(ctx context.Context, parents []*graph.E
 				}
 			} else {
 				errs = append(errs, fmt.Errorf("no %s entity found for reference %q", actualType, refValue))
+			}
+		}
+	}
+
+	if len(missingIDs) > 0 {
+		missing := make([]string, 0, len(missingIDs))
+		for id := range missingIDs {
+			if cached, ok := cache[id]; ok && cached != nil {
+				continue
+			}
+			missing = append(missing, id)
+		}
+
+		if len(missing) > 0 {
+			linkedEntities, err := r.EntitiesByIDs(ctx, missing)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("failed loading linked entities: %w", err))
+			} else {
+				for _, entity := range linkedEntities {
+					if entity != nil && entity.ID != "" {
+						cache[entity.ID] = entity
+					}
+				}
+			}
+		}
+
+		for id, parents := range idParents {
+			if child, ok := cache[id]; ok && child != nil {
+				for _, parent := range parents {
+					appendUniqueLinkedEntity(parent, child)
+				}
 			}
 		}
 	}
