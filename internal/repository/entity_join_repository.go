@@ -166,11 +166,24 @@ func (r *entityJoinRepository) ExecuteJoin(ctx context.Context, join domain.Enti
 	joinType := sanitizeJoinType(join.JoinType)
 
 	joinFieldIdx := -1
+	var (
+		rightReferenceFieldFound bool
+		rightReferenceFieldIdx   int
+	)
 	if joinType == domain.JoinTypeReference {
 		if join.JoinField == nil {
 			return nil, 0, fmt.Errorf("join field is required for reference joins")
 		}
 		joinFieldIdx = builder.addArg(*join.JoinField)
+
+		referenceField, found, err := r.referenceFieldForType(ctx, join.OrganizationID, join.RightEntityType)
+		if err != nil {
+			return nil, 0, err
+		}
+		if found {
+			rightReferenceFieldIdx = builder.addArg(referenceField)
+			rightReferenceFieldFound = true
+		}
 	}
 
 	orgIdx := builder.addArg(join.OrganizationID)

@@ -8584,8 +8584,6 @@ func (ec *executionContext) unmarshalInputCreateEntityInput(ctx context.Context,
 			it.Path = data
 		case "properties":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("properties"))
-		case "referenceValue":
-			return ec.fieldContext_Entity_referenceValue(ctx, field)
 			data, err := ec.unmarshalNString2string(ctx, v)
 			if err != nil {
 				return it, err
@@ -9196,8 +9194,6 @@ func (ec *executionContext) unmarshalInputUpdateEntityInput(ctx context.Context,
 			it.Path = data
 		case "properties":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("properties"))
-		case "referenceValue":
-			return ec.fieldContext_Entity_referenceValue(ctx, field)
 			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
 			if err != nil {
 				return it, err
@@ -9476,8 +9472,11 @@ func (ec *executionContext) _Entity(ctx context.Context, sel ast.SelectionSet, o
 			}
 		case "properties":
 			out.Values[i] = ec._Entity_properties(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
 		case "referenceValue":
-			return ec.fieldContext_Entity_referenceValue(ctx, field)
+			out.Values[i] = ec._Entity_referenceValue(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
