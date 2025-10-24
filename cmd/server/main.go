@@ -83,6 +83,8 @@ func main() {
 	http.Handle("/query", corsHandler.Handler(graphqlHandler))
 	http.Handle("/ingestion", corsHandler.Handler(ingestionHandler))
 	http.Handle("/ingestion/preview", corsHandler.Handler(ingestionHandler))
+	http.Handle("/ingestion/batches", corsHandler.Handler(ingestionHandler))
+	http.Handle("/ingestion/logs", corsHandler.Handler(ingestionHandler))
 	http.Handle("/", corsHandler.Handler(middleware.LoggingMiddleware(playground.Handler("GraphQL playground", "/query"))))
 
 	// Create HTTP server

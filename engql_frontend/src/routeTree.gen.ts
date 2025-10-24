@@ -14,6 +14,7 @@ import { Route as IngestionRouteImport } from './routes/ingestion'
 import { Route as EntitySchemasRouteImport } from './routes/entity-schemas'
 import { Route as EntitiesRouteImport } from './routes/entities'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as IngestionBatchesRouteImport } from './routes/ingestion/batches'
 import { Route as DemoTanstackQueryRouteImport } from './routes/demo/tanstack-query'
 import { Route as DemoTableRouteImport } from './routes/demo/table'
 import { Route as DemoStartServerFuncsRouteImport } from './routes/demo/start.server-funcs'
@@ -51,6 +52,11 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const IngestionBatchesRoute = IngestionBatchesRouteImport.update({
+  id: '/batches',
+  path: '/batches',
+  getParentRoute: () => IngestionRoute,
 } as any)
 const DemoTanstackQueryRoute = DemoTanstackQueryRouteImport.update({
   id: '/demo/tanstack-query',
@@ -117,10 +123,11 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/entities': typeof EntitiesRoute
   '/entity-schemas': typeof EntitySchemasRoute
-  '/ingestion': typeof IngestionRoute
+  '/ingestion': typeof IngestionRouteWithChildren
   '/join-testing': typeof JoinTestingRoute
   '/demo/table': typeof DemoTableRoute
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
+  '/ingestion/batches': typeof IngestionBatchesRoute
   '/demo/api/names': typeof DemoApiNamesRoute
   '/demo/api/tq-todos': typeof DemoApiTqTodosRoute
   '/demo/form/address': typeof DemoFormAddressRoute
@@ -136,10 +143,11 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/entities': typeof EntitiesRoute
   '/entity-schemas': typeof EntitySchemasRoute
-  '/ingestion': typeof IngestionRoute
+  '/ingestion': typeof IngestionRouteWithChildren
   '/join-testing': typeof JoinTestingRoute
   '/demo/table': typeof DemoTableRoute
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
+  '/ingestion/batches': typeof IngestionBatchesRoute
   '/demo/api/names': typeof DemoApiNamesRoute
   '/demo/api/tq-todos': typeof DemoApiTqTodosRoute
   '/demo/form/address': typeof DemoFormAddressRoute
@@ -156,10 +164,11 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/entities': typeof EntitiesRoute
   '/entity-schemas': typeof EntitySchemasRoute
-  '/ingestion': typeof IngestionRoute
+  '/ingestion': typeof IngestionRouteWithChildren
   '/join-testing': typeof JoinTestingRoute
   '/demo/table': typeof DemoTableRoute
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
+  '/ingestion/batches': typeof IngestionBatchesRoute
   '/demo/api/names': typeof DemoApiNamesRoute
   '/demo/api/tq-todos': typeof DemoApiTqTodosRoute
   '/demo/form/address': typeof DemoFormAddressRoute
@@ -181,6 +190,7 @@ export interface FileRouteTypes {
     | '/join-testing'
     | '/demo/table'
     | '/demo/tanstack-query'
+    | '/ingestion/batches'
     | '/demo/api/names'
     | '/demo/api/tq-todos'
     | '/demo/form/address'
@@ -200,6 +210,7 @@ export interface FileRouteTypes {
     | '/join-testing'
     | '/demo/table'
     | '/demo/tanstack-query'
+    | '/ingestion/batches'
     | '/demo/api/names'
     | '/demo/api/tq-todos'
     | '/demo/form/address'
@@ -219,6 +230,7 @@ export interface FileRouteTypes {
     | '/join-testing'
     | '/demo/table'
     | '/demo/tanstack-query'
+    | '/ingestion/batches'
     | '/demo/api/names'
     | '/demo/api/tq-todos'
     | '/demo/form/address'
@@ -235,7 +247,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   EntitiesRoute: typeof EntitiesRoute
   EntitySchemasRoute: typeof EntitySchemasRoute
-  IngestionRoute: typeof IngestionRoute
+  IngestionRoute: typeof IngestionRouteWithChildren
   JoinTestingRoute: typeof JoinTestingRoute
   DemoTableRoute: typeof DemoTableRoute
   DemoTanstackQueryRoute: typeof DemoTanstackQueryRoute
@@ -287,6 +299,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/ingestion/batches': {
+      id: '/ingestion/batches'
+      path: '/batches'
+      fullPath: '/ingestion/batches'
+      preLoaderRoute: typeof IngestionBatchesRouteImport
+      parentRoute: typeof IngestionRoute
     }
     '/demo/tanstack-query': {
       id: '/demo/tanstack-query'
@@ -375,11 +394,23 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface IngestionRouteChildren {
+  IngestionBatchesRoute: typeof IngestionBatchesRoute
+}
+
+const IngestionRouteChildren: IngestionRouteChildren = {
+  IngestionBatchesRoute: IngestionBatchesRoute,
+}
+
+const IngestionRouteWithChildren = IngestionRoute._addFileChildren(
+  IngestionRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   EntitiesRoute: EntitiesRoute,
   EntitySchemasRoute: EntitySchemasRoute,
-  IngestionRoute: IngestionRoute,
+  IngestionRoute: IngestionRouteWithChildren,
   JoinTestingRoute: JoinTestingRoute,
   DemoTableRoute: DemoTableRoute,
   DemoTanstackQueryRoute: DemoTanstackQueryRoute,

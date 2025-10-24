@@ -70,13 +70,14 @@ func NewService(
 
 // Request describes the ingestion input.
 type Request struct {
-	OrganizationID  uuid.UUID
-	SchemaName      string
-	Description     string
-	FileName        string
-	HeaderRowIndex  *int
-	ColumnOverrides map[string]domain.FieldType
-	Data            io.Reader
+	OrganizationID       uuid.UUID
+	SchemaName           string
+	Description          string
+	FileName             string
+	HeaderRowIndex       *int
+	ColumnOverrides      map[string]domain.FieldType
+	Data                 io.Reader
+	SkipEntityValidation bool
 }
 
 // PreviewRequest describes the preview input prior to ingestion.
@@ -140,6 +141,7 @@ type Summary struct {
 	NewFieldsDetected []string       `json:"newFieldsDetected"`
 	SchemaChanges     []SchemaChange `json:"schemaChanges"`
 	SchemaCreated     bool           `json:"schemaCreated"`
+	BatchID           uuid.UUID      `json:"batchId,omitempty"`
 }
 
 type tableData struct {
@@ -147,6 +149,50 @@ type tableData struct {
 	rawHeaders     []string
 	rows           [][]string
 	headerRowIndex int
+}
+
+// BatchRecord describes the lifecycle of a staged ingest batch.
+type BatchRecord struct {
+	ID             uuid.UUID  `json:"id"`
+	OrganizationID uuid.UUID  `json:"organizationId"`
+	SchemaID       uuid.UUID  `json:"schemaId"`
+	EntityType     string     `json:"entityType"`
+	FileName       *string    `json:"fileName,omitempty"`
+	RowsStaged     int        `json:"rowsStaged"`
+	RowsFlushed    int        `json:"rowsFlushed"`
+	SkipValidation bool       `json:"skipValidation"`
+	Status         string     `json:"status"`
+	ErrorMessage   *string    `json:"errorMessage,omitempty"`
+	EnqueuedAt     time.Time  `json:"enqueuedAt"`
+	StartedAt      *time.Time `json:"startedAt,omitempty"`
+	CompletedAt    *time.Time `json:"completedAt,omitempty"`
+	UpdatedAt      time.Time  `json:"updatedAt"`
+}
+
+// BatchStats aggregates ingest batch activity.
+type BatchStats struct {
+	TotalBatches      int64 `json:"totalBatches"`
+	InProgressBatches int64 `json:"inProgressBatches"`
+	CompletedBatches  int64 `json:"completedBatches"`
+	FailedBatches     int64 `json:"failedBatches"`
+	TotalRowsStaged   int64 `json:"totalRowsStaged"`
+	TotalRowsFlushed  int64 `json:"totalRowsFlushed"`
+}
+
+// BatchLogEntry captures a failed row recorded during ingestion.
+type BatchLogEntry struct {
+	ID           uuid.UUID `json:"id"`
+	RowNumber    *int      `json:"rowNumber,omitempty"`
+	ErrorMessage string    `json:"errorMessage"`
+	CreatedAt    time.Time `json:"createdAt"`
+}
+
+// BatchOverview bundles the current queue, history, and stats.
+type BatchOverview struct {
+	Current   []BatchRecord `json:"current"`
+	Completed []BatchRecord `json:"completed"`
+	Failed    []BatchRecord `json:"failed"`
+	Stats     BatchStats    `json:"stats"`
 }
 
 // Ingest reads the uploaded file, updates the schema, and persists valid entities.
@@ -393,16 +439,29 @@ func (s *Service) Ingest(ctx context.Context, req Request) (Summary, error) {
 	}
 
 	batchStart := time.Now()
-	inserted, err := s.entityRepo.CreateBatch(ctx, items)
+	batchCtx := ctx
+	skipBatchValidation := req.SkipEntityValidation && summary.InvalidRows == 0
+	if req.SkipEntityValidation && summary.InvalidRows > 0 {
+		log.Printf("%s skipValidation was requested but %d invalid rows remain; DB trigger will run", logPrefix, summary.InvalidRows)
+	}
+	if skipBatchValidation {
+		log.Printf("%s skipValidation on ingest enabled; background flush will bypass database trigger", logPrefix)
+		batchCtx = repository.WithSkipEntityValidation(batchCtx)
+	}
+
+	result, err := s.entityRepo.CreateBatch(batchCtx, items, repository.EntityBatchOptions{
+		SourceFile: req.FileName,
+	})
 	if err == nil {
-		summary.ValidRows = inserted
-		log.Printf("%s batch insert succeeded in %v (rows=%d)", logPrefix, time.Since(batchStart), inserted)
+		summary.ValidRows = result.RowsStaged
+		summary.BatchID = result.BatchID
+		log.Printf("%s batch staging succeeded in %v (batchID=%s rows=%d); background flush in progress", logPrefix, time.Since(batchStart), result.BatchID, result.RowsStaged)
 		log.Printf("%s completed in %v (valid=%d invalid=%d schemaCreated=%t)", logPrefix, time.Since(start), summary.ValidRows, summary.InvalidRows, summary.SchemaCreated)
 		return summary, nil
 	}
 
-	log.Printf("%s batch insert failed after %v (rows=%d err=%v) - falling back to per-row inserts", logPrefix, time.Since(batchStart), len(items), err)
-	s.logIngestionError(ctx, req, nil, fmt.Errorf("failed to insert entity batch: %w", err))
+	log.Printf("%s batch staging failed after %v (rows=%d err=%v) - falling back to per-row inserts", logPrefix, time.Since(batchStart), len(items), err)
+	s.logIngestionError(ctx, req, nil, fmt.Errorf("failed to stage entity batch: %w", err))
 
 	fallbackStart := time.Now()
 	fallbackValid := 0
@@ -421,6 +480,133 @@ func (s *Service) Ingest(ctx context.Context, req Request) (Summary, error) {
 	log.Printf("%s completed in %v (valid=%d invalid=%d schemaCreated=%t)", logPrefix, time.Since(start), summary.ValidRows, summary.InvalidRows, summary.SchemaCreated)
 
 	return summary, nil
+}
+
+// GetBatchOverview retrieves the current and historical ingest batches with aggregate stats.
+func (s *Service) GetBatchOverview(ctx context.Context, organizationID *uuid.UUID, limit int, offset int) (BatchOverview, error) {
+	overview := BatchOverview{
+		Current:   []BatchRecord{},
+		Completed: []BatchRecord{},
+		Failed:    []BatchRecord{},
+		Stats:     BatchStats{},
+	}
+
+	if limit <= 0 {
+		limit = 20
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	current, err := s.entityRepo.ListIngestBatches(ctx, organizationID, []string{"PENDING", "FLUSHING"}, limit, offset)
+	if err != nil {
+		return overview, fmt.Errorf("failed to list in-progress batches: %w", err)
+	}
+	completed, err := s.entityRepo.ListIngestBatches(ctx, organizationID, []string{"COMPLETED"}, limit, offset)
+	if err != nil {
+		return overview, fmt.Errorf("failed to list completed batches: %w", err)
+	}
+	failed, err := s.entityRepo.ListIngestBatches(ctx, organizationID, []string{"FAILED"}, limit, offset)
+	if err != nil {
+		return overview, fmt.Errorf("failed to list failed batches: %w", err)
+	}
+
+	overview.Current = convertBatchRecords(current)
+	overview.Completed = convertBatchRecords(completed)
+	overview.Failed = convertBatchRecords(failed)
+
+	stats, err := s.entityRepo.GetIngestBatchStats(ctx, organizationID)
+	if err != nil {
+		return overview, fmt.Errorf("failed to compute batch stats: %w", err)
+	}
+
+	overview.Stats = BatchStats{
+		TotalBatches:      stats.TotalBatches,
+		InProgressBatches: stats.InProgressBatches,
+		CompletedBatches:  stats.CompletedBatches,
+		FailedBatches:     stats.FailedBatches,
+		TotalRowsStaged:   stats.TotalRowsStaged,
+		TotalRowsFlushed:  stats.TotalRowsFlushed,
+	}
+
+	return overview, nil
+}
+
+// GetBatchLogs lists ingestion log entries associated with a staged batch.
+func (s *Service) GetBatchLogs(ctx context.Context, organizationID uuid.UUID, schemaName string, fileName string, limit int, offset int) ([]BatchLogEntry, error) {
+	if organizationID == uuid.Nil {
+		return nil, errors.New("organization id is required")
+	}
+
+	schemaName = strings.TrimSpace(schemaName)
+	if schemaName == "" {
+		return nil, errors.New("schema name is required")
+	}
+
+	fileName = strings.TrimSpace(fileName)
+	if fileName == "" {
+		return nil, errors.New("file name is required")
+	}
+
+	if limit <= 0 {
+		limit = 200
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	if s.logRepo == nil {
+		return []BatchLogEntry{}, nil
+	}
+
+	entries, err := s.logRepo.List(ctx, organizationID, schemaName, fileName, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list ingestion logs: %w", err)
+	}
+
+	return convertLogEntries(entries), nil
+}
+
+func convertBatchRecords(records []repository.IngestBatchRecord) []BatchRecord {
+	if len(records) == 0 {
+		return []BatchRecord{}
+	}
+	out := make([]BatchRecord, len(records))
+	for i, record := range records {
+		out[i] = BatchRecord{
+			ID:             record.ID,
+			OrganizationID: record.OrganizationID,
+			SchemaID:       record.SchemaID,
+			EntityType:     record.EntityType,
+			FileName:       record.FileName,
+			RowsStaged:     record.RowsStaged,
+			RowsFlushed:    record.RowsFlushed,
+			SkipValidation: record.SkipValidation,
+			Status:         record.Status,
+			ErrorMessage:   record.ErrorMessage,
+			EnqueuedAt:     record.EnqueuedAt,
+			StartedAt:      record.StartedAt,
+			CompletedAt:    record.CompletedAt,
+			UpdatedAt:      record.UpdatedAt,
+		}
+	}
+	return out
+}
+
+func convertLogEntries(entries []domain.IngestionLogEntry) []BatchLogEntry {
+	if len(entries) == 0 {
+		return []BatchLogEntry{}
+	}
+	out := make([]BatchLogEntry, len(entries))
+	for i, entry := range entries {
+		out[i] = BatchLogEntry{
+			ID:           entry.ID,
+			RowNumber:    entry.RowNumber,
+			ErrorMessage: entry.ErrorMessage,
+			CreatedAt:    entry.CreatedAt,
+		}
+	}
+	return out
 }
 
 // Preview runs validations against a limited set of rows without persisting entities.
