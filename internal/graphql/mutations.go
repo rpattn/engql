@@ -9,6 +9,7 @@ import (
 
 	"github.com/rpattn/engql/graph"
 	"github.com/rpattn/engql/internal/domain"
+	schemavalidator "github.com/rpattn/engql/internal/schema/validator"
 	"github.com/rpattn/engql/pkg/validator"
 
 	"github.com/google/uuid"
@@ -401,6 +402,10 @@ func (r *Resolver) CreateEntitySchema(ctx context.Context, input graph.CreateEnt
 		})
 	}
 
+	if err := schemavalidator.ValidateFields(fields); err != nil {
+		return nil, fmt.Errorf("schema validation failed: %w", err)
+	}
+
 	schema := domain.NewEntitySchema(orgID, input.Name, description, fields)
 
 	exists, err := r.entitySchemaRepo.Exists(ctx, orgID, input.Name)
@@ -452,6 +457,9 @@ func (r *Resolver) UpdateEntitySchema(ctx context.Context, input graph.UpdateEnt
 			fieldInputs = append(fieldInputs, *f)
 		}
 		newFields := buildFieldDefinitionsFromInput(fieldInputs)
+		if err := schemavalidator.ValidateFields(newFields); err != nil {
+			return nil, fmt.Errorf("schema validation failed: %w", err)
+		}
 		updatedSchema.Fields = newFields
 		if len(fieldInputs) > 0 {
 			changed = true
