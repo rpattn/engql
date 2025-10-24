@@ -182,8 +182,8 @@ func (jv *JSONBValidator) validateFieldType(fieldName string, value any, expecte
 		if !ok {
 			return fmt.Errorf("field '%s' must be a string reference, got %T", fieldName, value)
 		}
-		if _, err := uuid.Parse(strings.TrimSpace(strVal)); err != nil {
-			return fmt.Errorf("field '%s' must be a valid UUID string: %v", fieldName, err)
+		if strings.TrimSpace(strVal) == "" {
+			return fmt.Errorf("field '%s' must be a non-empty entity reference string", fieldName)
 		}
 	case graph.FieldTypeEntityReferenceArray:
 		values, ok := value.([]interface{})
@@ -202,8 +202,8 @@ func (jv *JSONBValidator) validateFieldType(fieldName string, value any, expecte
 			if !ok {
 				return fmt.Errorf("field '%s' reference values must be strings, got %T", fieldName, item)
 			}
-			if _, err := uuid.Parse(strings.TrimSpace(str)); err != nil {
-				return fmt.Errorf("field '%s' contains invalid UUID '%s': %v", fieldName, str, err)
+			if strings.TrimSpace(str) == "" {
+				return fmt.Errorf("field '%s' contains an empty entity reference value", fieldName)
 			}
 		}
 	default:
