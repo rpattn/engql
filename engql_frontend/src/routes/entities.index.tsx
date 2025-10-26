@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
-import type { Entity, EntityFilter } from '../generated/graphql'
+import type { Entity, EntityFilter, PropertyFilter as PropertyFilterInput } from '../generated/graphql'
 import { FieldType } from '../generated/graphql'
 import {
   useCreateEntityMutation,
@@ -122,15 +122,40 @@ function EntitiesPage() {
     )
   }, [visibleSchemaFields])
 
-  const propertyFilters = useMemo(() => {
+  const propertyFilters = useMemo<PropertyFilterInput[]>(() => {
+    if (!selectedSchema?.fields) {
+      return []
+    }
+
     return Object.entries(columnFilters)
-      .map(([key, raw]) => [key, raw.trim()] as const)
-      .filter(([, value]) => value.length > 0)
-      .map(([key, value]) => ({
-        key,
-        value,
-      }))
-  }, [columnFilters])
+      .map(([key, raw]) => {
+        const trimmed = raw.trim()
+        if (trimmed.length === 0) {
+          return null
+        }
+
+        const schemaField = selectedSchema.fields?.find((field) => field.name === key)
+        if (!schemaField) {
+          return null
+        }
+
+        let normalizedValue = trimmed
+
+        if (schemaField.type === FieldType.Boolean) {
+          const normalized = trimmed.toLowerCase()
+          if (normalized !== 'true' && normalized !== 'false') {
+            return null
+          }
+          normalizedValue = normalized
+        }
+
+        return {
+          key,
+          value: normalizedValue,
+        }
+      })
+      .filter((filter): filter is PropertyFilterInput => Boolean(filter))
+  }, [columnFilters, selectedSchema])
 
   const entityFilter = useMemo(() => {
     const filter: EntityFilter = {}
@@ -410,6 +435,7 @@ function EntitiesPage() {
           onDelete={handleDeleteEntity}
           summaryLabel={summaryLabel}
           isLoading={entitiesQuery.isLoading}
+          isFetching={entitiesQuery.isFetching}
           hiddenFieldNames={hiddenFieldNames}
           onHiddenFieldNamesChange={setHiddenFieldNames}
         />

@@ -8,6 +8,7 @@ import {
   Columns,
   Filter,
   History,
+  Loader2,
   Pencil,
   Trash2,
 } from 'lucide-react'
@@ -37,6 +38,8 @@ const BASE_COLUMN_IDS = {
 
 type BaseColumnId = (typeof BASE_COLUMN_IDS)[keyof typeof BASE_COLUMN_IDS]
 
+const BASE_COLUMN_COUNT = Object.keys(BASE_COLUMN_IDS).length
+
 const BASE_COLUMN_WIDTHS: Record<BaseColumnId, number> = {
   [BASE_COLUMN_IDS.entity]: 180,
   [BASE_COLUMN_IDS.path]: 220,
@@ -60,6 +63,7 @@ type EntityTableProps = {
   onDelete: (entity: Entity) => void
   summaryLabel: string
   isLoading: boolean
+  isFetching: boolean
   hiddenFieldNames: string[]
   onHiddenFieldNamesChange: Dispatch<SetStateAction<string[]>>
 }
@@ -73,6 +77,7 @@ export default function EntityTable({
   onDelete,
   summaryLabel,
   isLoading,
+  isFetching,
   hiddenFieldNames,
   onHiddenFieldNamesChange,
 }: EntityTableProps) {
@@ -87,7 +92,10 @@ export default function EntityTable({
   } | null>(null)
   const columnsMenuRef = useRef<HTMLDivElement | null>(null)
 
+  const isBusy = isLoading || isFetching
   const isEmpty = rows.length === 0
+  const showEmptyState = !isBusy && isEmpty
+  const totalVisibleColumns = BASE_COLUMN_COUNT + visibleFields.length
 
   const sortedFields = useMemo(
     () => schemaFields.slice().sort((a, b) => a.name.localeCompare(b.name)),
@@ -441,20 +449,23 @@ export default function EntityTable({
     </div>
   )
 
+  const headerLabel = isBusy && isEmpty ? 'Loading entities…' : summaryLabel
+
   return (
     <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
       <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 text-sm text-gray-600">
-        <div>{isLoading ? 'Loading entities…' : summaryLabel}</div>
+        <div>{headerLabel}</div>
         {renderColumnsMenu()}
       </div>
 
-      {isEmpty ? (
+      {showEmptyState ? (
         <div className="px-6 py-10 text-center text-sm text-gray-600">
-          {isLoading ? 'Loading entities…' : 'No entities found for this schema and filters.'}
+          No entities found for this schema and filters.
         </div>
       ) : (
-        <div className="max-h-[480px] overflow-auto">
-          <table className="min-w-full divide-y divide-gray-200 text-sm">
+        <div className="relative">
+          <div className="max-h-[480px] overflow-auto">
+            <table className="min-w-full divide-y divide-gray-200 text-sm">
             <thead className="bg-gray-50">
               <tr>
                 <th
@@ -567,93 +578,111 @@ export default function EntityTable({
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {displayedRows.map(({ entity, props, linkedById }) => (
-                <tr key={entity.id} className="bg-white align-top">
-                  <td className="px-4 py-4" style={getColumnStyle(BASE_COLUMN_IDS.entity)}>
-                    <div className="font-medium text-gray-900">
-                      <Link
-                        to="/entity/$entityId"
-                        params={{ entityId: entity.id }}
-                        className="text-blue-600 transition hover:text-blue-700 hover:underline"
-                      >
-                        {entity.entityType}
-                      </Link>
-                    </div>
-                  </td>
-                  <td className="px-4 py-4" style={getColumnStyle(BASE_COLUMN_IDS.path)}>
-                    {entity.path ? (
-                      <span className="text-sm text-gray-700">{entity.path}</span>
-                    ) : (
-                      <span className="text-xs uppercase tracking-wide text-gray-400">
-                        —
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-4" style={getColumnStyle(BASE_COLUMN_IDS.version)}>
-                    <span className="rounded bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-700">
-                      v{entity.version}
-                    </span>
-                  </td>
-                  {visibleFields.map((field) => {
-                    const columnId = `${FIELD_COLUMN_PREFIX}${field.name}`
-                    return (
-                      <td
-                        key={`${entity.id}-${field.name}`}
-                        className="px-4 py-4 align-top"
-                        style={getColumnStyle(columnId)}
-                      >
-                        {renderFieldValue(field, props[field.name], linkedById)}
-                      </td>
-                    )
-                  })}
-                  <td className="px-4 py-4" style={getColumnStyle(BASE_COLUMN_IDS.updatedAt)}>
-                    <div className="text-sm text-gray-800">
-                      {formatTimestamp(entity.updatedAt)}
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      {formatRelative(entity.updatedAt)}
-                    </div>
-                  </td>
-                  <td className="px-4 py-4" style={getColumnStyle(BASE_COLUMN_IDS.createdAt)}>
-                    <div className="text-sm text-gray-800">
-                      {formatTimestamp(entity.createdAt)}
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      {formatRelative(entity.createdAt)}
-                    </div>
-                  </td>
-                  <td className="px-4 py-4" style={getColumnStyle(BASE_COLUMN_IDS.actions)}>
-                    <div className="flex justify-end gap-2">
-                      <Link
-                        to="/entities/$entityId/versions"
-                        params={{ entityId: entity.id }}
-                        className="flex items-center gap-1 rounded-md border border-indigo-200 px-3 py-1.5 text-xs font-medium text-indigo-600 transition hover:border-indigo-300 hover:bg-indigo-50"
-                      >
-                        <History className="h-3.5 w-3.5" />
-                        Versions
-                      </Link>
-                      <button
-                        type="button"
-                        onClick={() => onEdit(entity)}
-                        className="flex items-center gap-1 rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:border-gray-400 hover:text-gray-900"
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onDelete(entity)}
-                        className="flex items-center gap-1 rounded-md border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 transition hover:border-red-300 hover:bg-red-50"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                        Delete
-                      </button>
-                    </div>
+              {displayedRows.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={totalVisibleColumns}
+                    className="px-4 py-10 text-center text-sm text-gray-600"
+                  >
+                    Loading entities…
                   </td>
                 </tr>
-              ))}
+              ) : (
+                displayedRows.map(({ entity, props, linkedById }) => (
+                  <tr key={entity.id} className="bg-white align-top">
+                    <td className="px-4 py-4" style={getColumnStyle(BASE_COLUMN_IDS.entity)}>
+                      <div className="font-medium text-gray-900">
+                        <Link
+                          to="/entity/$entityId"
+                          params={{ entityId: entity.id }}
+                          className="text-blue-600 transition hover:text-blue-700 hover:underline"
+                        >
+                          {entity.entityType}
+                        </Link>
+                      </div>
+                    </td>
+                    <td className="px-4 py-4" style={getColumnStyle(BASE_COLUMN_IDS.path)}>
+                      {entity.path ? (
+                        <span className="text-sm text-gray-700">{entity.path}</span>
+                      ) : (
+                        <span className="text-xs uppercase tracking-wide text-gray-400">
+                          —
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-4" style={getColumnStyle(BASE_COLUMN_IDS.version)}>
+                      <span className="rounded bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-700">
+                        v{entity.version}
+                      </span>
+                    </td>
+                    {visibleFields.map((field) => {
+                      const columnId = `${FIELD_COLUMN_PREFIX}${field.name}`
+                      return (
+                        <td
+                          key={`${entity.id}-${field.name}`}
+                          className="px-4 py-4 align-top"
+                          style={getColumnStyle(columnId)}
+                        >
+                          {renderFieldValue(field, props[field.name], linkedById)}
+                        </td>
+                      )
+                    })}
+                    <td className="px-4 py-4" style={getColumnStyle(BASE_COLUMN_IDS.updatedAt)}>
+                      <div className="text-sm text-gray-800">
+                        {formatTimestamp(entity.updatedAt)}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {formatRelative(entity.updatedAt)}
+                      </div>
+                    </td>
+                    <td className="px-4 py-4" style={getColumnStyle(BASE_COLUMN_IDS.createdAt)}>
+                      <div className="text-sm text-gray-800">
+                        {formatTimestamp(entity.createdAt)}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {formatRelative(entity.createdAt)}
+                      </div>
+                    </td>
+                    <td className="px-4 py-4" style={getColumnStyle(BASE_COLUMN_IDS.actions)}>
+                      <div className="flex justify-end gap-2">
+                        <Link
+                          to="/entities/$entityId/versions"
+                          params={{ entityId: entity.id }}
+                          className="flex items-center gap-1 rounded-md border border-indigo-200 px-3 py-1.5 text-xs font-medium text-indigo-600 transition hover:border-indigo-300 hover:bg-indigo-50"
+                        >
+                          <History className="h-3.5 w-3.5" />
+                          Versions
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => onEdit(entity)}
+                          className="flex items-center gap-1 rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:border-gray-400 hover:text-gray-900"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onDelete(entity)}
+                          className="flex items-center gap-1 rounded-md border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 transition hover:border-red-300 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
+          </div>
+          {isBusy && (
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/70">
+              <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+              <span className="sr-only">Loading entities…</span>
+            </div>
+          )}
         </div>
       )}
     </div>
