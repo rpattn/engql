@@ -3,10 +3,15 @@ import type {
   EntitySchema,
   FieldDefinition,
 } from '../../../generated/graphql'
-import { useEntitiesByTypeFullQuery } from '../../../generated/graphql'
+import {
+  FieldType,
+  useEntitiesByTypeFullQuery,
+  useEntitySchemasQuery,
+} from '../../../generated/graphql'
 import {
   extractEntityDisplayNameFromProperties,
   FieldInputValue,
+  safeParseProperties,
 } from './helpers'
 
 type ReferenceFieldInputProps = {
@@ -41,6 +46,10 @@ export default function ReferenceFieldInput({
   const targetEntityType = field.referenceEntityType ?? schema?.name ?? ''
 
   const shouldFetch = Boolean(organizationId) && Boolean(targetEntityType)
+  const entitySchemasQuery = useEntitySchemasQuery(
+    { organizationId },
+    { enabled: shouldFetch, staleTime: 60_000 },
+  )
   const entitiesQuery = useEntitiesByTypeFullQuery(
     {
       organizationId,
@@ -53,18 +62,49 @@ export default function ReferenceFieldInput({
   )
 
   const allEntities = entitiesQuery.data?.entitiesByType ?? []
+  const targetSchema = useMemo(() => {
+    if (!targetEntityType) {
+      return undefined
+    }
+    return entitySchemasQuery.data?.entitySchemas.find(
+      (entry) => entry.name === targetEntityType,
+    )
+  }, [entitySchemasQuery.data?.entitySchemas, targetEntityType])
+
+  const referenceFieldNames = useMemo(() => {
+    if (!targetSchema) {
+      return [] as string[]
+    }
+    return targetSchema.fields
+      .filter((schemaField) => schemaField.type === FieldType.Reference)
+      .map((schemaField) => schemaField.name.trim())
+      .filter((name) => name.length > 0)
+  }, [targetSchema])
 
   const suggestions = useMemo<ReferenceOption[]>(() => {
     return allEntities.map((entity) => {
       const reference = entity.referenceValue?.trim() ?? ''
+      const parsedProps = safeParseProperties(entity.properties)
+      const referenceCandidates = new Set<string>()
+      if (reference) {
+        referenceCandidates.add(reference)
+      }
+      for (const name of referenceFieldNames) {
+        const raw = parsedProps[name]
+        if (typeof raw === 'string') {
+          const trimmed = raw.trim()
+          if (trimmed.length > 0) {
+            referenceCandidates.add(trimmed)
+          }
+        }
+      }
       const displayName = extractEntityDisplayNameFromProperties(
         entity.properties,
         entity.id,
       )
       const labelParts = new Set<string>()
-
-      if (reference) {
-        labelParts.add(reference)
+      for (const candidate of referenceCandidates) {
+        labelParts.add(candidate)
       }
       if (displayName) {
         labelParts.add(displayName)
@@ -75,8 +115,11 @@ export default function ReferenceFieldInput({
       const referenceValue = reference || undefined
       const primaryLabel = referenceValue ?? displayName ?? entity.id
 
+      const allReferenceTokens = Array.from(referenceCandidates).map((token) =>
+        token.toLowerCase(),
+      )
       const searchTokens = [
-        referenceValue?.toLowerCase(),
+        ...allReferenceTokens,
         displayName?.toLowerCase(),
         entity.id.toLowerCase(),
         primaryLabel.toLowerCase(),
@@ -92,7 +135,7 @@ export default function ReferenceFieldInput({
         searchTokens,
       }
     })
-  }, [allEntities])
+  }, [allEntities, referenceFieldNames])
 
   const [labels, setLabels] = useState<Record<string, string>>({})
 
