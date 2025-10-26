@@ -309,11 +309,13 @@ func (r *Resolver) resolveJoinField(ctx context.Context, organizationID uuid.UUI
 	for _, field := range schema.Fields {
 		if strings.EqualFold(field.Name, joinField) {
 			switch field.Type {
-			case domain.FieldTypeEntityReference, domain.FieldTypeEntityReferenceArray, domain.FieldTypeReference:
+			case domain.FieldTypeEntityReference, domain.FieldTypeEntityReferenceArray:
 				if field.ReferenceEntityType != "" && !strings.EqualFold(field.ReferenceEntityType, rightEntityType) {
 					return "", "", fmt.Errorf("field %s references entity type %s, expected %s", field.Name, field.ReferenceEntityType, rightEntityType)
 				}
 				return field.Name, field.Type, nil
+			case domain.FieldTypeReference:
+				return "", "", fmt.Errorf("field %s stores human-readable references; select an ENTITY_REFERENCE field instead", field.Name)
 			default:
 				return "", "", fmt.Errorf("field %s is not an entity reference field", field.Name)
 			}
