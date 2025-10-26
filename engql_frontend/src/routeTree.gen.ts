@@ -17,10 +17,12 @@ import { Route as EntitiesRouteImport } from './routes/entities'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TransformationsIndexRouteImport } from './routes/transformations/index'
 import { Route as EntitiesIndexRouteImport } from './routes/entities.index'
+import { Route as TransformationsTransformationIdRouteImport } from './routes/transformations/$transformationId'
 import { Route as IngestionBatchesRouteImport } from './routes/ingestion/batches'
 import { Route as EntityEntityIdRouteImport } from './routes/entity/$entityId'
 import { Route as DemoTanstackQueryRouteImport } from './routes/demo/tanstack-query'
 import { Route as DemoTableRouteImport } from './routes/demo/table'
+import { Route as TransformationsTransformationIdExecuteRouteImport } from './routes/transformations/$transformationId.execute'
 import { Route as EntitiesEntityIdVersionsRouteImport } from './routes/entities/$entityId/versions'
 import { Route as DemoStartServerFuncsRouteImport } from './routes/demo/start.server-funcs'
 import { Route as DemoStartApiRequestRouteImport } from './routes/demo/start.api-request'
@@ -73,6 +75,12 @@ const EntitiesIndexRoute = EntitiesIndexRouteImport.update({
   path: '/',
   getParentRoute: () => EntitiesRoute,
 } as any)
+const TransformationsTransformationIdRoute =
+  TransformationsTransformationIdRouteImport.update({
+    id: '/$transformationId',
+    path: '/$transformationId',
+    getParentRoute: () => TransformationsRoute,
+  } as any)
 const IngestionBatchesRoute = IngestionBatchesRouteImport.update({
   id: '/batches',
   path: '/batches',
@@ -93,6 +101,12 @@ const DemoTableRoute = DemoTableRouteImport.update({
   path: '/demo/table',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TransformationsTransformationIdExecuteRoute =
+  TransformationsTransformationIdExecuteRouteImport.update({
+    id: '/execute',
+    path: '/execute',
+    getParentRoute: () => TransformationsTransformationIdRoute,
+  } as any)
 const EntitiesEntityIdVersionsRoute =
   EntitiesEntityIdVersionsRouteImport.update({
     id: '/$entityId/versions',
@@ -161,6 +175,7 @@ export interface FileRoutesByFullPath {
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
   '/entity/$entityId': typeof EntityEntityIdRoute
   '/ingestion/batches': typeof IngestionBatchesRoute
+  '/transformations/$transformationId': typeof TransformationsTransformationIdRouteWithChildren
   '/entities/': typeof EntitiesIndexRoute
   '/transformations/': typeof TransformationsIndexRoute
   '/demo/api/names': typeof DemoApiNamesRoute
@@ -170,6 +185,7 @@ export interface FileRoutesByFullPath {
   '/demo/start/api-request': typeof DemoStartApiRequestRoute
   '/demo/start/server-funcs': typeof DemoStartServerFuncsRoute
   '/entities/$entityId/versions': typeof EntitiesEntityIdVersionsRoute
+  '/transformations/$transformationId/execute': typeof TransformationsTransformationIdExecuteRoute
   '/demo/start/ssr/data-only': typeof DemoStartSsrDataOnlyRoute
   '/demo/start/ssr/full-ssr': typeof DemoStartSsrFullSsrRoute
   '/demo/start/ssr/spa-mode': typeof DemoStartSsrSpaModeRoute
@@ -184,6 +200,7 @@ export interface FileRoutesByTo {
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
   '/entity/$entityId': typeof EntityEntityIdRoute
   '/ingestion/batches': typeof IngestionBatchesRoute
+  '/transformations/$transformationId': typeof TransformationsTransformationIdRouteWithChildren
   '/entities': typeof EntitiesIndexRoute
   '/transformations': typeof TransformationsIndexRoute
   '/demo/api/names': typeof DemoApiNamesRoute
@@ -193,6 +210,7 @@ export interface FileRoutesByTo {
   '/demo/start/api-request': typeof DemoStartApiRequestRoute
   '/demo/start/server-funcs': typeof DemoStartServerFuncsRoute
   '/entities/$entityId/versions': typeof EntitiesEntityIdVersionsRoute
+  '/transformations/$transformationId/execute': typeof TransformationsTransformationIdExecuteRoute
   '/demo/start/ssr/data-only': typeof DemoStartSsrDataOnlyRoute
   '/demo/start/ssr/full-ssr': typeof DemoStartSsrFullSsrRoute
   '/demo/start/ssr/spa-mode': typeof DemoStartSsrSpaModeRoute
@@ -210,6 +228,7 @@ export interface FileRoutesById {
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
   '/entity/$entityId': typeof EntityEntityIdRoute
   '/ingestion/batches': typeof IngestionBatchesRoute
+  '/transformations/$transformationId': typeof TransformationsTransformationIdRouteWithChildren
   '/entities/': typeof EntitiesIndexRoute
   '/transformations/': typeof TransformationsIndexRoute
   '/demo/api/names': typeof DemoApiNamesRoute
@@ -219,6 +238,7 @@ export interface FileRoutesById {
   '/demo/start/api-request': typeof DemoStartApiRequestRoute
   '/demo/start/server-funcs': typeof DemoStartServerFuncsRoute
   '/entities/$entityId/versions': typeof EntitiesEntityIdVersionsRoute
+  '/transformations/$transformationId/execute': typeof TransformationsTransformationIdExecuteRoute
   '/demo/start/ssr/data-only': typeof DemoStartSsrDataOnlyRoute
   '/demo/start/ssr/full-ssr': typeof DemoStartSsrFullSsrRoute
   '/demo/start/ssr/spa-mode': typeof DemoStartSsrSpaModeRoute
@@ -237,6 +257,7 @@ export interface FileRouteTypes {
     | '/demo/tanstack-query'
     | '/entity/$entityId'
     | '/ingestion/batches'
+    | '/transformations/$transformationId'
     | '/entities/'
     | '/transformations/'
     | '/demo/api/names'
@@ -246,6 +267,7 @@ export interface FileRouteTypes {
     | '/demo/start/api-request'
     | '/demo/start/server-funcs'
     | '/entities/$entityId/versions'
+    | '/transformations/$transformationId/execute'
     | '/demo/start/ssr/data-only'
     | '/demo/start/ssr/full-ssr'
     | '/demo/start/ssr/spa-mode'
@@ -260,6 +282,7 @@ export interface FileRouteTypes {
     | '/demo/tanstack-query'
     | '/entity/$entityId'
     | '/ingestion/batches'
+    | '/transformations/$transformationId'
     | '/entities'
     | '/transformations'
     | '/demo/api/names'
@@ -269,6 +292,7 @@ export interface FileRouteTypes {
     | '/demo/start/api-request'
     | '/demo/start/server-funcs'
     | '/entities/$entityId/versions'
+    | '/transformations/$transformationId/execute'
     | '/demo/start/ssr/data-only'
     | '/demo/start/ssr/full-ssr'
     | '/demo/start/ssr/spa-mode'
@@ -285,6 +309,7 @@ export interface FileRouteTypes {
     | '/demo/tanstack-query'
     | '/entity/$entityId'
     | '/ingestion/batches'
+    | '/transformations/$transformationId'
     | '/entities/'
     | '/transformations/'
     | '/demo/api/names'
@@ -294,6 +319,7 @@ export interface FileRouteTypes {
     | '/demo/start/api-request'
     | '/demo/start/server-funcs'
     | '/entities/$entityId/versions'
+    | '/transformations/$transformationId/execute'
     | '/demo/start/ssr/data-only'
     | '/demo/start/ssr/full-ssr'
     | '/demo/start/ssr/spa-mode'
@@ -380,6 +406,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EntitiesIndexRouteImport
       parentRoute: typeof EntitiesRoute
     }
+    '/transformations/$transformationId': {
+      id: '/transformations/$transformationId'
+      path: '/$transformationId'
+      fullPath: '/transformations/$transformationId'
+      preLoaderRoute: typeof TransformationsTransformationIdRouteImport
+      parentRoute: typeof TransformationsRoute
+    }
     '/ingestion/batches': {
       id: '/ingestion/batches'
       path: '/batches'
@@ -407,6 +440,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/demo/table'
       preLoaderRoute: typeof DemoTableRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/transformations/$transformationId/execute': {
+      id: '/transformations/$transformationId/execute'
+      path: '/execute'
+      fullPath: '/transformations/$transformationId/execute'
+      preLoaderRoute: typeof TransformationsTransformationIdExecuteRouteImport
+      parentRoute: typeof TransformationsTransformationIdRoute
     }
     '/entities/$entityId/versions': {
       id: '/entities/$entityId/versions'
@@ -514,11 +554,29 @@ const IngestionRouteWithChildren = IngestionRoute._addFileChildren(
   IngestionRouteChildren,
 )
 
+interface TransformationsTransformationIdRouteChildren {
+  TransformationsTransformationIdExecuteRoute: typeof TransformationsTransformationIdExecuteRoute
+}
+
+const TransformationsTransformationIdRouteChildren: TransformationsTransformationIdRouteChildren =
+  {
+    TransformationsTransformationIdExecuteRoute:
+      TransformationsTransformationIdExecuteRoute,
+  }
+
+const TransformationsTransformationIdRouteWithChildren =
+  TransformationsTransformationIdRoute._addFileChildren(
+    TransformationsTransformationIdRouteChildren,
+  )
+
 interface TransformationsRouteChildren {
+  TransformationsTransformationIdRoute: typeof TransformationsTransformationIdRouteWithChildren
   TransformationsIndexRoute: typeof TransformationsIndexRoute
 }
 
 const TransformationsRouteChildren: TransformationsRouteChildren = {
+  TransformationsTransformationIdRoute:
+    TransformationsTransformationIdRouteWithChildren,
   TransformationsIndexRoute: TransformationsIndexRoute,
 }
 
