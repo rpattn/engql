@@ -16,6 +16,7 @@ import (
 	"github.com/rpattn/engql/internal/ingestion"
 	"github.com/rpattn/engql/internal/middleware"
 	"github.com/rpattn/engql/internal/repository"
+	"github.com/rpattn/engql/internal/transformations"
 
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/playground"
@@ -53,11 +54,13 @@ func main() {
 	entitySchemaRepo := repository.NewEntitySchemaRepository(queries)
 	entityRepo := repository.NewEntityRepository(queries, conn.Pool)
 	entityJoinRepo := repository.NewEntityJoinRepository(queries, conn.Pool)
+	entityTransformationRepo := repository.NewEntityTransformationRepository(queries, conn.Pool)
+	transformationExecutor := transformations.NewExecutor(entityRepo)
 	ingestionLogRepo := repository.NewIngestionLogRepository(conn.Pool)
 	ingestionService := ingestion.NewService(entitySchemaRepo, entityRepo, ingestionLogRepo)
 
 	// Create GraphQL resolver
-	resolver := graphql.NewResolver(orgRepo, entitySchemaRepo, entityRepo, entityJoinRepo)
+	resolver := graphql.NewResolver(orgRepo, entitySchemaRepo, entityRepo, entityJoinRepo, entityTransformationRepo, transformationExecutor)
 
 	// Create GraphQL server
 	srv := handler.NewDefaultServer(graph.NewExecutableSchema(graph.Config{Resolvers: resolver}))

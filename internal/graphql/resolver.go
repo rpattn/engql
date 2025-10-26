@@ -11,6 +11,7 @@ import (
 	"github.com/rpattn/engql/graph"
 	"github.com/rpattn/engql/internal/domain"
 	"github.com/rpattn/engql/internal/repository"
+	"github.com/rpattn/engql/internal/transformations"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -18,11 +19,13 @@ import (
 
 // Resolver handles GraphQL queries and mutations
 type Resolver struct {
-	orgRepo             repository.OrganizationRepository
-	entitySchemaRepo    repository.EntitySchemaRepository
-	entityRepo          repository.EntityRepository
-	entityJoinRepo      repository.EntityJoinRepository
-	referenceFieldCache sync.Map
+	orgRepo                  repository.OrganizationRepository
+	entitySchemaRepo         repository.EntitySchemaRepository
+	entityRepo               repository.EntityRepository
+	entityJoinRepo           repository.EntityJoinRepository
+	entityTransformationRepo repository.EntityTransformationRepository
+	transformationExecutor   *transformations.Executor
+	referenceFieldCache      sync.Map
 }
 
 // NewResolver creates a new GraphQL resolver
@@ -31,12 +34,16 @@ func NewResolver(
 	entitySchemaRepo repository.EntitySchemaRepository,
 	entityRepo repository.EntityRepository,
 	entityJoinRepo repository.EntityJoinRepository,
+	entityTransformationRepo repository.EntityTransformationRepository,
+	transformationExecutor *transformations.Executor,
 ) *Resolver {
 	return &Resolver{
-		orgRepo:          orgRepo,
-		entitySchemaRepo: entitySchemaRepo,
-		entityRepo:       entityRepo,
-		entityJoinRepo:   entityJoinRepo,
+		orgRepo:                  orgRepo,
+		entitySchemaRepo:         entitySchemaRepo,
+		entityRepo:               entityRepo,
+		entityJoinRepo:           entityJoinRepo,
+		entityTransformationRepo: entityTransformationRepo,
+		transformationExecutor:   transformationExecutor,
 	}
 }
 
