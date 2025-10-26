@@ -125,6 +125,238 @@ func TestExecutor_LoadAndFilter(t *testing.T) {
 	}
 }
 
+func TestExecutor_FilterFallbackAlias(t *testing.T) {
+	orgID := uuid.New()
+	repo := &mockEntityRepository{
+		entities: []domain.Entity{
+			{
+				ID:             uuid.New(),
+				OrganizationID: orgID,
+				EntityType:     "user",
+				Properties: map[string]any{
+					"status": "active",
+				},
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			},
+		},
+	}
+	executor := NewExecutor(repo)
+	loadNodeID := uuid.New()
+	filterNodeID := uuid.New()
+	transformation := domain.EntityTransformation{
+		ID:             uuid.New(),
+		OrganizationID: orgID,
+		Name:           "filter-fallback",
+		Nodes: []domain.EntityTransformationNode{
+			{
+				ID:   loadNodeID,
+				Name: "load-users",
+				Type: domain.TransformationNodeLoad,
+				Load: &domain.EntityTransformationLoadConfig{
+					Alias:      "source",
+					EntityType: "user",
+				},
+			},
+			{
+				ID:     filterNodeID,
+				Name:   "filter",
+				Type:   domain.TransformationNodeFilter,
+				Inputs: []uuid.UUID{loadNodeID},
+				Filter: &domain.EntityTransformationFilterConfig{
+					Alias: "filtered",
+					Filters: []domain.PropertyFilter{
+						{Key: "status", Value: "active"},
+					},
+				},
+			},
+		},
+	}
+	result, err := executor.Execute(context.Background(), transformation, domain.EntityTransformationExecutionOptions{})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if len(result.Records) != 1 {
+		t.Fatalf("expected 1 record, got %d", len(result.Records))
+	}
+	record := result.Records[0]
+	entity := record.Entities["source"]
+	if entity == nil {
+		t.Fatalf("expected entity for fallback alias")
+	}
+	if entity.Properties["status"] != "active" {
+		t.Fatalf("unexpected status %v", entity.Properties["status"])
+	}
+}
+
+func TestExecutor_FilterAmbiguousAliasError(t *testing.T) {
+	orgID := uuid.New()
+	repo := &mockEntityRepository{
+		entities: []domain.Entity{
+			{
+				ID:             uuid.New(),
+				OrganizationID: orgID,
+				EntityType:     "user",
+				Properties: map[string]any{
+					"id":     "1",
+					"status": "active",
+				},
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			},
+			{
+				ID:             uuid.New(),
+				OrganizationID: orgID,
+				EntityType:     "order",
+				Properties: map[string]any{
+					"id": "1",
+				},
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			},
+		},
+	}
+	executor := NewExecutor(repo)
+	loadUsersID := uuid.New()
+	loadOrdersID := uuid.New()
+	joinNodeID := uuid.New()
+	filterNodeID := uuid.New()
+	transformation := domain.EntityTransformation{
+		ID:             uuid.New(),
+		OrganizationID: orgID,
+		Name:           "filter-ambiguous",
+		Nodes: []domain.EntityTransformationNode{
+			{
+				ID:   loadUsersID,
+				Name: "load-users",
+				Type: domain.TransformationNodeLoad,
+				Load: &domain.EntityTransformationLoadConfig{
+					Alias:      "users",
+					EntityType: "user",
+				},
+			},
+			{
+				ID:   loadOrdersID,
+				Name: "load-orders",
+				Type: domain.TransformationNodeLoad,
+				Load: &domain.EntityTransformationLoadConfig{
+					Alias:      "orders",
+					EntityType: "order",
+				},
+			},
+			{
+				ID:     joinNodeID,
+				Name:   "join",
+				Type:   domain.TransformationNodeJoin,
+				Inputs: []uuid.UUID{loadUsersID, loadOrdersID},
+				Join: &domain.EntityTransformationJoinConfig{
+					LeftAlias:  "users",
+					RightAlias: "orders",
+					OnField:    "id",
+				},
+			},
+			{
+				ID:     filterNodeID,
+				Name:   "filter",
+				Type:   domain.TransformationNodeFilter,
+				Inputs: []uuid.UUID{joinNodeID},
+				Filter: &domain.EntityTransformationFilterConfig{
+					Alias:   "",
+					Filters: []domain.PropertyFilter{{Key: "status", Value: "active"}},
+				},
+			},
+		},
+	}
+	_, err := executor.Execute(context.Background(), transformation, domain.EntityTransformationExecutionOptions{})
+	if err == nil {
+		t.Fatalf("expected error when alias is ambiguous")
+	}
+}
+
+func TestExecutor_FilterAliasNotFoundError(t *testing.T) {
+	orgID := uuid.New()
+	repo := &mockEntityRepository{
+		entities: []domain.Entity{
+			{
+				ID:             uuid.New(),
+				OrganizationID: orgID,
+				EntityType:     "user",
+				Properties: map[string]any{
+					"id":     "1",
+					"status": "active",
+				},
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			},
+			{
+				ID:             uuid.New(),
+				OrganizationID: orgID,
+				EntityType:     "order",
+				Properties: map[string]any{
+					"id": "1",
+				},
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			},
+		},
+	}
+	executor := NewExecutor(repo)
+	loadUsersID := uuid.New()
+	loadOrdersID := uuid.New()
+	joinNodeID := uuid.New()
+	filterNodeID := uuid.New()
+	transformation := domain.EntityTransformation{
+		ID:             uuid.New(),
+		OrganizationID: orgID,
+		Name:           "filter-missing-alias",
+		Nodes: []domain.EntityTransformationNode{
+			{
+				ID:   loadUsersID,
+				Name: "load-users",
+				Type: domain.TransformationNodeLoad,
+				Load: &domain.EntityTransformationLoadConfig{
+					Alias:      "users",
+					EntityType: "user",
+				},
+			},
+			{
+				ID:   loadOrdersID,
+				Name: "load-orders",
+				Type: domain.TransformationNodeLoad,
+				Load: &domain.EntityTransformationLoadConfig{
+					Alias:      "orders",
+					EntityType: "order",
+				},
+			},
+			{
+				ID:     joinNodeID,
+				Name:   "join",
+				Type:   domain.TransformationNodeJoin,
+				Inputs: []uuid.UUID{loadUsersID, loadOrdersID},
+				Join: &domain.EntityTransformationJoinConfig{
+					LeftAlias:  "users",
+					RightAlias: "orders",
+					OnField:    "id",
+				},
+			},
+			{
+				ID:     filterNodeID,
+				Name:   "filter",
+				Type:   domain.TransformationNodeFilter,
+				Inputs: []uuid.UUID{joinNodeID},
+				Filter: &domain.EntityTransformationFilterConfig{
+					Alias:   "missing",
+					Filters: []domain.PropertyFilter{{Key: "status", Value: "active"}},
+				},
+			},
+		},
+	}
+	_, err := executor.Execute(context.Background(), transformation, domain.EntityTransformationExecutionOptions{})
+	if err == nil {
+		t.Fatalf("expected error when alias cannot be resolved")
+	}
+}
+
 func TestExecutor_Project(t *testing.T) {
 	orgID := uuid.New()
 	repo := &mockEntityRepository{

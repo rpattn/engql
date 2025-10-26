@@ -107,9 +107,13 @@ func (e *Executor) executeFilter(node domain.EntityTransformationNode, cache map
 	if !ok {
 		return nil, fmt.Errorf("filter input not found")
 	}
+	filterAlias, err := resolveFilterAlias(inputRecords, node.Filter.Alias)
+	if err != nil {
+		return nil, err
+	}
 	var filtered []domain.EntityTransformationRecord
 	for _, record := range inputRecords {
-		entity := record.Entities[node.Filter.Alias]
+		entity := record.Entities[filterAlias]
 		if domain.ApplyPropertyFilters(entity, node.Filter.Filters) {
 			filtered = append(filtered, record.Clone())
 		}
@@ -346,6 +350,35 @@ func resolveSortAlias(records []domain.EntityTransformationRecord, desiredAlias 
 			return "", fmt.Errorf("sort node requires an alias when multiple entities are present")
 		}
 		return "", fmt.Errorf("sort alias %q not found in records", desiredAlias)
+	}
+
+	if desiredAlias != "" {
+		return fallbackAlias, nil
+	}
+	return fallbackAlias, nil
+}
+
+func resolveFilterAlias(records []domain.EntityTransformationRecord, desiredAlias string) (string, error) {
+	if desiredAlias != "" {
+		for _, record := range records {
+			if record.Entities == nil {
+				continue
+			}
+			if _, ok := record.Entities[desiredAlias]; ok {
+				return desiredAlias, nil
+			}
+		}
+	}
+
+	fallbackAlias, ok := singleAliasAcrossRecords(records)
+	if !ok {
+		if desiredAlias == "" {
+			if len(records) == 0 {
+				return "", nil
+			}
+			return "", fmt.Errorf("filter node requires an alias when multiple entities are present")
+		}
+		return "", fmt.Errorf("filter alias %q not found in records", desiredAlias)
 	}
 
 	if desiredAlias != "" {
