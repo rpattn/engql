@@ -156,9 +156,9 @@ func (r *queryResolver) EntitySchemaVersions(ctx context.Context, organizationID
 }
 
 // Entities is the resolver for the entities field.
-func (r *queryResolver) Entities(ctx context.Context, organizationID string, filter *graph.EntityFilter, pagination *graph.PaginationInput) (*graph.EntityConnection, error) {
+func (r *queryResolver) Entities(ctx context.Context, organizationID string, filter *graph.EntityFilter, pagination *graph.PaginationInput, sort *graph.EntitySortInput) (*graph.EntityConnection, error) {
 	// Delegate to the Resolver-level function
-	return r.Resolver.Entities(ctx, organizationID, filter, pagination)
+	return r.Resolver.Entities(ctx, organizationID, filter, pagination, sort)
 }
 
 // Entity is the resolver for the entity field.

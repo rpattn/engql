@@ -24,10 +24,10 @@ import {
   formatTimestamp,
 } from './helpers'
 
-const FIELD_COLUMN_PREFIX = 'field:' as const
+export const FIELD_COLUMN_PREFIX = 'field:' as const
 const MIN_COLUMN_WIDTH = 140
 const DEFAULT_FIELD_WIDTH = 220
-const BASE_COLUMN_IDS = {
+export const BASE_COLUMN_IDS = {
   entity: 'base:entity',
   path: 'base:path',
   version: 'base:version',
@@ -49,7 +49,7 @@ const BASE_COLUMN_WIDTHS: Record<BaseColumnId, number> = {
   [BASE_COLUMN_IDS.actions]: 220,
 }
 
-type SortState = {
+export type SortState = {
   columnId: string
   direction: 'asc' | 'desc'
 }
@@ -66,6 +66,8 @@ type EntityTableProps = {
   isFetching: boolean
   hiddenFieldNames: string[]
   onHiddenFieldNamesChange: Dispatch<SetStateAction<string[]>>
+  sortState: SortState | null
+  onSortChange: (next: SortState | null) => void
 }
 
 export default function EntityTable({
@@ -80,10 +82,11 @@ export default function EntityTable({
   isFetching,
   hiddenFieldNames,
   onHiddenFieldNamesChange,
+  sortState,
+  onSortChange,
 }: EntityTableProps) {
   const [activeFilterField, setActiveFilterField] = useState<string | null>(null)
   const [columnsMenuOpen, setColumnsMenuOpen] = useState(false)
-  const [sortState, setSortState] = useState<SortState | null>(null)
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>({})
   const [resizingState, setResizingState] = useState<{
     columnId: string
@@ -108,108 +111,6 @@ export default function EntityTable({
 
   const totalVisibleColumns = BASE_COLUMN_COUNT + visibleFields.length
 
-  const displayedRows = useMemo(() => {
-    if (!sortState) {
-      return rows
-    }
-
-    const { columnId, direction } = sortState
-    const multiplier = direction === 'asc' ? 1 : -1
-
-    const normalizeValue = (value: unknown): string | number => {
-      if (value === undefined || value === null) {
-        return ''
-      }
-      if (typeof value === 'number') {
-        return value
-      }
-      if (typeof value === 'boolean') {
-        return value ? 1 : 0
-      }
-      if (Array.isArray(value)) {
-        return value.map((item) => String(item)).join(', ').toLowerCase()
-      }
-      if (typeof value === 'object') {
-        try {
-          return JSON.stringify(value).toLowerCase()
-        } catch {
-          return ''
-        }
-      }
-      return String(value).toLowerCase()
-    }
-
-    const getSortValue = (row: ParsedEntityRow): unknown => {
-      switch (columnId) {
-        case BASE_COLUMN_IDS.entity:
-          return row.entity.entityType
-        case BASE_COLUMN_IDS.path:
-          return row.entity.path
-        case BASE_COLUMN_IDS.version:
-          return row.entity.version
-        case BASE_COLUMN_IDS.updatedAt:
-          return row.entity.updatedAt
-        case BASE_COLUMN_IDS.createdAt:
-          return row.entity.createdAt
-        default: {
-          if (columnId.startsWith(FIELD_COLUMN_PREFIX)) {
-            const fieldName = columnId.slice(FIELD_COLUMN_PREFIX.length)
-            return row.props[fieldName]
-          }
-          return null
-        }
-      }
-    }
-
-    const parseTemporalValue = (value: unknown): number | null => {
-      if (typeof value === 'string') {
-        const parsed = Date.parse(value)
-        return Number.isNaN(parsed) ? null : parsed
-      }
-      return null
-    }
-
-    return rows.slice().sort((a, b) => {
-      const aValue = getSortValue(a)
-      const bValue = getSortValue(b)
-
-      if ((aValue === undefined || aValue === null) && (bValue === undefined || bValue === null)) {
-        return 0
-      }
-      if (aValue === undefined || aValue === null) {
-        return 1 * multiplier
-      }
-      if (bValue === undefined || bValue === null) {
-        return -1 * multiplier
-      }
-
-      if (columnId === BASE_COLUMN_IDS.version) {
-        const aNumber = typeof aValue === 'number' ? aValue : Number(aValue)
-        const bNumber = typeof bValue === 'number' ? bValue : Number(bValue)
-        if (!Number.isNaN(aNumber) && !Number.isNaN(bNumber)) {
-          return (aNumber - bNumber) * multiplier
-        }
-      }
-
-      if (columnId === BASE_COLUMN_IDS.updatedAt || columnId === BASE_COLUMN_IDS.createdAt) {
-        const aTime = parseTemporalValue(aValue)
-        const bTime = parseTemporalValue(bValue)
-        if (aTime !== null && bTime !== null) {
-          return (aTime - bTime) * multiplier
-        }
-      }
-
-      const normalizedA = normalizeValue(aValue)
-      const normalizedB = normalizeValue(bValue)
-
-      if (typeof normalizedA === 'number' && typeof normalizedB === 'number') {
-        return (normalizedA - normalizedB) * multiplier
-      }
-
-      return normalizedA.toString().localeCompare(normalizedB.toString()) * multiplier
-    })
-  }, [rows, sortState])
-
   useEffect(() => {
     setActiveFilterField((current) =>
       current && hiddenFieldNames.includes(current) ? null : current,
@@ -222,11 +123,12 @@ export default function EntityTable({
     }
     if (sortState.columnId.startsWith(FIELD_COLUMN_PREFIX)) {
       const fieldName = sortState.columnId.slice(FIELD_COLUMN_PREFIX.length)
-      if (hiddenFieldNames.includes(fieldName)) {
-        setSortState(null)
+      const fieldExists = schemaFields.some((field) => field.name === fieldName)
+      if (!fieldExists || hiddenFieldNames.includes(fieldName)) {
+        onSortChange(null)
       }
     }
-  }, [hiddenFieldNames, sortState])
+  }, [hiddenFieldNames, onSortChange, schemaFields, sortState])
 
   useEffect(() => {
     setColumnWidths((current) => {
@@ -309,15 +211,15 @@ export default function EntityTable({
   }, [columnsMenuOpen])
 
   const toggleSort = (columnId: string) => {
-    setSortState((current) => {
-      if (!current || current.columnId !== columnId) {
-        return { columnId, direction: 'asc' }
-      }
-      if (current.direction === 'asc') {
-        return { columnId, direction: 'desc' }
-      }
-      return null
-    })
+    if (!sortState || sortState.columnId !== columnId) {
+      onSortChange({ columnId, direction: 'asc' })
+      return
+    }
+    if (sortState.direction === 'asc') {
+      onSortChange({ columnId, direction: 'desc' })
+      return
+    }
+    onSortChange(null)
   }
 
   const getSortDirection = (columnId: string): SortState['direction'] | null => {
@@ -579,7 +481,7 @@ export default function EntityTable({
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {displayedRows.length === 0 ? (
+              {rows.length === 0 ? (
                 <tr>
                   <td
                     colSpan={totalVisibleColumns}
@@ -589,7 +491,7 @@ export default function EntityTable({
                   </td>
                 </tr>
               ) : (
-                displayedRows.map(({ entity, props, linkedById }) => (
+                rows.map(({ entity, props, linkedById }) => (
                   <tr key={entity.id} className="bg-white align-top">
                     <td className="px-4 py-4" style={getColumnStyle(BASE_COLUMN_IDS.entity)}>
                       <div className="font-medium text-gray-900">

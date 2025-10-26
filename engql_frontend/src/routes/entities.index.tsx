@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import type { Entity, EntityFilter, PropertyFilter as PropertyFilterInput } from '../generated/graphql'
-import { FieldType } from '../generated/graphql'
+import { EntitySortField, FieldType, SortDirection } from '../generated/graphql'
 import {
   useCreateEntityMutation,
   useDeleteEntityMutation,
@@ -11,7 +11,11 @@ import {
   useGetOrganizationsQuery,
   useUpdateEntityMutation,
 } from '../generated/graphql'
-import EntityTable from '../features/entities/components/EntityTable'
+import EntityTable, {
+  BASE_COLUMN_IDS,
+  FIELD_COLUMN_PREFIX,
+  type SortState,
+} from '../features/entities/components/EntityTable'
 import EntityEditorModal from '../features/entities/components/EntityEditorModal'
 import {
   ColumnFilterValue,
@@ -47,6 +51,7 @@ function EntitiesPage() {
   const [feedback, setFeedback] = useState<string | null>(null)
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
+  const [sortState, setSortState] = useState<SortState | null>(null)
 
   useEffect(() => {
     if (organizations.length === 0) {
@@ -168,6 +173,41 @@ function EntitiesPage() {
     return Object.keys(filter).length > 0 ? filter : undefined
   }, [selectedSchema, propertyFilters])
 
+  const sortInput = useMemo(() => {
+    if (!sortState) {
+      return undefined
+    }
+
+    const direction =
+      sortState.direction === 'asc' ? SortDirection.Asc : SortDirection.Desc
+
+    switch (sortState.columnId) {
+      case BASE_COLUMN_IDS.createdAt:
+        return { field: EntitySortField.CreatedAt, direction }
+      case BASE_COLUMN_IDS.updatedAt:
+        return { field: EntitySortField.UpdatedAt, direction }
+      case BASE_COLUMN_IDS.entity:
+        return { field: EntitySortField.EntityType, direction }
+      case BASE_COLUMN_IDS.path:
+        return { field: EntitySortField.Path, direction }
+      case BASE_COLUMN_IDS.version:
+        return { field: EntitySortField.Version, direction }
+      default: {
+        if (sortState.columnId.startsWith(FIELD_COLUMN_PREFIX)) {
+          const propertyKey = sortState.columnId.slice(FIELD_COLUMN_PREFIX.length)
+          if (propertyKey) {
+            return {
+              field: EntitySortField.Property,
+              direction,
+              propertyKey,
+            }
+          }
+        }
+        return undefined
+      }
+    }
+  }, [sortState])
+
   const queryVariables = useMemo(() => {
     if (!selectedOrgId) {
       return null
@@ -180,13 +220,15 @@ function EntitiesPage() {
       },
       filter: entityFilter,
       includeLinkedEntities,
+      sort: sortInput,
     }
-  }, [entityFilter, includeLinkedEntities, page, pageSize, selectedOrgId])
+  }, [entityFilter, includeLinkedEntities, page, pageSize, selectedOrgId, sortInput])
 
   const entitiesQuery = useEntitiesManagementQuery(
     queryVariables ?? {
       organizationId: '',
       pagination: { limit: pageSize, offset: 0 },
+      sort: sortInput,
     },
     {
       enabled: Boolean(queryVariables),
@@ -203,6 +245,11 @@ function EntitiesPage() {
       linkedById: createLinkedEntityMap(entity.linkedEntities ?? []),
     }))
   }, [entities])
+
+  const handleSortChange = useCallback((next: SortState | null) => {
+    setSortState(next)
+    setPage(0)
+  }, [])
 
   const totalCount = entitiesQuery.data?.entities.pageInfo.totalCount ?? 0
   const totalPages = totalCount > 0 ? Math.ceil(totalCount / pageSize) : 0
@@ -438,6 +485,8 @@ function EntitiesPage() {
           isFetching={entitiesQuery.isFetching}
           hiddenFieldNames={hiddenFieldNames}
           onHiddenFieldNamesChange={setHiddenFieldNames}
+          sortState={sortState}
+          onSortChange={handleSortChange}
         />
 
         <div className="flex flex-wrap items-center justify-between gap-4">

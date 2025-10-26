@@ -148,6 +148,21 @@ export type EntitySnapshotView = {
   version: Scalars['Int']['output'];
 };
 
+export enum EntitySortField {
+  CreatedAt = 'CREATED_AT',
+  EntityType = 'ENTITY_TYPE',
+  Path = 'PATH',
+  Property = 'PROPERTY',
+  UpdatedAt = 'UPDATED_AT',
+  Version = 'VERSION'
+}
+
+export type EntitySortInput = {
+  direction?: InputMaybe<SortDirection>;
+  field: EntitySortField;
+  propertyKey?: InputMaybe<Scalars['String']['input']>;
+};
+
 export type ExecuteEntityJoinInput = {
   joinId: Scalars['String']['input'];
   leftFilters?: InputMaybe<Array<PropertyFilter>>;
@@ -398,6 +413,7 @@ export type QueryEntitiesArgs = {
   filter?: InputMaybe<EntityFilter>;
   organizationId: Scalars['String']['input'];
   pagination?: InputMaybe<PaginationInput>;
+  sort?: InputMaybe<EntitySortInput>;
 };
 
 
@@ -546,6 +562,11 @@ export enum SchemaStatus {
   Draft = 'DRAFT'
 }
 
+export enum SortDirection {
+  Asc = 'ASC',
+  Desc = 'DESC'
+}
+
 export type UpdateEntityInput = {
   entityType?: InputMaybe<Scalars['String']['input']>;
   id: Scalars['String']['input'];
@@ -656,6 +677,7 @@ export type EntitiesManagementQueryVariables = Exact<{
   pagination?: InputMaybe<PaginationInput>;
   filter?: InputMaybe<EntityFilter>;
   includeLinkedEntities?: Scalars['Boolean']['input'];
+  sort?: InputMaybe<EntitySortInput>;
 }>;
 
 
@@ -1068,11 +1090,12 @@ useEntitySchemasQuery.getKey = (variables: EntitySchemasQueryVariables) => ['Ent
 useEntitySchemasQuery.fetcher = (variables: EntitySchemasQueryVariables, options?: RequestInit['headers']) => graphqlRequest<EntitySchemasQuery, EntitySchemasQueryVariables>(EntitySchemasDocument, variables, options);
 
 export const EntitiesManagementDocument = `
-    query EntitiesManagement($organizationId: String!, $pagination: PaginationInput, $filter: EntityFilter, $includeLinkedEntities: Boolean! = true) {
+    query EntitiesManagement($organizationId: String!, $pagination: PaginationInput, $filter: EntityFilter, $includeLinkedEntities: Boolean! = true, $sort: EntitySortInput) {
   entities(
     organizationId: $organizationId
     pagination: $pagination
     filter: $filter
+    sort: $sort
   ) {
     entities {
       id

@@ -127,11 +127,13 @@ query EntitiesManagement(
   $pagination: PaginationInput
   $filter: EntityFilter
   $includeLinkedEntities: Boolean! = true
+  $sort: EntitySortInput
 ) {
   entities(
     organizationId: $organizationId
     pagination: $pagination
     filter: $filter
+    sort: $sort
   ) {
     entities {
       id

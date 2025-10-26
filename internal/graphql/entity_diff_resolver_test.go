@@ -62,7 +62,15 @@ func (s *stubEntityRepository) ListHistory(ctx context.Context, entityID uuid.UU
 	return result, nil
 }
 
-func (s *stubEntityRepository) List(ctx context.Context, organizationID uuid.UUID, filter *domain.EntityFilter, limit int, offset int) ([]domain.Entity, int, error) {
+func (s *stubEntityRepository) List(ctx context.Context, organizationID uuid.UUID, filter *domain.EntityFilter, sort *domain.EntitySort, limit int, offset int) ([]domain.Entity, int, error) {
+	panic("not implemented")
+}
+
+func (s *stubEntityRepository) GetByReference(ctx context.Context, organizationID uuid.UUID, entityType string, referenceValue string) (domain.Entity, error) {
+	panic("not implemented")
+}
+
+func (s *stubEntityRepository) ListByReferences(ctx context.Context, organizationID uuid.UUID, entityType string, referenceValues []string) ([]domain.Entity, error) {
 	panic("not implemented")
 }
 
