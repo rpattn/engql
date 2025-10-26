@@ -131,7 +131,21 @@ func (e *Executor) executeProject(node domain.EntityTransformationNode, cache ma
 	projected := make([]domain.EntityTransformationRecord, 0, len(inputRecords))
 	for _, record := range inputRecords {
 		clone := record.Clone()
-		clone.Entities[node.Project.Alias] = domain.ProjectEntity(clone.Entities[node.Project.Alias], node.Project.Fields)
+		if len(clone.Entities) == 0 {
+			projected = append(projected, clone)
+			continue
+		}
+
+		targetAlias, sourceAlias, err := resolveProjectAliases(clone.Entities, node.Project.Alias)
+		if err != nil {
+			return nil, err
+		}
+
+		projectedEntity := domain.ProjectEntity(clone.Entities[sourceAlias], node.Project.Fields)
+		if sourceAlias != targetAlias {
+			delete(clone.Entities, sourceAlias)
+		}
+		clone.Entities[targetAlias] = projectedEntity
 		projected = append(projected, clone)
 	}
 	return projected, nil
@@ -227,7 +241,17 @@ func (e *Executor) executeSort(node domain.EntityTransformationNode, cache map[u
 		return nil, fmt.Errorf("sort input missing")
 	}
 	cloned := cloneRecords(inputRecords)
-	domain.SortRecords(cloned, node.Sort.Alias, node.Sort.Field, node.Sort.Direction)
+	if len(cloned) == 0 {
+		return cloned, nil
+	}
+	sortAlias, err := resolveSortAlias(cloned, node.Sort.Alias)
+	if err != nil {
+		return nil, err
+	}
+	if sortAlias == "" {
+		return cloned, nil
+	}
+	domain.SortRecords(cloned, sortAlias, node.Sort.Field, node.Sort.Direction)
 	return cloned, nil
 }
 
@@ -276,4 +300,96 @@ func cloneRecords(records []domain.EntityTransformationRecord) []domain.EntityTr
 		cloned = append(cloned, record.Clone())
 	}
 	return cloned
+}
+
+func resolveProjectAliases(entities map[string]*domain.Entity, desiredAlias string) (targetAlias string, sourceAlias string, err error) {
+	if desiredAlias != "" {
+		if _, ok := entities[desiredAlias]; ok {
+			return desiredAlias, desiredAlias, nil
+		}
+	}
+
+	fallbackAlias, ok := singleAliasFromEntities(entities)
+	if !ok {
+		if desiredAlias == "" {
+			return "", "", fmt.Errorf("project node requires an alias when multiple entities are present")
+		}
+		return "", "", fmt.Errorf("project alias %q not found in record", desiredAlias)
+	}
+
+	sourceAlias = fallbackAlias
+	targetAlias = desiredAlias
+	if targetAlias == "" {
+		targetAlias = fallbackAlias
+	}
+	return targetAlias, sourceAlias, nil
+}
+
+func resolveSortAlias(records []domain.EntityTransformationRecord, desiredAlias string) (string, error) {
+	if desiredAlias != "" {
+		for _, record := range records {
+			if record.Entities == nil {
+				continue
+			}
+			if _, ok := record.Entities[desiredAlias]; ok {
+				return desiredAlias, nil
+			}
+		}
+	}
+
+	fallbackAlias, ok := singleAliasAcrossRecords(records)
+	if !ok {
+		if desiredAlias == "" {
+			if len(records) == 0 {
+				return "", nil
+			}
+			return "", fmt.Errorf("sort node requires an alias when multiple entities are present")
+		}
+		return "", fmt.Errorf("sort alias %q not found in records", desiredAlias)
+	}
+
+	if desiredAlias != "" {
+		return fallbackAlias, nil
+	}
+	return fallbackAlias, nil
+}
+
+func singleAliasFromEntities(entities map[string]*domain.Entity) (string, bool) {
+	alias := ""
+	count := 0
+	for key := range entities {
+		alias = key
+		count++
+		if count > 1 {
+			return "", false
+		}
+	}
+	if count == 1 {
+		return alias, true
+	}
+	return "", false
+}
+
+func singleAliasAcrossRecords(records []domain.EntityTransformationRecord) (string, bool) {
+	alias := ""
+	for _, record := range records {
+		if len(record.Entities) == 0 {
+			continue
+		}
+		candidate, ok := singleAliasFromEntities(record.Entities)
+		if !ok {
+			return "", false
+		}
+		if alias == "" {
+			alias = candidate
+			continue
+		}
+		if alias != candidate {
+			return "", false
+		}
+	}
+	if alias == "" {
+		return "", false
+	}
+	return alias, true
 }
