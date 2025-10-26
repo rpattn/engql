@@ -97,7 +97,6 @@ export default function EntityTable({
 
   const isBusy = isLoading || isFetching
   const isEmpty = rows.length === 0
-  const showEmptyState = !isBusy && isEmpty
 
   const sortedFields = useMemo(
     () => schemaFields.slice().sort((a, b) => a.name.localeCompare(b.name)),
@@ -361,14 +360,9 @@ export default function EntityTable({
         {renderColumnsMenu()}
       </div>
 
-      {showEmptyState ? (
-        <div className="px-6 py-10 text-center text-sm text-gray-600">
-          No entities found for this schema and filters.
-        </div>
-      ) : (
-        <div className="relative">
-          <div className="max-h-[480px] overflow-auto">
-            <table className="min-w-full divide-y divide-gray-200 text-sm">
+      <div className="relative">
+        <div className="max-h-[480px] overflow-auto">
+          <table className="min-w-full divide-y divide-gray-200 text-sm">
             <thead className="bg-gray-50">
               <tr>
                 <th
@@ -487,7 +481,9 @@ export default function EntityTable({
                     colSpan={totalVisibleColumns}
                     className="px-4 py-10 text-center text-sm text-gray-600"
                   >
-                    Loading entities…
+                    {isBusy
+                      ? 'Loading entities…'
+                      : 'No entities found for this schema and filters.'}
                   </td>
                 </tr>
               ) : (
@@ -579,15 +575,14 @@ export default function EntityTable({
               )}
             </tbody>
           </table>
-          </div>
-          {isBusy && (
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/70">
-              <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
-              <span className="sr-only">Loading entities…</span>
-            </div>
-          )}
         </div>
-      )}
+        {isBusy && (
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/70">
+            <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+            <span className="sr-only">Loading entities…</span>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
