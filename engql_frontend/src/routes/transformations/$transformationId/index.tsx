@@ -1,0 +1,252 @@
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { useQueryClient } from '@tanstack/react-query'
+import { useEffect, useMemo, useState } from 'react'
+
+import {
+  useDeleteEntityTransformationMutation,
+  useEntityTransformationQuery,
+  useEntityTransformationsQuery,
+  useUpdateEntityTransformationMutation,
+} from '@/generated/graphql'
+import { NodeInspector } from '@/features/transformations/components/NodeInspector'
+import { NodePalette } from '@/features/transformations/components/NodePalette'
+import { TransformationCanvas } from '@/features/transformations/components/TransformationCanvas'
+import { TransformationToolbar } from '@/features/transformations/components/TransformationToolbar'
+import { useTransformationGraph } from '@/features/transformations/hooks/useTransformationGraph'
+import {
+  createGraphStateFromDefinition,
+  serializeGraph,
+} from '@/features/transformations/utils/nodes'
+
+export const Route = createFileRoute('/transformations/$transformationId/')({
+  component: TransformationDetailRoute,
+})
+
+function TransformationDetailRoute() {
+  const { transformationId } = Route.useParams()
+  const queryClient = useQueryClient()
+  const navigate = useNavigate()
+
+  const detailQuery = useEntityTransformationQuery({ id: transformationId })
+
+  const updateMutation = useUpdateEntityTransformationMutation({
+    onSuccess: (data) => {
+      const updated = data.updateEntityTransformation
+      queryClient.setQueryData(
+        useEntityTransformationQuery.getKey({ id: transformationId }),
+        { entityTransformation: updated },
+      )
+      queryClient.invalidateQueries({
+        queryKey: useEntityTransformationsQuery.getKey({
+          organizationId: updated.organizationId,
+        }),
+      })
+    },
+  })
+
+  const deleteMutation = useDeleteEntityTransformationMutation({
+    onSuccess: () => {
+      const organizationId = detailQuery.data?.entityTransformation?.organizationId
+      if (organizationId) {
+        queryClient.invalidateQueries({
+          queryKey: useEntityTransformationsQuery.getKey({ organizationId }),
+        })
+      }
+      navigate({ to: '/transformations' })
+    },
+  })
+
+  const transformation = detailQuery.data?.entityTransformation
+
+  const initialGraph = useMemo(() => {
+    if (!transformation) {
+      return { nodes: [], edges: [] }
+    }
+    return createGraphStateFromDefinition(transformation.nodes)
+  }, [transformation])
+
+  const graphController = useTransformationGraph(initialGraph)
+
+  const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (transformation) {
+      setName(transformation.name)
+      setDescription(transformation.description ?? '')
+      setSelectedNodeId(null)
+    }
+  }, [transformation?.id])
+
+  const initialGraphSignature = useMemo(() => {
+    return JSON.stringify(serializeGraph(initialGraph))
+  }, [initialGraph])
+
+  const currentGraphSignature = useMemo(() => {
+    return JSON.stringify(graphController.serialize())
+  }, [graphController.graph])
+
+  const trimmedName = name.trim()
+  const trimmedDescription = description.trim()
+
+  const isDirty = useMemo(() => {
+    if (!transformation) {
+      return false
+    }
+
+    const initialDescription = transformation.description ?? ''
+    return (
+      trimmedName !== transformation.name ||
+      trimmedDescription !== initialDescription.trim() ||
+      currentGraphSignature !== initialGraphSignature
+    )
+  }, [
+    transformation,
+    trimmedName,
+    trimmedDescription,
+    currentGraphSignature,
+    initialGraphSignature,
+  ])
+
+  const selectedNode = useMemo(
+    () =>
+      graphController.graph.nodes.find((node) => node.id === selectedNodeId) ??
+      null,
+    [graphController.graph.nodes, selectedNodeId],
+  )
+
+  if (detailQuery.isLoading) {
+    return (
+      <p className="rounded border border-slate-200 p-6 text-sm text-slate-500">Loading…</p>
+    )
+  }
+
+  if (detailQuery.error) {
+    return (
+      <p className="rounded border border-rose-300 bg-rose-50 p-6 text-sm text-rose-700">
+        {(detailQuery.error as Error).message}
+      </p>
+    )
+  }
+
+  if (!transformation) {
+    return (
+      <p className="rounded border border-slate-200 p-6 text-sm text-slate-500">
+        Transformation not found.
+      </p>
+    )
+  }
+
+  const handleSave = () => {
+    if (!trimmedName) {
+      alert('Name is required')
+      return
+    }
+
+    updateMutation.mutate({
+      input: {
+        id: transformationId,
+        name: trimmedName,
+        description: trimmedDescription.length ? trimmedDescription : null,
+        nodes: graphController.serialize(),
+      },
+    })
+  }
+
+  const handleExecute = () => {
+    navigate({
+      to: '/transformations/$transformationId/execute',
+      params: { transformationId },
+    })
+  }
+
+  const handleDelete = () => {
+    if (!confirm('Delete this transformation?')) {
+      return
+    }
+
+    deleteMutation.mutate({ id: transformationId })
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <TransformationToolbar
+        onSave={handleSave}
+        onExecute={handleExecute}
+        onUndo={graphController.undo}
+        onRedo={graphController.redo}
+        onDelete={handleDelete}
+        canUndo={graphController.canUndo}
+        canRedo={graphController.canRedo}
+        isSaving={updateMutation.isPending}
+        isExecuting={false}
+        isDirty={isDirty}
+      />
+
+      <section className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-3 rounded border border-slate-200 bg-white p-4">
+          <label className="block text-xs font-semibold text-slate-600">
+            Name
+            <input
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              className="mt-1 w-full rounded border border-slate-300 px-3 py-1 text-sm"
+            />
+          </label>
+          <label className="block text-xs font-semibold text-slate-600">
+            Description
+            <textarea
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              className="mt-1 w-full rounded border border-slate-300 px-3 py-1 text-sm"
+              rows={3}
+            />
+          </label>
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-500">
+            <div>
+              <dt className="font-semibold text-slate-600">Transformation ID</dt>
+              <dd className="truncate text-slate-500">{transformation.id}</dd>
+            </div>
+            <div>
+              <dt className="font-semibold text-slate-600">Organization</dt>
+              <dd className="text-slate-500">{transformation.organizationId}</dd>
+            </div>
+            <div>
+              <dt className="font-semibold text-slate-600">Created</dt>
+              <dd>{new Date(transformation.createdAt).toLocaleString()}</dd>
+            </div>
+            <div>
+              <dt className="font-semibold text-slate-600">Updated</dt>
+              <dd>{new Date(transformation.updatedAt).toLocaleString()}</dd>
+            </div>
+          </dl>
+        </div>
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)_260px]">
+        <NodePalette
+          onAdd={(type) => {
+            const node = graphController.addNode(type)
+            setSelectedNodeId(node.id)
+          }}
+        />
+        <div className="min-h-[520px] rounded border border-slate-200 bg-white p-2">
+          <TransformationCanvas
+            controller={graphController}
+            selectedNodeId={selectedNodeId}
+            onSelect={(node) => setSelectedNodeId(node?.id ?? null)}
+          />
+        </div>
+        <NodeInspector
+          node={selectedNode}
+          onUpdate={graphController.updateNode}
+          onDelete={(nodeId) => {
+            graphController.removeNode(nodeId)
+            setSelectedNodeId(null)
+          }}
+        />
+      </section>
+    </div>
+  )
+}
