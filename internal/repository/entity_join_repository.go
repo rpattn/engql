@@ -360,7 +360,21 @@ func (r *entityJoinRepository) referenceFieldForType(ctx context.Context, organi
 		return "", false, fmt.Errorf("failed to load schema for entity type %s: %w", entityType, err)
 	}
 
-	return extractReferenceField(row.Fields)
+	fields, err := domain.FromJSONBFields(row.Fields)
+	if err != nil {
+		return "", false, fmt.Errorf("parse schema fields: %w", err)
+	}
+
+	set := domain.NewReferenceFieldSet(fields)
+	canonical, found := set.CanonicalName()
+	if !found {
+		return "", false, nil
+	}
+	if strings.TrimSpace(canonical) == "" {
+		return "", false, fmt.Errorf("reference field must declare a name")
+	}
+
+	return canonical, true, nil
 }
 
 func convertCreateRow(row db.CreateEntityJoinRow) db.EntityJoin {

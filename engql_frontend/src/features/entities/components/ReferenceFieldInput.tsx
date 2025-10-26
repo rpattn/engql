@@ -19,7 +19,6 @@ type ReferenceFieldInputProps = {
 
 type ReferenceOption = {
   id: string
-  value: string
   referenceValue?: string
   label: string
   primaryLabel: string
@@ -73,7 +72,6 @@ export default function ReferenceFieldInput({
 
       const label = Array.from(labelParts).join(' • ')
       const referenceValue = reference || undefined
-      const value = referenceValue ?? entity.id
       const primaryLabel = referenceValue ?? displayName ?? entity.id
 
       const searchTokens = [
@@ -85,7 +83,6 @@ export default function ReferenceFieldInput({
 
       return {
         id: entity.id,
-        value,
         referenceValue,
         label,
         primaryLabel,
@@ -107,10 +104,6 @@ export default function ReferenceFieldInput({
       for (const suggestion of suggestions) {
         if (next[suggestion.id] !== suggestion.primaryLabel) {
           next[suggestion.id] = suggestion.primaryLabel
-          changed = true
-        }
-        if (next[suggestion.value] !== suggestion.primaryLabel) {
-          next[suggestion.value] = suggestion.primaryLabel
           changed = true
         }
         if (
@@ -182,7 +175,6 @@ export default function ReferenceFieldInput({
     setLabels((current) => ({
       ...current,
       [option.id]: option.primaryLabel,
-      [option.value]: option.primaryLabel,
       ...(option.referenceValue
         ? { [option.referenceValue]: option.primaryLabel }
         : {}),
@@ -194,15 +186,15 @@ export default function ReferenceFieldInput({
         : typeof value === 'string' && value.length > 0
           ? [value]
           : []
-      if (currentIds.includes(option.value)) {
+      if (currentIds.includes(option.id)) {
         setSearchTerm('')
         return
       }
-      const next = [...currentIds, option.value]
+      const next = [...currentIds, option.id]
       onChange(next)
       setSearchTerm('')
     } else {
-      onChange(option.value)
+      onChange(option.id)
       setSearchTerm('')
     }
   }
@@ -318,9 +310,9 @@ export default function ReferenceFieldInput({
             ) : filteredOptions.length > 0 ? (
               <ul>
                 {filteredOptions.map((option) => {
-                  const isSelected = selectedValues.includes(option.value)
+                  const isSelected = selectedValues.includes(option.id)
                   return (
-                    <li key={option.value}>
+                    <li key={option.id}>
                       <button
                         type="button"
                         onClick={() => handleSelect(option)}

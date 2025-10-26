@@ -508,9 +508,24 @@ function SchemaModal({
   }, [isOpen, schema])
 
   const fieldTypeOptions = useMemo(
-    () => Object.values(FieldType) as FieldType[],
+    () =>
+      (Object.values(FieldType) as FieldType[]).filter(
+        (option) => option !== ('ENTITY_ID' as unknown as FieldType),
+      ),
     [],
   )
+
+  const referenceFieldOrder = useMemo(() => {
+    const indices: number[] = []
+    formState.fields.forEach((field, index) => {
+      if (field.type === FieldType.Reference) {
+        indices.push(index)
+      }
+    })
+    return indices
+  }, [formState.fields])
+
+  const canonicalReferenceIndex = referenceFieldOrder[0] ?? -1
 
   const handleFieldChange = <Key extends keyof FieldFormValue>(
     id: string,
@@ -635,7 +650,11 @@ function SchemaModal({
                 {formState.fields.map((field, index) => {
                   const showReferenceEntityType =
                     field.type === FieldType.EntityReference ||
-                    field.type === FieldType.EntityReferenceArray
+                    field.type === FieldType.EntityReferenceArray ||
+                    field.type === FieldType.Reference
+                  const isReferenceField = field.type === FieldType.Reference
+                  const isCanonicalReferenceField =
+                    isReferenceField && index === canonicalReferenceIndex
                   return (
                     <div
                       key={field.clientId}
@@ -756,6 +775,13 @@ function SchemaModal({
                             className="mt-1 rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
                           />
                         </label>
+                        {isReferenceField && (
+                          <p className="md:col-span-2 mt-1 text-xs text-blue-600">
+                            {isCanonicalReferenceField
+                              ? 'This REFERENCE field acts as the canonical reference value for uniqueness and linking.'
+                              : 'Additional REFERENCE fields stay searchable but do not replace the canonical reference value.'}
+                          </p>
+                        )}
                         {showReferenceEntityType && (
                           <label className="md:col-span-2 flex flex-col text-xs font-medium text-gray-600">
                             Reference entity type

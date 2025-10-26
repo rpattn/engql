@@ -169,21 +169,17 @@ func (jv *JSONBValidator) validateFieldType(fieldName string, value any, expecte
 		if strings.TrimSpace(strVal) == "" {
 			return fmt.Errorf("field '%s' must be a non-empty reference string", fieldName)
 		}
-	case graph.FieldTypeEntityID:
+	case graph.FieldTypeEntityReference:
 		strVal, ok := value.(string)
 		if !ok {
 			return fmt.Errorf("field '%s' must be an entity ID string, got %T", fieldName, value)
 		}
-		if _, err := uuid.Parse(strings.TrimSpace(strVal)); err != nil {
+		trimmed := strings.TrimSpace(strVal)
+		if trimmed == "" {
+			return fmt.Errorf("field '%s' must be a non-empty entity ID", fieldName)
+		}
+		if _, err := uuid.Parse(trimmed); err != nil {
 			return fmt.Errorf("field '%s' must be a valid UUID string: %v", fieldName, err)
-		}
-	case graph.FieldTypeEntityReference:
-		strVal, ok := value.(string)
-		if !ok {
-			return fmt.Errorf("field '%s' must be a string reference, got %T", fieldName, value)
-		}
-		if strings.TrimSpace(strVal) == "" {
-			return fmt.Errorf("field '%s' must be a non-empty entity reference string", fieldName)
 		}
 	case graph.FieldTypeEntityReferenceArray:
 		values, ok := value.([]interface{})
@@ -202,8 +198,12 @@ func (jv *JSONBValidator) validateFieldType(fieldName string, value any, expecte
 			if !ok {
 				return fmt.Errorf("field '%s' reference values must be strings, got %T", fieldName, item)
 			}
-			if strings.TrimSpace(str) == "" {
-				return fmt.Errorf("field '%s' contains an empty entity reference value", fieldName)
+			trimmed := strings.TrimSpace(str)
+			if trimmed == "" {
+				return fmt.Errorf("field '%s' contains an empty entity ID", fieldName)
+			}
+			if _, err := uuid.Parse(trimmed); err != nil {
+				return fmt.Errorf("field '%s' contains an invalid UUID: %v", fieldName, err)
 			}
 		}
 	default:

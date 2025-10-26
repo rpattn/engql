@@ -30,8 +30,28 @@ type entityRepository struct {
 }
 
 type referenceFieldCacheEntry struct {
-	fieldName string
-	found     bool
+	canonical string
+	names     []string
+}
+
+func (e referenceFieldCacheEntry) found() bool {
+	return e.canonical != ""
+}
+
+func (e referenceFieldCacheEntry) canonicalName() (string, bool) {
+	if !e.found() {
+		return "", false
+	}
+	return e.canonical, true
+}
+
+func (e referenceFieldCacheEntry) nameList() []string {
+	if len(e.names) == 0 {
+		return nil
+	}
+	clone := make([]string, len(e.names))
+	copy(clone, e.names)
+	return clone
 }
 
 type skipEntityValidationContextKey struct{}
@@ -606,10 +626,11 @@ func (r *entityRepository) ListByType(ctx context.Context, organizationID uuid.U
 
 // GetByReference resolves an entity by its canonical reference value.
 func (r *entityRepository) GetByReference(ctx context.Context, organizationID uuid.UUID, entityType string, referenceValue string) (domain.Entity, error) {
-	fieldName, found, err := r.referenceFieldForType(ctx, organizationID, entityType)
+	entry, err := r.referenceFieldForType(ctx, organizationID, entityType)
 	if err != nil {
 		return domain.Entity{}, err
 	}
+	fieldName, found := entry.canonicalName()
 	if !found {
 		return domain.Entity{}, fmt.Errorf("entity type %s does not declare a reference field", entityType)
 	}
@@ -641,10 +662,11 @@ func (r *entityRepository) ListByReferences(ctx context.Context, organizationID 
 		return []domain.Entity{}, nil
 	}
 
-	fieldName, found, err := r.referenceFieldForType(ctx, organizationID, entityType)
+	entry, err := r.referenceFieldForType(ctx, organizationID, entityType)
 	if err != nil {
 		return nil, err
 	}
+	fieldName, found := entry.canonicalName()
 	if !found {
 		return nil, fmt.Errorf("entity type %s does not declare a reference field", entityType)
 	}
@@ -962,10 +984,11 @@ func (r *entityRepository) ensureReferenceNormalization(ctx context.Context, sch
 		return nil
 	}
 
-	fieldName, found, err := r.referenceFieldForSchema(ctx, schemaID)
+	entry, err := r.referenceFieldForSchema(ctx, schemaID)
 	if err != nil {
 		return err
 	}
+	fieldName, found := entry.canonicalName()
 	if !found {
 		return nil
 	}
@@ -996,61 +1019,66 @@ func (r *entityRepository) ensureReferenceNormalization(ctx context.Context, sch
 	return nil
 }
 
-func (r *entityRepository) referenceFieldForSchema(ctx context.Context, schemaID uuid.UUID) (string, bool, error) {
+func (r *entityRepository) referenceFieldForSchema(ctx context.Context, schemaID uuid.UUID) (referenceFieldCacheEntry, error) {
 	if cached, ok := r.referenceFieldCache.Load(schemaID); ok {
 		entry := cached.(referenceFieldCacheEntry)
-		return entry.fieldName, entry.found, nil
+		return entry, nil
 	}
 
 	row, err := r.queries.GetEntitySchema(ctx, schemaID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			r.referenceFieldCache.Store(schemaID, referenceFieldCacheEntry{found: false})
-			return "", false, nil
+			entry := referenceFieldCacheEntry{}
+			r.referenceFieldCache.Store(schemaID, entry)
+			return entry, nil
 		}
-		return "", false, fmt.Errorf("failed to load entity schema %s: %w", schemaID, err)
+		return referenceFieldCacheEntry{}, fmt.Errorf("failed to load entity schema %s: %w", schemaID, err)
 	}
 
-	fieldName, found, err := extractReferenceField(row.Fields)
+	entry, err := extractReferenceFields(row.Fields)
 	if err != nil {
-		return "", false, err
+		return referenceFieldCacheEntry{}, err
 	}
 
-	r.referenceFieldCache.Store(schemaID, referenceFieldCacheEntry{fieldName: fieldName, found: found})
-	return fieldName, found, nil
+	r.referenceFieldCache.Store(schemaID, entry)
+	return entry, nil
 }
 
-func (r *entityRepository) referenceFieldForType(ctx context.Context, organizationID uuid.UUID, entityType string) (string, bool, error) {
+func (r *entityRepository) referenceFieldForType(ctx context.Context, organizationID uuid.UUID, entityType string) (referenceFieldCacheEntry, error) {
 	row, err := r.queries.GetEntitySchemaByName(ctx, db.GetEntitySchemaByNameParams{
 		OrganizationID: organizationID,
 		Name:           entityType,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return "", false, nil
+			return referenceFieldCacheEntry{}, nil
 		}
-		return "", false, fmt.Errorf("failed to load schema for entity type %s: %w", entityType, err)
+		return referenceFieldCacheEntry{}, fmt.Errorf("failed to load schema for entity type %s: %w", entityType, err)
 	}
 
-	return extractReferenceField(row.Fields)
+	return extractReferenceFields(row.Fields)
 }
 
-func extractReferenceField(fieldsJSON []byte) (string, bool, error) {
+func extractReferenceFields(fieldsJSON []byte) (referenceFieldCacheEntry, error) {
 	fields, err := domain.FromJSONBFields(fieldsJSON)
 	if err != nil {
-		return "", false, fmt.Errorf("failed to parse schema fields: %w", err)
+		return referenceFieldCacheEntry{}, fmt.Errorf("failed to parse schema fields: %w", err)
 	}
 
+	entry := referenceFieldCacheEntry{}
 	for _, field := range fields {
 		if strings.EqualFold(string(field.Type), string(domain.FieldTypeReference)) {
-			if field.Name == "" {
-				return "", false, fmt.Errorf("reference field must declare a name")
+			if strings.TrimSpace(field.Name) == "" {
+				return referenceFieldCacheEntry{}, fmt.Errorf("reference field must declare a name")
 			}
-			return field.Name, true, nil
+			entry.names = append(entry.names, field.Name)
+			if entry.canonical == "" {
+				entry.canonical = field.Name
+			}
 		}
 	}
 
-	return "", false, nil
+	return entry, nil
 }
 
 func (r *entityRepository) buildEntity(

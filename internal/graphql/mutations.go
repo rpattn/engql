@@ -196,7 +196,18 @@ func ensureLinkedEntityProperties(properties map[string]any, fieldName string, f
 		if len(trimmed) > 1 {
 			return fmt.Errorf("linkedEntityIds provided but schema field %s expects a single reference", fieldName)
 		}
+		if _, err := uuid.Parse(trimmed[0]); err != nil {
+			return fmt.Errorf("field %s requires linked entity IDs to be UUIDs: %w", fieldName, err)
+		}
 		properties[fieldName] = trimmed[0]
+	case domain.FieldTypeEntityReferenceArray:
+		normalized := uniqueOrderedStrings(trimmed)
+		for _, id := range normalized {
+			if _, err := uuid.Parse(id); err != nil {
+				return fmt.Errorf("field %s requires linked entity IDs to be UUIDs: %w", fieldName, err)
+			}
+		}
+		properties[fieldName] = normalized
 	default:
 		current := normalizeLinkedIDValues(properties[fieldName])
 		current = append(current, trimmed...)
@@ -223,7 +234,8 @@ func (r *Resolver) ensureReferenceValue(
 	properties map[string]any,
 	excludeID *uuid.UUID,
 ) error {
-	field, found := findSchemaReferenceField(schema)
+	referenceFields := domain.NewReferenceFieldSet(schema.Fields)
+	field, found := referenceFields.CanonicalField()
 	if !found {
 		return nil
 	}
@@ -329,15 +341,6 @@ func uniqueOrderedStrings(values []string) []string {
 		result = append(result, val)
 	}
 	return result
-}
-
-func findSchemaReferenceField(schema domain.EntitySchema) (domain.FieldDefinition, bool) {
-	for _, field := range schema.Fields {
-		if field.Type == domain.FieldTypeReference {
-			return field, true
-		}
-	}
-	return domain.FieldDefinition{}, false
 }
 
 // CreateOrganization creates a new organization
@@ -466,7 +469,7 @@ func (r *Resolver) CreateEntitySchema(ctx context.Context, input graph.CreateEnt
 		})
 	}
 
-	if err := schemavalidator.ValidateFields(fields); err != nil {
+	if _, err := schemavalidator.ValidateFields(fields); err != nil {
 		return nil, fmt.Errorf("schema validation failed: %w", err)
 	}
 
@@ -521,7 +524,7 @@ func (r *Resolver) UpdateEntitySchema(ctx context.Context, input graph.UpdateEnt
 			fieldInputs = append(fieldInputs, *f)
 		}
 		newFields := buildFieldDefinitionsFromInput(fieldInputs)
-		if err := schemavalidator.ValidateFields(newFields); err != nil {
+		if _, err := schemavalidator.ValidateFields(newFields); err != nil {
 			return nil, fmt.Errorf("schema validation failed: %w", err)
 		}
 		updatedSchema.Fields = newFields

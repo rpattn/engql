@@ -699,9 +699,10 @@ function App() {
                 />
                 <p className="mt-1 text-xs text-slate-400">
                   Provide an array of FieldDefinitionInput objects. Supported
-                  types include STRING, ENTITY_ID, ENTITY_REFERENCE, and
-                  ENTITY_REFERENCE_ARRAY. ENTITY_ID fields auto-resolve to the
-                  referenced entity when querying.
+                  types include STRING, ENTITY_REFERENCE, and
+                  ENTITY_REFERENCE_ARRAY. ENTITY_REFERENCE fields link by
+                  entity ID and auto-resolve the referenced entity when
+                  querying.
                 </p>
               </div>
 
