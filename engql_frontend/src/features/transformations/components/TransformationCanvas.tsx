@@ -1,10 +1,6 @@
-import { useMemo } from 'react'
 import ReactFlow, { Background, Controls } from 'reactflow'
 
-import type {
-  TransformationCanvasNode,
-  TransformationGraphState,
-} from '../types'
+import type { TransformationCanvasNode } from '../types'
 import type { TransformationGraphController } from '../hooks/useTransformationGraph'
 
 import 'reactflow/dist/style.css'
@@ -18,13 +14,6 @@ export function TransformationCanvas({
   onSelect: (node: TransformationCanvasNode | null) => void
   selectedNodeId: string | null
 }) {
-  const nodesWithSelection = useMemo(() => {
-    return controller.graph.nodes.map((node) => ({
-      ...node,
-      selected: node.id === selectedNodeId,
-    })) as TransformationGraphState['nodes']
-  }, [controller.graph.nodes, selectedNodeId])
-
   return (
     <div className="flex h-full flex-col gap-2">
       {controller.error && (
@@ -42,7 +31,7 @@ export function TransformationCanvas({
       <div className="flex-1 overflow-hidden rounded border border-slate-200">
         <ReactFlow
           fitView
-          nodes={nodesWithSelection}
+          nodes={controller.graph.nodes}
           edges={controller.graph.edges}
           onNodesChange={controller.onNodesChange}
           onEdgesChange={controller.onEdgesChange}
@@ -56,20 +45,6 @@ export function TransformationCanvas({
             }
 
             onSelect(next as TransformationCanvasNode | null)
-          }}
-          onNodeClick={(_, node) => {
-            if (node.id === selectedNodeId) {
-              return
-            }
-
-            onSelect(node as TransformationCanvasNode)
-          }}
-          onPaneClick={() => {
-            if (selectedNodeId === null) {
-              return
-            }
-
-            onSelect(null)
           }}
           minZoom={0.2}
           maxZoom={1.75}
