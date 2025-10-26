@@ -11,7 +11,23 @@ function TransformationExecuteRoute() {
   const { transformationId } = Route.useParams()
   const navigate = useNavigate()
 
-  const detailQuery = useEntityTransformationQuery({ id: transformationId })
+  const safeTransformationId =
+    typeof transformationId === 'string' && transformationId !== 'undefined'
+      ? transformationId
+      : null
+
+  const detailQuery = useEntityTransformationQuery(
+    { id: safeTransformationId ?? '' },
+    { enabled: Boolean(safeTransformationId) },
+  )
+
+  if (!safeTransformationId) {
+    return (
+      <p className="rounded border border-slate-200 p-6 text-sm text-slate-500">
+        Transformation not found.
+      </p>
+    )
+  }
 
   if (detailQuery.isLoading) {
     return (
@@ -62,7 +78,7 @@ function TransformationExecuteRoute() {
         </button>
       </div>
 
-      <ExecutionRunner transformationId={transformationId} />
+      <ExecutionRunner transformationId={safeTransformationId} />
     </div>
   )
 }
