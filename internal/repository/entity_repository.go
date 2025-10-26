@@ -510,7 +510,7 @@ func (r *entityRepository) List(
 		PageLimit:      int32(limit),
 		PageOffset:     int32(offset),
 		SortField:      string(domain.EntitySortFieldCreatedAt),
-		SortDirection:  string(domain.SortDirectionDesc),
+		SortDirection:  strings.ToUpper(string(domain.SortDirectionDesc)),
 		SortProperty:   sql.NullString{},
 	}
 
@@ -549,9 +549,9 @@ func (r *entityRepository) List(
 
 		switch sort.Direction {
 		case domain.SortDirectionAsc:
-			params.SortDirection = string(domain.SortDirectionAsc)
+			params.SortDirection = strings.ToUpper(string(domain.SortDirectionAsc))
 		case domain.SortDirectionDesc:
-			params.SortDirection = string(domain.SortDirectionDesc)
+			params.SortDirection = strings.ToUpper(string(domain.SortDirectionDesc))
 		}
 	}
 
