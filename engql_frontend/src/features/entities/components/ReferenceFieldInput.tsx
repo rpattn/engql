@@ -19,6 +19,7 @@ type ReferenceFieldInputProps = {
 
 type ReferenceOption = {
   id: string
+  value: string
   referenceValue?: string
   label: string
   primaryLabel: string
@@ -83,6 +84,7 @@ export default function ReferenceFieldInput({
 
       return {
         id: entity.id,
+        value: entity.id,
         referenceValue,
         label,
         primaryLabel,
@@ -98,19 +100,64 @@ export default function ReferenceFieldInput({
     if (suggestions.length === 0) {
       return
     }
+
+    if (isArrayField) {
+      const currentIds = Array.isArray(value)
+        ? value
+        : typeof value === 'string' && value.length > 0
+          ? [value]
+          : []
+      if (currentIds.length === 0) {
+        return
+      }
+
+      const converted = currentIds.map((item) => {
+        if (suggestions.some((option) => option.value === item)) {
+          return item
+        }
+        const match = suggestions.find(
+          (option) => option.referenceValue && option.referenceValue === item,
+        )
+        return match?.value ?? item
+      })
+
+      const normalized = Array.from(new Set(converted))
+      const hasChanged =
+        normalized.length !== currentIds.length ||
+        normalized.some((item, index) => item !== currentIds[index])
+      if (hasChanged) {
+        onChange(normalized)
+      }
+      return
+    }
+
+    const currentId = typeof value === 'string' ? value : ''
+    if (!currentId) {
+      return
+    }
+
+    if (suggestions.some((option) => option.value === currentId)) {
+      return
+    }
+
+    const match = suggestions.find(
+      (option) => option.referenceValue && option.referenceValue === currentId,
+    )
+    if (match) {
+      onChange(match.value)
+    }
+  }, [isArrayField, onChange, suggestions, value])
+
+  useEffect(() => {
+    if (suggestions.length === 0) {
+      return
+    }
     setLabels((current) => {
       let changed = false
       const next = { ...current }
       for (const suggestion of suggestions) {
-        if (next[suggestion.id] !== suggestion.primaryLabel) {
-          next[suggestion.id] = suggestion.primaryLabel
-          changed = true
-        }
-        if (
-          suggestion.referenceValue &&
-          next[suggestion.referenceValue] !== suggestion.primaryLabel
-        ) {
-          next[suggestion.referenceValue] = suggestion.primaryLabel
+        if (next[suggestion.value] !== suggestion.primaryLabel) {
+          next[suggestion.value] = suggestion.primaryLabel
           changed = true
         }
       }
@@ -174,10 +221,7 @@ export default function ReferenceFieldInput({
   const handleSelect = (option: ReferenceOption) => {
     setLabels((current) => ({
       ...current,
-      [option.id]: option.primaryLabel,
-      ...(option.referenceValue
-        ? { [option.referenceValue]: option.primaryLabel }
-        : {}),
+      [option.value]: option.primaryLabel,
     }))
 
     if (isArrayField) {
@@ -186,15 +230,15 @@ export default function ReferenceFieldInput({
         : typeof value === 'string' && value.length > 0
           ? [value]
           : []
-      if (currentIds.includes(option.id)) {
+      if (currentIds.includes(option.value)) {
         setSearchTerm('')
         return
       }
-      const next = [...currentIds, option.id]
+      const next = [...currentIds, option.value]
       onChange(next)
       setSearchTerm('')
     } else {
-      onChange(option.id)
+      onChange(option.value)
       setSearchTerm('')
     }
   }
@@ -310,7 +354,7 @@ export default function ReferenceFieldInput({
             ) : filteredOptions.length > 0 ? (
               <ul>
                 {filteredOptions.map((option) => {
-                  const isSelected = selectedValues.includes(option.id)
+                  const isSelected = selectedValues.includes(option.value)
                   return (
                     <li key={option.id}>
                       <button
