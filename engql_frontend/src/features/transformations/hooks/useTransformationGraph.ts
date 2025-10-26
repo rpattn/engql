@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
   Connection,
   EdgeChange,
@@ -48,10 +48,16 @@ export function useTransformationGraph(
   const { present } = history
   const [error, setError] = useState<string | null>(null)
 
+  const resetRef = useRef(reset)
+
   useEffect(() => {
-    reset(initialGraph)
+    resetRef.current = reset
+  }, [reset])
+
+  useEffect(() => {
+    resetRef.current(initialGraph)
     setError(null)
-  }, [initialGraph, reset])
+  }, [initialGraph])
 
   const setGraph = useCallback(
     (updater: (graph: TransformationGraphState) => TransformationGraphState) => {
