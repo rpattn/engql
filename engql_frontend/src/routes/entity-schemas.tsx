@@ -29,6 +29,7 @@ type SchemaFormState = {
   name: string
   description: string
   fields: FieldFormValue[]
+  canonicalReferenceFieldId: string | null
 }
 
 type ModalState =
@@ -150,7 +151,12 @@ function EntitySchemasPage() {
       return
     }
 
-    const normalizedFields = formState.fields.map((field) => ({
+    const orderedFieldsForSubmit = reorderFieldsForCanonical(
+      formState.fields,
+      formState.canonicalReferenceFieldId,
+    )
+
+    const normalizedFields = orderedFieldsForSubmit.map((field) => ({
       name: field.name.trim(),
       type: normalizeFieldType(field.type),
       required: field.required,
@@ -508,38 +514,69 @@ function SchemaModal({
   }, [isOpen, schema])
 
   const fieldTypeOptions = useMemo(
-    () => Object.values(FieldType) as FieldType[],
+    () =>
+      (Object.values(FieldType) as FieldType[]).filter(
+        (option) => option !== ('ENTITY_ID' as unknown as FieldType),
+      ),
     [],
   )
+
+  const canonicalReferenceFieldId = formState.canonicalReferenceFieldId
 
   const handleFieldChange = <Key extends keyof FieldFormValue>(
     id: string,
     key: Key,
     value: FieldFormValue[Key],
   ) => {
-    setFormState((current) => ({
-      ...current,
-      fields: current.fields.map((field) =>
+    setFormState((current) => {
+      const updatedFields = current.fields.map((field) =>
         field.clientId === id ? { ...field, [key]: value } : field,
-      ),
-    }))
+      )
+
+      return {
+        ...current,
+        fields: updatedFields,
+        canonicalReferenceFieldId: deriveCanonicalReferenceFieldId(
+          updatedFields,
+          current.canonicalReferenceFieldId,
+        ),
+      }
+    })
   }
 
   const handleAddField = () => {
-    setFormState((current) => ({
-      ...current,
-      fields: [...current.fields, createEmptyField()],
-    }))
+    setFormState((current) => {
+      const nextFields = [...current.fields, createEmptyField()]
+      return {
+        ...current,
+        fields: nextFields,
+        canonicalReferenceFieldId: deriveCanonicalReferenceFieldId(
+          nextFields,
+          current.canonicalReferenceFieldId,
+        ),
+      }
+    })
   }
 
   const handleRemoveField = (id: string) => {
-    setFormState((current) => ({
-      ...current,
-      fields:
-        current.fields.length > 1
-          ? current.fields.filter((field) => field.clientId !== id)
-          : current.fields,
-    }))
+    setFormState((current) => {
+      if (current.fields.length <= 1) {
+        return current
+      }
+
+      const filteredFields = current.fields.filter(
+        (field) => field.clientId !== id,
+      )
+
+      return {
+        ...current,
+        fields: filteredFields,
+        canonicalReferenceFieldId: deriveCanonicalReferenceFieldId(
+          filteredFields,
+          current.canonicalReferenceFieldId,
+        ),
+      }
+    })
   }
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -549,7 +586,28 @@ function SchemaModal({
 
   const allFieldsValid =
     formState.fields.length > 0 &&
-    formState.fields.every((field) => field.name.trim() && field.type)
+    formState.fields.every((field) => field.name.trim() && field.type) &&
+    (!formState.fields.some((field) => field.type === FieldType.Reference) ||
+      (formState.canonicalReferenceFieldId !== null &&
+        formState.fields.some(
+          (field) =>
+            field.clientId === formState.canonicalReferenceFieldId &&
+            field.type === FieldType.Reference,
+        )))
+
+  const handleCanonicalReferenceSelection = (fieldId: string) => {
+    setFormState((current) => {
+      const canonicalId = deriveCanonicalReferenceFieldId(
+        current.fields,
+        fieldId,
+      )
+
+      return {
+        ...current,
+        canonicalReferenceFieldId: canonicalId,
+      }
+    })
+  }
 
   const canSubmit =
     formState.name.trim().length > 0 && allFieldsValid && !isSubmitting
@@ -635,7 +693,12 @@ function SchemaModal({
                 {formState.fields.map((field, index) => {
                   const showReferenceEntityType =
                     field.type === FieldType.EntityReference ||
-                    field.type === FieldType.EntityReferenceArray
+                    field.type === FieldType.EntityReferenceArray ||
+                    field.type === FieldType.Reference
+                  const isReferenceField = field.type === FieldType.Reference
+                  const isCanonicalReferenceField =
+                    isReferenceField &&
+                    canonicalReferenceFieldId === field.clientId
                   return (
                     <div
                       key={field.clientId}
@@ -756,6 +819,36 @@ function SchemaModal({
                             className="mt-1 rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
                           />
                         </label>
+                        {isReferenceField && (
+                          <div className="md:col-span-2 space-y-1 text-xs">
+                            <label className="flex items-center gap-2 font-medium text-gray-600">
+                              <input
+                                type="radio"
+                                name="canonical-reference-field"
+                                value={field.clientId}
+                                checked={isCanonicalReferenceField}
+                                onChange={() =>
+                                  handleCanonicalReferenceSelection(
+                                    field.clientId,
+                                  )
+                                }
+                                className="h-4 w-4 border-gray-300 text-blue-600 focus:ring-blue-500"
+                              />
+                              Use as canonical reference field
+                            </label>
+                            <p
+                              className={`text-[11px] ${
+                                isCanonicalReferenceField
+                                  ? 'text-blue-600'
+                                  : 'text-gray-500'
+                              }`}
+                            >
+                              {isCanonicalReferenceField
+                                ? 'This REFERENCE field acts as the canonical reference value for uniqueness and linking.'
+                                : 'Canonical REFERENCE fields determine the primary reference used for uniqueness and linking.'}
+                            </p>
+                          </div>
+                        )}
                         {showReferenceEntityType && (
                           <label className="md:col-span-2 flex flex-col text-xs font-medium text-gray-600">
                             Reference entity type
@@ -834,6 +927,76 @@ function normalizeFieldType(type: string | null | undefined): FieldType {
   return FieldType.String
 }
 
+function deriveCanonicalReferenceFieldId(
+  fields: FieldFormValue[],
+  preferredId: string | null,
+): string | null {
+  const referenceFields = fields.filter(
+    (field) => field.type === FieldType.Reference,
+  )
+
+  if (referenceFields.length === 0) {
+    return null
+  }
+
+  if (preferredId) {
+    const preferred = referenceFields.find(
+      (field) => field.clientId === preferredId,
+    )
+
+    if (preferred) {
+      return preferred.clientId
+    }
+  }
+
+  return referenceFields[0]?.clientId ?? null
+}
+
+function reorderFieldsForCanonical(
+  fields: FieldFormValue[],
+  canonicalFieldId: string | null,
+): FieldFormValue[] {
+  if (!canonicalFieldId) {
+    return fields
+  }
+
+  const canonicalIndex = fields.findIndex(
+    (field) =>
+      field.clientId === canonicalFieldId && field.type === FieldType.Reference,
+  )
+
+  if (canonicalIndex === -1) {
+    return fields
+  }
+
+  const firstReferenceIndex = fields.findIndex(
+    (field) => field.type === FieldType.Reference,
+  )
+
+  if (firstReferenceIndex === -1 || canonicalIndex === firstReferenceIndex) {
+    return fields
+  }
+
+  const canonicalField = fields[canonicalIndex]
+  const withoutCanonical = fields.filter((_, index) => index !== canonicalIndex)
+  const reordered: FieldFormValue[] = []
+  let inserted = false
+
+  withoutCanonical.forEach((field) => {
+    if (!inserted && field.type === FieldType.Reference) {
+      reordered.push(canonicalField)
+      inserted = true
+    }
+    reordered.push(field)
+  })
+
+  if (!inserted) {
+    reordered.push(canonicalField)
+  }
+
+  return reordered
+}
+
 function createEmptyField(): FieldFormValue {
   return {
     clientId: generateFieldClientId(),
@@ -848,35 +1011,42 @@ function createEmptyField(): FieldFormValue {
 }
 
 function createEmptyFormState(): SchemaFormState {
+  const fields = [createEmptyField()]
   return {
     name: '',
     description: '',
-    fields: [createEmptyField()],
+    fields,
+    canonicalReferenceFieldId: deriveCanonicalReferenceFieldId(fields, null),
   }
 }
 
 function buildFormStateFromSchema(schema: EntitySchema): SchemaFormState {
   if (!schema.fields || schema.fields.length === 0) {
+    const fields = [createEmptyField()]
     return {
       name: schema.name ?? '',
       description: schema.description ?? '',
-      fields: [createEmptyField()],
+      fields,
+      canonicalReferenceFieldId: deriveCanonicalReferenceFieldId(fields, null),
     }
   }
+
+  const fields = schema.fields.map((field, index) => ({
+    clientId: `${schema.id}-${field.name}-${index}`,
+    name: field.name ?? '',
+    type: normalizeFieldType(field.type),
+    required: field.required ?? false,
+    description: field.description ?? '',
+    defaultValue: field.default ?? '',
+    validation: field.validation ?? '',
+    referenceEntityType: field.referenceEntityType ?? '',
+  }))
 
   return {
     name: schema.name ?? '',
     description: schema.description ?? '',
-    fields: schema.fields.map((field, index) => ({
-      clientId: `${schema.id}-${field.name}-${index}`,
-      name: field.name ?? '',
-      type: normalizeFieldType(field.type),
-      required: field.required ?? false,
-      description: field.description ?? '',
-      defaultValue: field.default ?? '',
-      validation: field.validation ?? '',
-      referenceEntityType: field.referenceEntityType ?? '',
-    })),
+    fields,
+    canonicalReferenceFieldId: deriveCanonicalReferenceFieldId(fields, null),
   }
 }
 

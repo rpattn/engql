@@ -3,10 +3,15 @@ import type {
   EntitySchema,
   FieldDefinition,
 } from '../../../generated/graphql'
-import { useEntitiesByTypeFullQuery } from '../../../generated/graphql'
+import {
+  FieldType,
+  useEntitiesByTypeFullQuery,
+  useEntitySchemasQuery,
+} from '../../../generated/graphql'
 import {
   extractEntityDisplayNameFromProperties,
   FieldInputValue,
+  safeParseProperties,
 } from './helpers'
 
 type ReferenceFieldInputProps = {
@@ -25,6 +30,7 @@ type ReferenceOption = {
   primaryLabel: string
   displayName: string
   searchTokens: string[]
+  referenceValues: string[]
 }
 
 export default function ReferenceFieldInput({
@@ -41,6 +47,10 @@ export default function ReferenceFieldInput({
   const targetEntityType = field.referenceEntityType ?? schema?.name ?? ''
 
   const shouldFetch = Boolean(organizationId) && Boolean(targetEntityType)
+  const entitySchemasQuery = useEntitySchemasQuery(
+    { organizationId },
+    { enabled: shouldFetch, staleTime: 60_000 },
+  )
   const entitiesQuery = useEntitiesByTypeFullQuery(
     {
       organizationId,
@@ -53,18 +63,54 @@ export default function ReferenceFieldInput({
   )
 
   const allEntities = entitiesQuery.data?.entitiesByType ?? []
+  const targetSchema = useMemo(() => {
+    if (!targetEntityType) {
+      return undefined
+    }
+    return entitySchemasQuery.data?.entitySchemas.find(
+      (entry) => entry.name === targetEntityType,
+    )
+  }, [entitySchemasQuery.data?.entitySchemas, targetEntityType])
+
+  const referenceFieldNames = useMemo(() => {
+    if (!targetSchema) {
+      return [] as string[]
+    }
+    return targetSchema.fields
+      .filter((schemaField) => schemaField.type === FieldType.Reference)
+      .map((schemaField) => schemaField.name.trim())
+      .filter((name) => name.length > 0)
+  }, [targetSchema])
 
   const suggestions = useMemo<ReferenceOption[]>(() => {
     return allEntities.map((entity) => {
       const reference = entity.referenceValue?.trim() ?? ''
+      const parsedProps = safeParseProperties(entity.properties)
+      const referenceCandidates = new Set<string>()
+      const referenceValues: string[] = []
+      if (reference) {
+        referenceCandidates.add(reference)
+        referenceValues.push(reference)
+      }
+      for (const name of referenceFieldNames) {
+        const raw = parsedProps[name]
+        if (typeof raw === 'string') {
+          const trimmed = raw.trim()
+          if (trimmed.length > 0) {
+            if (!referenceCandidates.has(trimmed)) {
+              referenceValues.push(trimmed)
+            }
+            referenceCandidates.add(trimmed)
+          }
+        }
+      }
       const displayName = extractEntityDisplayNameFromProperties(
         entity.properties,
         entity.id,
       )
       const labelParts = new Set<string>()
-
-      if (reference) {
-        labelParts.add(reference)
+      for (const candidate of referenceCandidates) {
+        labelParts.add(candidate)
       }
       if (displayName) {
         labelParts.add(displayName)
@@ -73,11 +119,13 @@ export default function ReferenceFieldInput({
 
       const label = Array.from(labelParts).join(' • ')
       const referenceValue = reference || undefined
-      const value = referenceValue ?? entity.id
       const primaryLabel = referenceValue ?? displayName ?? entity.id
 
+      const allReferenceTokens = Array.from(referenceCandidates).map((token) =>
+        token.toLowerCase(),
+      )
       const searchTokens = [
-        referenceValue?.toLowerCase(),
+        ...allReferenceTokens,
         displayName?.toLowerCase(),
         entity.id.toLowerCase(),
         primaryLabel.toLowerCase(),
@@ -85,17 +133,70 @@ export default function ReferenceFieldInput({
 
       return {
         id: entity.id,
-        value,
+        value: entity.id,
         referenceValue,
         label,
         primaryLabel,
         displayName,
         searchTokens,
+        referenceValues,
       }
     })
-  }, [allEntities])
+  }, [allEntities, referenceFieldNames])
 
   const [labels, setLabels] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    if (suggestions.length === 0) {
+      return
+    }
+
+    if (isArrayField) {
+      const currentIds = Array.isArray(value)
+        ? value
+        : typeof value === 'string' && value.length > 0
+          ? [value]
+          : []
+      if (currentIds.length === 0) {
+        return
+      }
+
+      const converted = currentIds.map((item) => {
+        if (suggestions.some((option) => option.value === item)) {
+          return item
+        }
+        const match = suggestions.find(
+          (option) => option.referenceValue && option.referenceValue === item,
+        )
+        return match?.value ?? item
+      })
+
+      const normalized = Array.from(new Set(converted))
+      const hasChanged =
+        normalized.length !== currentIds.length ||
+        normalized.some((item, index) => item !== currentIds[index])
+      if (hasChanged) {
+        onChange(normalized)
+      }
+      return
+    }
+
+    const currentId = typeof value === 'string' ? value : ''
+    if (!currentId) {
+      return
+    }
+
+    if (suggestions.some((option) => option.value === currentId)) {
+      return
+    }
+
+    const match = suggestions.find(
+      (option) => option.referenceValue && option.referenceValue === currentId,
+    )
+    if (match) {
+      onChange(match.value)
+    }
+  }, [isArrayField, onChange, suggestions, value])
 
   useEffect(() => {
     if (suggestions.length === 0) {
@@ -105,19 +206,8 @@ export default function ReferenceFieldInput({
       let changed = false
       const next = { ...current }
       for (const suggestion of suggestions) {
-        if (next[suggestion.id] !== suggestion.primaryLabel) {
-          next[suggestion.id] = suggestion.primaryLabel
-          changed = true
-        }
         if (next[suggestion.value] !== suggestion.primaryLabel) {
           next[suggestion.value] = suggestion.primaryLabel
-          changed = true
-        }
-        if (
-          suggestion.referenceValue &&
-          next[suggestion.referenceValue] !== suggestion.primaryLabel
-        ) {
-          next[suggestion.referenceValue] = suggestion.primaryLabel
           changed = true
         }
       }
@@ -181,11 +271,7 @@ export default function ReferenceFieldInput({
   const handleSelect = (option: ReferenceOption) => {
     setLabels((current) => ({
       ...current,
-      [option.id]: option.primaryLabel,
       [option.value]: option.primaryLabel,
-      ...(option.referenceValue
-        ? { [option.referenceValue]: option.primaryLabel }
-        : {}),
     }))
 
     if (isArrayField) {
@@ -319,8 +405,19 @@ export default function ReferenceFieldInput({
               <ul>
                 {filteredOptions.map((option) => {
                   const isSelected = selectedValues.includes(option.value)
+                  const matchingReferences =
+                    trimmedSearch.length >= 2
+                      ? option.referenceValues.filter((candidate) =>
+                          candidate.toLowerCase().includes(trimmedSearch),
+                        )
+                      : []
+                  const extraMatchingReferences = option.referenceValue
+                    ? matchingReferences.filter(
+                        (candidate) => candidate !== option.referenceValue,
+                      )
+                    : matchingReferences
                   return (
-                    <li key={option.value}>
+                    <li key={option.id}>
                       <button
                         type="button"
                         onClick={() => handleSelect(option)}
@@ -338,6 +435,12 @@ export default function ReferenceFieldInput({
                               <div>Reference: {option.referenceValue}</div>
                             )}
                             <div>ID: {option.id}</div>
+                            {extraMatchingReferences.length > 0 && (
+                              <div>
+                                Matching references:{' '}
+                                {extraMatchingReferences.join(', ')}
+                              </div>
+                            )}
                             {option.displayName &&
                               option.displayName !== option.primaryLabel &&
                               option.displayName !== option.referenceValue && (

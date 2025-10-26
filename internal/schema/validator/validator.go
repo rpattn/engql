@@ -11,29 +11,25 @@ var referenceCapableTypes = map[domain.FieldType]struct{}{
 	domain.FieldTypeReference:            {},
 	domain.FieldTypeEntityReference:      {},
 	domain.FieldTypeEntityReferenceArray: {},
-	domain.FieldTypeEntityID:             {},
 }
 
 // ValidateFields ensures schema field definitions satisfy cross-entity reference
-// constraints. Schemas may declare at most one FieldTypeReference field, and
-// fields that provide ReferenceEntityType must support reference semantics.
-func ValidateFields(fields []domain.FieldDefinition) error {
-	var referenceField string
+// constraints. It also returns the ordered set of REFERENCE fields where the
+// first entry acts as the canonical reference value for the schema.
+func ValidateFields(fields []domain.FieldDefinition) (domain.ReferenceFieldSet, error) {
+	set := domain.NewReferenceFieldSet(fields)
 
 	for _, field := range fields {
 		trimmedRefType := strings.TrimSpace(field.ReferenceEntityType)
 
 		if _, ok := referenceCapableTypes[field.Type]; trimmedRefType != "" && !ok {
-			return fmt.Errorf("field %s cannot declare referenceEntityType because type %s does not support references", field.Name, field.Type)
+			return domain.ReferenceFieldSet{}, fmt.Errorf("field %s cannot declare referenceEntityType because type %s does not support references", field.Name, field.Type)
 		}
 
-		if field.Type == domain.FieldTypeReference {
-			if referenceField != "" {
-				return fmt.Errorf("schema may declare only one REFERENCE field (found %s and %s)", referenceField, field.Name)
-			}
-			referenceField = field.Name
+		if field.Type == domain.FieldTypeEntityID {
+			return domain.ReferenceFieldSet{}, fmt.Errorf("field %s cannot use deprecated type ENTITY_ID", field.Name)
 		}
 	}
 
-	return nil
+	return set, nil
 }

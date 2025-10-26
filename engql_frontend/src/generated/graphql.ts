@@ -194,7 +194,6 @@ export type FieldDefinitionInput = {
 
 export enum FieldType {
   Boolean = 'BOOLEAN',
-  EntityId = 'ENTITY_ID',
   EntityReference = 'ENTITY_REFERENCE',
   EntityReferenceArray = 'ENTITY_REFERENCE_ARRAY',
   FileReference = 'FILE_REFERENCE',

@@ -519,7 +519,7 @@ func TestReferenceJoinResolvesReferenceValues(t *testing.T) {
 
 	serviceProps, _ := json.Marshal(map[string]interface{}{
 		"name":  "Gateway",
-		"owner": "TEAM-REF",
+		"owner": teamID,
 	})
 	serviceResp := sendGraphQLRequest(t, createEntity, map[string]interface{}{
 		"input": map[string]interface{}{

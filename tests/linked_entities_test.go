@@ -50,7 +50,7 @@ func TestLinkedEntitiesAutoResolution(t *testing.T) {
 				},
 				{
 					"name":                "owner",
-					"type":                "ENTITY_ID",
+					"type":                "ENTITY_REFERENCE",
 					"required":            false,
 					"referenceEntityType": "Component",
 				},
@@ -60,7 +60,7 @@ func TestLinkedEntitiesAutoResolution(t *testing.T) {
 	schemaResp := sendGraphQLRequest(t, createSchema, schemaVars)
 	schema := schemaResp["createEntitySchema"].(map[string]interface{})
 	schemaID := schema["id"].(string)
-	t.Logf("[setup] created schema %s with ENTITY_REFERENCE_ARRAY and ENTITY_ID fields", schemaID)
+	t.Logf("[setup] created schema %s with ENTITY_REFERENCE fields", schemaID)
 
 	createEntity := `
 		mutation ($input: CreateEntityInput!) {
@@ -305,7 +305,7 @@ func TestLinkedEntitiesResolveReferenceValues(t *testing.T) {
 				{"name": "code", "type": "REFERENCE", "required": true, "referenceEntityType": "Service"},
 				{"name": "dependencies", "type": "ENTITY_REFERENCE_ARRAY", "referenceEntityType": "Service"},
 				{"name": "owner", "type": "ENTITY_REFERENCE", "referenceEntityType": "Team"},
-				{"name": "support", "type": "ENTITY_ID", "referenceEntityType": "Team"},
+				{"name": "support", "type": "ENTITY_REFERENCE", "referenceEntityType": "Team"},
 			},
 		},
 	})
@@ -334,8 +334,8 @@ func TestLinkedEntitiesResolveReferenceValues(t *testing.T) {
 	serviceOneProps, _ := json.Marshal(map[string]interface{}{
 		"name":         "Compute",
 		"code":         "SVC-001",
-		"owner":        "TEAM-001",
-		"support":      "TEAM-001",
+		"owner":        teamID,
+		"support":      teamID,
 		"dependencies": []string{},
 	})
 	svcOneResp := sendGraphQLRequest(t, createEntity, map[string]interface{}{
@@ -351,9 +351,9 @@ func TestLinkedEntitiesResolveReferenceValues(t *testing.T) {
 	serviceTwoProps, _ := json.Marshal(map[string]interface{}{
 		"name":         "Ingress",
 		"code":         "SVC-002",
-		"owner":        "TEAM-001",
+		"owner":        teamID,
 		"support":      teamID,
-		"dependencies": []string{"SVC-001"},
+		"dependencies": []string{serviceOneID},
 	})
 	svcTwoResp := sendGraphQLRequest(t, createEntity, map[string]interface{}{
 		"input": map[string]interface{}{

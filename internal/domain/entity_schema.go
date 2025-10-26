@@ -48,6 +48,69 @@ type FieldDefinition struct {
 	ReferenceEntityType string `json:"referenceEntityType,omitempty"`
 }
 
+// ReferenceFieldSet captures all REFERENCE-typed fields for a schema along with
+// the canonical entry used for `referenceValue`. The canonical reference is the
+// first REFERENCE field that appears in the schema definition.
+type ReferenceFieldSet struct {
+	fields []FieldDefinition
+}
+
+// NewReferenceFieldSet constructs a ReferenceFieldSet from the provided field
+// definitions while preserving declaration order.
+func NewReferenceFieldSet(fields []FieldDefinition) ReferenceFieldSet {
+	set := ReferenceFieldSet{}
+	for _, field := range fields {
+		if field.Type == FieldTypeReference {
+			set.fields = append(set.fields, field)
+		}
+	}
+	return set
+}
+
+// CanonicalField returns the schema's canonical REFERENCE field and a boolean
+// indicating whether one exists.
+func (s ReferenceFieldSet) CanonicalField() (FieldDefinition, bool) {
+	if len(s.fields) == 0 {
+		return FieldDefinition{}, false
+	}
+	return s.fields[0], true
+}
+
+// CanonicalName returns the name of the canonical REFERENCE field.
+func (s ReferenceFieldSet) CanonicalName() (string, bool) {
+	field, ok := s.CanonicalField()
+	if !ok {
+		return "", false
+	}
+	return field.Name, true
+}
+
+// Fields returns a defensive copy of the REFERENCE field definitions in
+// declaration order.
+func (s ReferenceFieldSet) Fields() []FieldDefinition {
+	if len(s.fields) == 0 {
+		return nil
+	}
+	clone := make([]FieldDefinition, len(s.fields))
+	copy(clone, s.fields)
+	return clone
+}
+
+// Names returns the ordered list of REFERENCE field names.
+func (s ReferenceFieldSet) Names() []string {
+	fields := s.Fields()
+	if len(fields) == 0 {
+		return nil
+	}
+	names := make([]string, 0, len(fields))
+	for _, field := range fields {
+		if field.Name != "" {
+			names = append(names, field.Name)
+		}
+	}
+	return names
+}
+
 // SchemaStatus represents lifecycle status of a schema version.
 type SchemaStatus string
 

@@ -33,8 +33,19 @@ type referenceGroupKey struct {
 }
 
 type referenceFieldCacheEntry struct {
-	fieldName string
-	found     bool
+	canonical string
+	names     []string
+}
+
+func (e referenceFieldCacheEntry) found() bool {
+	return e.canonical != ""
+}
+
+func (e referenceFieldCacheEntry) canonicalName() (string, bool) {
+	if !e.found() {
+		return "", false
+	}
+	return e.canonical, true
 }
 
 func (li linkIdentifier) cacheKey() string {
@@ -96,10 +107,11 @@ func (r *Resolver) referenceValueFromEntity(ctx context.Context, entity domain.E
 		return &fallback, nil
 	}
 
-	fieldName, found, err := r.referenceFieldNameForType(ctx, nil, entity.OrganizationID, entity.EntityType)
+	cacheEntry, err := r.referenceFieldNameForType(ctx, nil, entity.OrganizationID, entity.EntityType)
 	if err != nil {
 		return nil, err
 	}
+	fieldName, found := cacheEntry.canonicalName()
 	if !found {
 		return &fallback, nil
 	}
@@ -149,19 +161,13 @@ func collectLinkedEntityIDs(props map[string]any, schema *domain.EntitySchema) [
 			continue
 		}
 
-		preferReference := false
-		switch fieldDef.Type {
-		case domain.FieldTypeEntityReference, domain.FieldTypeEntityReferenceArray, domain.FieldTypeReference:
-			preferReference = true
-		}
-
 		targetType := strings.TrimSpace(fieldDef.ReferenceEntityType)
 		if !found && schema != nil && targetType == "" {
 			targetType = schema.Name
 		}
 
 		for _, value := range normalizedValues {
-			identifier, ok := buildLinkIdentifier(value, targetType, preferReference)
+			identifier, ok := buildLinkIdentifier(value, targetType, fieldDef.Type)
 			if !ok {
 				continue
 			}
@@ -177,28 +183,35 @@ func collectLinkedEntityIDs(props map[string]any, schema *domain.EntitySchema) [
 	return result
 }
 
-func buildLinkIdentifier(value string, targetType string, preferReference bool) (linkIdentifier, bool) {
+func buildLinkIdentifier(value string, targetType string, fieldType domain.FieldType) (linkIdentifier, bool) {
 	trimmed := strings.TrimSpace(value)
 	if trimmed == "" {
 		return linkIdentifier{}, false
 	}
 
-	if preferReference {
+	switch fieldType {
+	case domain.FieldTypeReference:
+		if targetType == "" {
+			return linkIdentifier{}, false
+		}
+		return linkIdentifier{reference: trimmed, entityType: targetType}, true
+	case domain.FieldTypeEntityReference, domain.FieldTypeEntityReferenceArray:
+		if id, err := uuid.Parse(trimmed); err == nil {
+			return linkIdentifier{id: id, hasID: true, entityType: targetType}, true
+		}
+		if targetType == "" {
+			return linkIdentifier{}, false
+		}
+		return linkIdentifier{reference: trimmed, entityType: targetType}, true
+	default:
+		if id, err := uuid.Parse(trimmed); err == nil {
+			return linkIdentifier{id: id, hasID: true, entityType: targetType}, true
+		}
 		if targetType == "" {
 			return linkIdentifier{}, false
 		}
 		return linkIdentifier{reference: trimmed, entityType: targetType}, true
 	}
-
-	if id, err := uuid.Parse(trimmed); err == nil {
-		return linkIdentifier{id: id, hasID: true, entityType: targetType}, true
-	}
-
-	if targetType == "" {
-		return linkIdentifier{}, false
-	}
-
-	return linkIdentifier{reference: trimmed, entityType: targetType}, true
 }
 
 func combineErrors(errs []error) error {
@@ -233,44 +246,41 @@ func referenceCacheKey(orgID uuid.UUID, entityType, reference string) string {
 	return "ref:" + orgID.String() + ":" + strings.ToLower(entityType) + ":" + reference
 }
 
+func buildReferenceCacheEntry(fields []domain.FieldDefinition) referenceFieldCacheEntry {
+	set := domain.NewReferenceFieldSet(fields)
+	canonical, _ := set.CanonicalName()
+	names := set.Names()
+	return referenceFieldCacheEntry{canonical: canonical, names: names}
+}
+
 func (r *Resolver) referenceFieldNameForType(
 	ctx context.Context,
 	cache map[referenceGroupKey]referenceFieldCacheEntry,
 	orgID uuid.UUID,
 	entityType string,
-) (string, bool, error) {
+) (referenceFieldCacheEntry, error) {
 	key := referenceGroupKey{orgID: orgID, entityType: strings.ToLower(entityType)}
 	if cache != nil {
 		if entry, ok := cache[key]; ok {
-			return entry.fieldName, entry.found, nil
+			return entry, nil
 		}
 	} else if cached, ok := r.referenceFieldCache.Load(key); ok {
 		entry := cached.(referenceFieldCacheEntry)
-		return entry.fieldName, entry.found, nil
+		return entry, nil
 	}
 
 	schema, err := r.entitySchemaRepo.GetByName(ctx, orgID, entityType)
 	if err != nil {
-		return "", false, fmt.Errorf("failed to load schema for %s: %w", entityType, err)
+		return referenceFieldCacheEntry{}, fmt.Errorf("failed to load schema for %s: %w", entityType, err)
 	}
 
-	fieldName := ""
-	found := false
-	for _, field := range schema.Fields {
-		if field.Type == domain.FieldTypeReference {
-			fieldName = field.Name
-			found = true
-			break
-		}
-	}
-
-	entry := referenceFieldCacheEntry{fieldName: fieldName, found: found}
+	entry := buildReferenceCacheEntry(schema.Fields)
 	if cache != nil {
 		cache[key] = entry
 	} else {
 		r.referenceFieldCache.Store(key, entry)
 	}
-	return fieldName, found, nil
+	return entry, nil
 }
 
 // SearchEntitiesByProperty performs JSONB property-based search
@@ -554,11 +564,12 @@ func (r *Resolver) hydrateLinkedEntities(ctx context.Context, parents []*graph.E
 			continue
 		}
 
-		refField, found, err := r.referenceFieldNameForType(ctx, referenceFieldCache, group.orgID, actualType)
+		entry, err := r.referenceFieldNameForType(ctx, referenceFieldCache, group.orgID, actualType)
 		if err != nil {
 			errs = append(errs, err)
 			continue
 		}
+		refField, found := entry.canonicalName()
 		if !found {
 			errs = append(errs, fmt.Errorf("entity type %s does not declare a reference field", actualType))
 			continue
@@ -644,7 +655,7 @@ func (r *Resolver) SearchEntitiesByPropertyRange(ctx context.Context, organizati
 	}
 
 	// TODO: Implement pagination correctly
-        entities, _, err := r.entityRepo.List(ctx, orgID, nil, nil, 10, 0)
+	entities, _, err := r.entityRepo.List(ctx, orgID, nil, nil, 10, 0)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list entities: %w", err)
 	}
@@ -691,7 +702,7 @@ func (r *Resolver) SearchEntitiesByPropertyExists(ctx context.Context, organizat
 
 	// Get 10 entities for the organization first
 	// TODO: Implement pagination correctly
-        entities, _, err := r.entityRepo.List(ctx, orgID, nil, nil, 10, 0)
+	entities, _, err := r.entityRepo.List(ctx, orgID, nil, nil, 10, 0)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list entities: %w", err)
 	}
@@ -725,7 +736,7 @@ func (r *Resolver) SearchEntitiesByPropertyContains(ctx context.Context, organiz
 	}
 
 	// TODO: Implement pagination correctly
-        entities, _, err := r.entityRepo.List(ctx, orgID, nil, nil, 10, 0)
+	entities, _, err := r.entityRepo.List(ctx, orgID, nil, nil, 10, 0)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list entities: %w", err)
 	}
