@@ -9,11 +9,13 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TransformationsRouteImport } from './routes/transformations'
 import { Route as JoinTestingRouteImport } from './routes/join-testing'
 import { Route as IngestionRouteImport } from './routes/ingestion'
 import { Route as EntitySchemasRouteImport } from './routes/entity-schemas'
 import { Route as EntitiesRouteImport } from './routes/entities'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as TransformationsIndexRouteImport } from './routes/transformations/index'
 import { Route as EntitiesIndexRouteImport } from './routes/entities.index'
 import { Route as IngestionBatchesRouteImport } from './routes/ingestion/batches'
 import { Route as EntityEntityIdRouteImport } from './routes/entity/$entityId'
@@ -31,6 +33,11 @@ import { Route as DemoStartSsrSpaModeRouteImport } from './routes/demo/start.ssr
 import { Route as DemoStartSsrFullSsrRouteImport } from './routes/demo/start.ssr.full-ssr'
 import { Route as DemoStartSsrDataOnlyRouteImport } from './routes/demo/start.ssr.data-only'
 
+const TransformationsRoute = TransformationsRouteImport.update({
+  id: '/transformations',
+  path: '/transformations',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const JoinTestingRoute = JoinTestingRouteImport.update({
   id: '/join-testing',
   path: '/join-testing',
@@ -55,6 +62,11 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const TransformationsIndexRoute = TransformationsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => TransformationsRoute,
 } as any)
 const EntitiesIndexRoute = EntitiesIndexRouteImport.update({
   id: '/',
@@ -144,11 +156,13 @@ export interface FileRoutesByFullPath {
   '/entity-schemas': typeof EntitySchemasRoute
   '/ingestion': typeof IngestionRouteWithChildren
   '/join-testing': typeof JoinTestingRoute
+  '/transformations': typeof TransformationsRouteWithChildren
   '/demo/table': typeof DemoTableRoute
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
   '/entity/$entityId': typeof EntityEntityIdRoute
   '/ingestion/batches': typeof IngestionBatchesRoute
   '/entities/': typeof EntitiesIndexRoute
+  '/transformations/': typeof TransformationsIndexRoute
   '/demo/api/names': typeof DemoApiNamesRoute
   '/demo/api/tq-todos': typeof DemoApiTqTodosRoute
   '/demo/form/address': typeof DemoFormAddressRoute
@@ -171,6 +185,7 @@ export interface FileRoutesByTo {
   '/entity/$entityId': typeof EntityEntityIdRoute
   '/ingestion/batches': typeof IngestionBatchesRoute
   '/entities': typeof EntitiesIndexRoute
+  '/transformations': typeof TransformationsIndexRoute
   '/demo/api/names': typeof DemoApiNamesRoute
   '/demo/api/tq-todos': typeof DemoApiTqTodosRoute
   '/demo/form/address': typeof DemoFormAddressRoute
@@ -190,11 +205,13 @@ export interface FileRoutesById {
   '/entity-schemas': typeof EntitySchemasRoute
   '/ingestion': typeof IngestionRouteWithChildren
   '/join-testing': typeof JoinTestingRoute
+  '/transformations': typeof TransformationsRouteWithChildren
   '/demo/table': typeof DemoTableRoute
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
   '/entity/$entityId': typeof EntityEntityIdRoute
   '/ingestion/batches': typeof IngestionBatchesRoute
   '/entities/': typeof EntitiesIndexRoute
+  '/transformations/': typeof TransformationsIndexRoute
   '/demo/api/names': typeof DemoApiNamesRoute
   '/demo/api/tq-todos': typeof DemoApiTqTodosRoute
   '/demo/form/address': typeof DemoFormAddressRoute
@@ -215,11 +232,13 @@ export interface FileRouteTypes {
     | '/entity-schemas'
     | '/ingestion'
     | '/join-testing'
+    | '/transformations'
     | '/demo/table'
     | '/demo/tanstack-query'
     | '/entity/$entityId'
     | '/ingestion/batches'
     | '/entities/'
+    | '/transformations/'
     | '/demo/api/names'
     | '/demo/api/tq-todos'
     | '/demo/form/address'
@@ -242,6 +261,7 @@ export interface FileRouteTypes {
     | '/entity/$entityId'
     | '/ingestion/batches'
     | '/entities'
+    | '/transformations'
     | '/demo/api/names'
     | '/demo/api/tq-todos'
     | '/demo/form/address'
@@ -260,11 +280,13 @@ export interface FileRouteTypes {
     | '/entity-schemas'
     | '/ingestion'
     | '/join-testing'
+    | '/transformations'
     | '/demo/table'
     | '/demo/tanstack-query'
     | '/entity/$entityId'
     | '/ingestion/batches'
     | '/entities/'
+    | '/transformations/'
     | '/demo/api/names'
     | '/demo/api/tq-todos'
     | '/demo/form/address'
@@ -284,6 +306,7 @@ export interface RootRouteChildren {
   EntitySchemasRoute: typeof EntitySchemasRoute
   IngestionRoute: typeof IngestionRouteWithChildren
   JoinTestingRoute: typeof JoinTestingRoute
+  TransformationsRoute: typeof TransformationsRouteWithChildren
   DemoTableRoute: typeof DemoTableRoute
   DemoTanstackQueryRoute: typeof DemoTanstackQueryRoute
   EntityEntityIdRoute: typeof EntityEntityIdRoute
@@ -301,6 +324,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/transformations': {
+      id: '/transformations'
+      path: '/transformations'
+      fullPath: '/transformations'
+      preLoaderRoute: typeof TransformationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/join-testing': {
       id: '/join-testing'
       path: '/join-testing'
@@ -335,6 +365,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/transformations/': {
+      id: '/transformations/'
+      path: '/'
+      fullPath: '/transformations/'
+      preLoaderRoute: typeof TransformationsIndexRouteImport
+      parentRoute: typeof TransformationsRoute
     }
     '/entities/': {
       id: '/entities/'
@@ -477,12 +514,25 @@ const IngestionRouteWithChildren = IngestionRoute._addFileChildren(
   IngestionRouteChildren,
 )
 
+interface TransformationsRouteChildren {
+  TransformationsIndexRoute: typeof TransformationsIndexRoute
+}
+
+const TransformationsRouteChildren: TransformationsRouteChildren = {
+  TransformationsIndexRoute: TransformationsIndexRoute,
+}
+
+const TransformationsRouteWithChildren = TransformationsRoute._addFileChildren(
+  TransformationsRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   EntitiesRoute: EntitiesRouteWithChildren,
   EntitySchemasRoute: EntitySchemasRoute,
   IngestionRoute: IngestionRouteWithChildren,
   JoinTestingRoute: JoinTestingRoute,
+  TransformationsRoute: TransformationsRouteWithChildren,
   DemoTableRoute: DemoTableRoute,
   DemoTanstackQueryRoute: DemoTanstackQueryRoute,
   EntityEntityIdRoute: EntityEntityIdRoute,

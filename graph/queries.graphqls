@@ -374,3 +374,129 @@ query ExecuteJoin($input: ExecuteEntityJoinInput!) {
   }
 }
 
+# --- Entity Transformations ---
+fragment EntityTransformationNodeFields on EntityTransformationNode {
+  id
+  name
+  type
+  inputs
+  load {
+    alias
+    entityType
+    filters {
+      key
+      value
+      exists
+      inArray
+    }
+  }
+  filter {
+    alias
+    filters {
+      key
+      value
+      exists
+      inArray
+    }
+  }
+  project {
+    alias
+    fields
+  }
+  join {
+    leftAlias
+    rightAlias
+    onField
+  }
+  sort {
+    alias
+    field
+    direction
+  }
+  paginate {
+    limit
+    offset
+  }
+}
+
+query EntityTransformations($organizationId: String!) {
+  entityTransformations(organizationId: $organizationId) {
+    id
+    organizationId
+    name
+    description
+    createdAt
+    updatedAt
+    nodes {
+      id
+    }
+  }
+}
+
+query EntityTransformation($id: String!) {
+  entityTransformation(id: $id) {
+    id
+    organizationId
+    name
+    description
+    createdAt
+    updatedAt
+    nodes {
+      ...EntityTransformationNodeFields
+    }
+  }
+}
+
+mutation CreateEntityTransformation($input: CreateEntityTransformationInput!) {
+  createEntityTransformation(input: $input) {
+    id
+    organizationId
+    name
+    description
+    createdAt
+    updatedAt
+    nodes {
+      ...EntityTransformationNodeFields
+    }
+  }
+}
+
+mutation UpdateEntityTransformation($input: UpdateEntityTransformationInput!) {
+  updateEntityTransformation(input: $input) {
+    id
+    organizationId
+    name
+    description
+    createdAt
+    updatedAt
+    nodes {
+      ...EntityTransformationNodeFields
+    }
+  }
+}
+
+mutation DeleteEntityTransformation($id: String!) {
+  deleteEntityTransformation(id: $id)
+}
+
+query ExecuteEntityTransformation($input: ExecuteEntityTransformationInput!) {
+  executeEntityTransformation(input: $input) {
+    edges {
+      entities {
+        alias
+        entity {
+          id
+          entityType
+          path
+          referenceValue
+          properties
+        }
+      }
+    }
+    pageInfo {
+      totalCount
+      hasNextPage
+      hasPreviousPage
+    }
+  }
+}
