@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import type { Entity, EntityFilter } from '../generated/graphql'
+import { FieldType } from '../generated/graphql'
 import {
   useCreateEntityMutation,
   useDeleteEntityMutation,
@@ -37,6 +38,7 @@ function EntitiesPage() {
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null)
   const [selectedSchemaId, setSelectedSchemaId] = useState<string | null>(null)
   const [columnFilters, setColumnFilters] = useState<Record<string, ColumnFilterValue>>({})
+  const [hiddenFieldNames, setHiddenFieldNames] = useState<string[]>([])
   const [modalState, setModalState] = useState<ModalState | null>(null)
   const [modalError, setModalError] = useState<string | null>(null)
   const [feedback, setFeedback] = useState<string | null>(null)
@@ -66,12 +68,37 @@ function EntitiesPage() {
   useEffect(() => {
     setColumnFilters({})
     setPage(0)
+    setHiddenFieldNames([])
   }, [selectedSchemaId, selectedOrgId])
 
   const selectedSchema = useMemo(
     () => schemas.find((schema) => schema.id === selectedSchemaId) ?? null,
     [schemas, selectedSchemaId],
   )
+
+  useEffect(() => {
+    if (!selectedSchema) {
+      setHiddenFieldNames([])
+      return
+    }
+    setHiddenFieldNames((current) => {
+      const validNames = new Set((selectedSchema.fields ?? []).map((field) => field.name))
+      return current.filter((name) => validNames.has(name))
+    })
+  }, [selectedSchema])
+
+  const visibleSchemaFields = useMemo(() => {
+    if (!selectedSchema?.fields) {
+      return []
+    }
+    return selectedSchema.fields.filter((field) => !hiddenFieldNames.includes(field.name))
+  }, [hiddenFieldNames, selectedSchema])
+
+  const includeLinkedEntities = useMemo(() => {
+    return visibleSchemaFields.some((field) =>
+      field.type === FieldType.EntityReference || field.type === FieldType.EntityReferenceArray,
+    )
+  }, [visibleSchemaFields])
 
   const propertyFilters = useMemo(() => {
     return Object.entries(columnFilters)
@@ -105,8 +132,9 @@ function EntitiesPage() {
         offset: page * PAGE_SIZE,
       },
       filter: entityFilter,
+      includeLinkedEntities,
     }
-  }, [entityFilter, page, selectedOrgId])
+  }, [entityFilter, includeLinkedEntities, page, selectedOrgId])
 
   const entitiesQuery = useEntitiesManagementQuery(
     queryVariables ?? {
@@ -360,6 +388,8 @@ function EntitiesPage() {
           onDelete={handleDeleteEntity}
           summaryLabel={summaryLabel}
           isLoading={entitiesQuery.isLoading}
+          hiddenFieldNames={hiddenFieldNames}
+          onHiddenFieldNamesChange={setHiddenFieldNames}
         />
 
         {totalPages > 1 && (

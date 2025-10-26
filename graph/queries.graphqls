@@ -126,6 +126,7 @@ query EntitiesManagement(
   $organizationId: String!
   $pagination: PaginationInput
   $filter: EntityFilter
+  $includeLinkedEntities: Boolean! = true
 ) {
   entities(
     organizationId: $organizationId
@@ -143,7 +144,7 @@ query EntitiesManagement(
       version
       createdAt
       updatedAt
-      linkedEntities {
+      linkedEntities @include(if: $includeLinkedEntities) {
         id
         entityType
         properties

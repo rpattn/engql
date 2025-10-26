@@ -655,10 +655,11 @@ export type EntitiesManagementQueryVariables = Exact<{
   organizationId: Scalars['String']['input'];
   pagination?: InputMaybe<PaginationInput>;
   filter?: InputMaybe<EntityFilter>;
+  includeLinkedEntities?: Scalars['Boolean']['input'];
 }>;
 
 
-export type EntitiesManagementQuery = { __typename?: 'Query', entities: { __typename?: 'EntityConnection', entities: Array<{ __typename?: 'Entity', id: string, organizationId: string, schemaId: string, entityType: string, path: string, properties: string, referenceValue?: string | null, version: number, createdAt: string, updatedAt: string, linkedEntities: Array<{ __typename?: 'Entity', id: string, entityType: string, properties: string, referenceValue?: string | null }> }>, pageInfo: { __typename?: 'PageInfo', totalCount: number, hasNextPage: boolean, hasPreviousPage: boolean } } };
+export type EntitiesManagementQuery = { __typename?: 'Query', entities: { __typename?: 'EntityConnection', entities: Array<{ __typename?: 'Entity', id: string, organizationId: string, schemaId: string, entityType: string, path: string, properties: string, referenceValue?: string | null, version: number, createdAt: string, updatedAt: string, linkedEntities?: Array<{ __typename?: 'Entity', id: string, entityType: string, properties: string, referenceValue?: string | null }> }>, pageInfo: { __typename?: 'PageInfo', totalCount: number, hasNextPage: boolean, hasPreviousPage: boolean } } };
 
 export type EntityDetailQueryVariables = Exact<{
   id: Scalars['String']['input'];
@@ -1067,7 +1068,7 @@ useEntitySchemasQuery.getKey = (variables: EntitySchemasQueryVariables) => ['Ent
 useEntitySchemasQuery.fetcher = (variables: EntitySchemasQueryVariables, options?: RequestInit['headers']) => graphqlRequest<EntitySchemasQuery, EntitySchemasQueryVariables>(EntitySchemasDocument, variables, options);
 
 export const EntitiesManagementDocument = `
-    query EntitiesManagement($organizationId: String!, $pagination: PaginationInput, $filter: EntityFilter) {
+    query EntitiesManagement($organizationId: String!, $pagination: PaginationInput, $filter: EntityFilter, $includeLinkedEntities: Boolean! = true) {
   entities(
     organizationId: $organizationId
     pagination: $pagination
@@ -1084,7 +1085,7 @@ export const EntitiesManagementDocument = `
       version
       createdAt
       updatedAt
-      linkedEntities {
+      linkedEntities @include(if: $includeLinkedEntities) {
         id
         entityType
         properties
