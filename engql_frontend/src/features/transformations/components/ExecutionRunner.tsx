@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import {
   ExecuteEntityTransformationQuery,
@@ -34,9 +34,13 @@ export function ExecutionRunner({ transformationId }: { transformationId: string
     setVersion((prev) => prev + 1)
   }, [transformationId])
 
-  const run = () => {
-    query.refetch()
-  }
+  const run = useCallback(() => {
+    void query.refetch()
+  }, [query.refetch])
+
+  useEffect(() => {
+    run()
+  }, [run, transformationId])
 
   const connection: ExecuteEntityTransformationQuery['executeEntityTransformation'] | undefined =
     query.data?.executeEntityTransformation
@@ -100,11 +104,19 @@ export function ExecutionRunner({ transformationId }: { transformationId: string
               {connection.pageInfo.hasNextPage ? 'Has next page' : 'No next page'}
             </span>
           </div>
-          <div className="grid gap-3">
-            {connection.edges.map((edge, index) => (
-              <ResultEdgeCard key={`${version}-${index}`} edge={edge} />
-            ))}
-          </div>
+          {connection.edges.length > 0 ? (
+            <div className="grid gap-3">
+              {connection.edges.map((edge, index) => (
+                <ResultEdgeCard key={`${version}-${index}`} edge={edge} />
+              ))}
+            </div>
+          ) : (
+            !query.isFetching && (
+              <p className="rounded border border-slate-200 bg-white px-3 py-2 text-xs text-slate-500">
+                No records were returned for this transformation.
+              </p>
+            )
+          )}
         </div>
       )}
     </div>
