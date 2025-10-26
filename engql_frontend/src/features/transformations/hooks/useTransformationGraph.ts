@@ -49,12 +49,21 @@ export function useTransformationGraph(
   const [error, setError] = useState<string | null>(null)
 
   const resetRef = useRef(reset)
+  const initialGraphSignatureRef = useRef<string | null>(null)
 
   useEffect(() => {
     resetRef.current = reset
   }, [reset])
 
   useEffect(() => {
+    const nextSignature = JSON.stringify(initialGraph)
+
+    if (initialGraphSignatureRef.current === nextSignature) {
+      return
+    }
+
+    initialGraphSignatureRef.current = nextSignature
+
     resetRef.current(initialGraph)
     setError(null)
   }, [initialGraph])
