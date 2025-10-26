@@ -30,6 +30,7 @@ type ReferenceOption = {
   primaryLabel: string
   displayName: string
   searchTokens: string[]
+  referenceValues: string[]
 }
 
 export default function ReferenceFieldInput({
@@ -86,14 +87,19 @@ export default function ReferenceFieldInput({
       const reference = entity.referenceValue?.trim() ?? ''
       const parsedProps = safeParseProperties(entity.properties)
       const referenceCandidates = new Set<string>()
+      const referenceValues: string[] = []
       if (reference) {
         referenceCandidates.add(reference)
+        referenceValues.push(reference)
       }
       for (const name of referenceFieldNames) {
         const raw = parsedProps[name]
         if (typeof raw === 'string') {
           const trimmed = raw.trim()
           if (trimmed.length > 0) {
+            if (!referenceCandidates.has(trimmed)) {
+              referenceValues.push(trimmed)
+            }
             referenceCandidates.add(trimmed)
           }
         }
@@ -133,6 +139,7 @@ export default function ReferenceFieldInput({
         primaryLabel,
         displayName,
         searchTokens,
+        referenceValues,
       }
     })
   }, [allEntities, referenceFieldNames])
@@ -398,6 +405,17 @@ export default function ReferenceFieldInput({
               <ul>
                 {filteredOptions.map((option) => {
                   const isSelected = selectedValues.includes(option.value)
+                  const matchingReferences =
+                    trimmedSearch.length >= 2
+                      ? option.referenceValues.filter((candidate) =>
+                          candidate.toLowerCase().includes(trimmedSearch),
+                        )
+                      : []
+                  const extraMatchingReferences = option.referenceValue
+                    ? matchingReferences.filter(
+                        (candidate) => candidate !== option.referenceValue,
+                      )
+                    : matchingReferences
                   return (
                     <li key={option.id}>
                       <button
@@ -417,6 +435,12 @@ export default function ReferenceFieldInput({
                               <div>Reference: {option.referenceValue}</div>
                             )}
                             <div>ID: {option.id}</div>
+                            {extraMatchingReferences.length > 0 && (
+                              <div>
+                                Matching references:{' '}
+                                {extraMatchingReferences.join(', ')}
+                              </div>
+                            )}
                             {option.displayName &&
                               option.displayName !== option.primaryLabel &&
                               option.displayName !== option.referenceValue && (
