@@ -95,7 +95,6 @@ export default function EntityTable({
   const isBusy = isLoading || isFetching
   const isEmpty = rows.length === 0
   const showEmptyState = !isBusy && isEmpty
-  const totalVisibleColumns = BASE_COLUMN_COUNT + visibleFields.length
 
   const sortedFields = useMemo(
     () => schemaFields.slice().sort((a, b) => a.name.localeCompare(b.name)),
@@ -106,6 +105,8 @@ export default function EntityTable({
     () => sortedFields.filter((field) => !hiddenFieldNames.includes(field.name)),
     [hiddenFieldNames, sortedFields],
   )
+
+  const totalVisibleColumns = BASE_COLUMN_COUNT + visibleFields.length
 
   const displayedRows = useMemo(() => {
     if (!sortState) {
