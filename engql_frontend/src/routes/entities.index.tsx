@@ -21,6 +21,7 @@ import {
   prepareFieldValueForSubmit,
   safeParseProperties,
 } from '../features/entities/components/helpers'
+import { loadLastOrganizationId, persistLastOrganizationId } from '../lib/browserStorage'
 
 type ModalState =
   | { mode: 'create' }
@@ -35,7 +36,9 @@ function EntitiesPage() {
   const organizationsQuery = useGetOrganizationsQuery()
   const organizations = organizationsQuery.data?.organizations ?? []
 
-  const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null)
+  const [selectedOrgId, setSelectedOrgId] = useState<string | null>(
+    () => loadLastOrganizationId(),
+  )
   const [selectedSchemaId, setSelectedSchemaId] = useState<string | null>(null)
   const [columnFilters, setColumnFilters] = useState<Record<string, ColumnFilterValue>>({})
   const [hiddenFieldNames, setHiddenFieldNames] = useState<string[]>([])
@@ -43,12 +46,31 @@ function EntitiesPage() {
   const [modalError, setModalError] = useState<string | null>(null)
   const [feedback, setFeedback] = useState<string | null>(null)
   const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
 
   useEffect(() => {
-    if (!selectedOrgId && organizations.length > 0) {
-      setSelectedOrgId(organizations[0].id)
+    if (organizations.length === 0) {
+      setSelectedOrgId(null)
+      return
     }
-  }, [organizations, selectedOrgId])
+
+    setSelectedOrgId((current) => {
+      const activeId =
+        current && organizations.some((org) => org.id === current)
+          ? current
+          : loadLastOrganizationId()
+
+      if (activeId && organizations.some((org) => org.id === activeId)) {
+        return activeId
+      }
+
+      return organizations[0]?.id ?? null
+    })
+  }, [organizations])
+
+  useEffect(() => {
+    persistLastOrganizationId(selectedOrgId)
+  }, [selectedOrgId])
 
   const entitySchemasQuery = useEntitySchemasQuery(
     { organizationId: selectedOrgId ?? '' },
@@ -128,18 +150,18 @@ function EntitiesPage() {
     return {
       organizationId: selectedOrgId,
       pagination: {
-        limit: PAGE_SIZE,
-        offset: page * PAGE_SIZE,
+        limit: pageSize,
+        offset: page * pageSize,
       },
       filter: entityFilter,
       includeLinkedEntities,
     }
-  }, [entityFilter, includeLinkedEntities, page, selectedOrgId])
+  }, [entityFilter, includeLinkedEntities, page, pageSize, selectedOrgId])
 
   const entitiesQuery = useEntitiesManagementQuery(
     queryVariables ?? {
       organizationId: '',
-      pagination: { limit: PAGE_SIZE, offset: 0 },
+      pagination: { limit: pageSize, offset: 0 },
     },
     {
       enabled: Boolean(queryVariables),
@@ -158,7 +180,7 @@ function EntitiesPage() {
   }, [entities])
 
   const totalCount = entitiesQuery.data?.entities.pageInfo.totalCount ?? 0
-  const totalPages = totalCount > 0 ? Math.ceil(totalCount / PAGE_SIZE) : 0
+  const totalPages = totalCount > 0 ? Math.ceil(totalCount / pageSize) : 0
 
   useEffect(() => {
     if (page > 0 && totalPages > 0 && page >= totalPages) {
@@ -392,33 +414,56 @@ function EntitiesPage() {
           onHiddenFieldNamesChange={setHiddenFieldNames}
         />
 
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between">
-            <button
-              type="button"
-              onClick={() => setPage((value) => Math.max(value - 1, 0))}
-              disabled={page === 0}
-              className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:border-gray-400 hover:text-gray-900 disabled:cursor-not-allowed disabled:text-gray-400"
-            >
-              Previous
-            </button>
-            <div className="text-sm text-gray-600">
-              Page {page + 1} of {totalPages}
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                if (page + 1 < totalPages) {
-                  setPage((value) => value + 1)
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <label className="flex items-center gap-2 text-sm text-gray-600">
+            <span>Rows per page:</span>
+            <select
+              value={pageSize}
+              onChange={(event) => {
+                const nextSize = Number(event.target.value)
+                if (!Number.isNaN(nextSize)) {
+                  setPageSize(nextSize)
+                  setPage(0)
                 }
               }}
-              disabled={page + 1 >= totalPages}
-              className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:border-gray-400 hover:text-gray-900 disabled:cursor-not-allowed disabled:text-gray-400"
+              className="rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
             >
-              Next
-            </button>
-          </div>
-        )}
+              {PAGE_SIZE_OPTIONS.map((size) => (
+                <option key={size} value={size}>
+                  {size}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {totalPages > 0 && (
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setPage((value) => Math.max(value - 1, 0))}
+                disabled={page === 0}
+                className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:border-gray-400 hover:text-gray-900 disabled:cursor-not-allowed disabled:text-gray-400"
+              >
+                Previous
+              </button>
+              <div className="text-sm text-gray-600">
+                Page {Math.min(page + 1, totalPages)} of {totalPages}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (page + 1 < totalPages) {
+                    setPage((value) => value + 1)
+                  }
+                }}
+                disabled={page + 1 >= totalPages}
+                className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:border-gray-400 hover:text-gray-900 disabled:cursor-not-allowed disabled:text-gray-400"
+              >
+                Next
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {modalState && selectedSchema && selectedOrgId && (
@@ -441,4 +486,5 @@ function EntitiesPage() {
   )
 }
 
-const PAGE_SIZE = 10
+const DEFAULT_PAGE_SIZE = 10
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
