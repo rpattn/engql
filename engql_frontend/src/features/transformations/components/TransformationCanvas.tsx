@@ -49,10 +49,28 @@ export function TransformationCanvas({
           onConnect={controller.onConnect}
           onSelectionChange={(changes) => {
             const next = changes.nodes?.find((node) => node.selected) ?? null
+            const nextId = next?.id ?? null
+
+            if (nextId === selectedNodeId) {
+              return
+            }
+
             onSelect(next as TransformationCanvasNode | null)
           }}
-          onNodeClick={(_, node) => onSelect(node as TransformationCanvasNode)}
-          onPaneClick={() => onSelect(null)}
+          onNodeClick={(_, node) => {
+            if (node.id === selectedNodeId) {
+              return
+            }
+
+            onSelect(node as TransformationCanvasNode)
+          }}
+          onPaneClick={() => {
+            if (selectedNodeId === null) {
+              return
+            }
+
+            onSelect(null)
+          }}
           minZoom={0.2}
           maxZoom={1.75}
         >
