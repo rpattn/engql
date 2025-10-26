@@ -55,7 +55,7 @@ export function TransformationListTable({
               <td className="px-4 py-3">
                 <div className="flex items-center justify-end gap-2 text-xs">
                   <Link
-                    to="/transformations/$transformationId.execute"
+                    to="/transformations/$transformationId/execute"
                     params={{ transformationId: transformation.id }}
                     className="rounded border border-blue-200 px-2 py-1 text-blue-600 hover:bg-blue-50"
                   >

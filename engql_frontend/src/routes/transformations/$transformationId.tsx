@@ -156,7 +156,7 @@ function TransformationDetailRoute() {
 
   const handleExecute = () => {
     navigate({
-      to: '/transformations/$transformationId.execute',
+      to: '/transformations/$transformationId/execute',
       params: { transformationId },
     })
   }

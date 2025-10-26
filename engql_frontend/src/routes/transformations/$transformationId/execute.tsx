@@ -3,7 +3,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEntityTransformationQuery } from '@/generated/graphql'
 import { ExecutionRunner } from '@/features/transformations/components/ExecutionRunner'
 
-export const Route = createFileRoute('/transformations/$transformationId.execute')({
+export const Route = createFileRoute('/transformations/$transformationId/execute')({
   component: TransformationExecuteRoute,
 })
 
@@ -11,7 +11,23 @@ function TransformationExecuteRoute() {
   const { transformationId } = Route.useParams()
   const navigate = useNavigate()
 
-  const detailQuery = useEntityTransformationQuery({ id: transformationId })
+  const safeTransformationId =
+    typeof transformationId === 'string' && transformationId !== 'undefined'
+      ? transformationId
+      : null
+
+  const detailQuery = useEntityTransformationQuery(
+    { id: safeTransformationId ?? '' },
+    { enabled: Boolean(safeTransformationId) },
+  )
+
+  if (!safeTransformationId) {
+    return (
+      <p className="rounded border border-slate-200 p-6 text-sm text-slate-500">
+        Transformation not found.
+      </p>
+    )
+  }
 
   if (detailQuery.isLoading) {
     return (
@@ -53,7 +69,7 @@ function TransformationExecuteRoute() {
           onClick={() =>
             navigate({
               to: '/transformations/$transformationId',
-              params: { transformationId },
+              params: { transformationId: safeTransformationId },
             })
           }
           className="rounded border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100"
@@ -62,7 +78,7 @@ function TransformationExecuteRoute() {
         </button>
       </div>
 
-      <ExecutionRunner transformationId={transformationId} />
+      <ExecutionRunner transformationId={safeTransformationId} />
     </div>
   )
 }
