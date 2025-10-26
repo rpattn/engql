@@ -10,7 +10,7 @@ import (
 func TestEnsureReferenceNormalization_TrimsWhitespace(t *testing.T) {
 	repo := &entityRepository{}
 	schemaID := uuid.New()
-	repo.referenceFieldCache.Store(schemaID, referenceFieldCacheEntry{fieldName: "reference", found: true})
+	repo.referenceFieldCache.Store(schemaID, referenceFieldCacheEntry{canonical: "reference", names: []string{"reference"}})
 
 	props := map[string]any{"reference": "  ABC-123  "}
 	if err := repo.ensureReferenceNormalization(context.Background(), schemaID, props, true); err != nil {
@@ -29,7 +29,7 @@ func TestEnsureReferenceNormalization_TrimsWhitespace(t *testing.T) {
 func TestEnsureReferenceNormalization_EmptyStrictError(t *testing.T) {
 	repo := &entityRepository{}
 	schemaID := uuid.New()
-	repo.referenceFieldCache.Store(schemaID, referenceFieldCacheEntry{fieldName: "reference", found: true})
+	repo.referenceFieldCache.Store(schemaID, referenceFieldCacheEntry{canonical: "reference", names: []string{"reference"}})
 
 	props := map[string]any{"reference": "   "}
 	if err := repo.ensureReferenceNormalization(context.Background(), schemaID, props, true); err == nil {
@@ -40,7 +40,7 @@ func TestEnsureReferenceNormalization_EmptyStrictError(t *testing.T) {
 func TestEnsureReferenceNormalization_NonStrictAllowsEmpty(t *testing.T) {
 	repo := &entityRepository{}
 	schemaID := uuid.New()
-	repo.referenceFieldCache.Store(schemaID, referenceFieldCacheEntry{fieldName: "reference", found: true})
+	repo.referenceFieldCache.Store(schemaID, referenceFieldCacheEntry{canonical: "reference", names: []string{"reference"}})
 
 	props := map[string]any{"reference": "   "}
 	if err := repo.ensureReferenceNormalization(context.Background(), schemaID, props, false); err != nil {

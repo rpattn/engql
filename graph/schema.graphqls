@@ -218,6 +218,154 @@ type EntityJoinDefinition {
   updatedAt: String!
 }
 
+# Entity transformation types
+enum EntityTransformationNodeType {
+  LOAD
+  FILTER
+  PROJECT
+  JOIN
+  LEFT_JOIN
+  ANTI_JOIN
+  UNION
+  SORT
+  PAGINATE
+}
+
+type EntityTransformation {
+  id: String!
+  organizationId: String!
+  name: String!
+  description: String
+  nodes: [EntityTransformationNode!]!
+  createdAt: String!
+  updatedAt: String!
+}
+
+type EntityTransformationNode {
+  id: String!
+  name: String!
+  type: EntityTransformationNodeType!
+  inputs: [String!]!
+  load: EntityTransformationLoadConfig
+  filter: EntityTransformationFilterConfig
+  project: EntityTransformationProjectConfig
+  join: EntityTransformationJoinConfig
+  sort: EntityTransformationSortConfig
+  paginate: EntityTransformationPaginateConfig
+}
+
+type EntityTransformationLoadConfig {
+  alias: String!
+  entityType: String!
+  filters: [PropertyFilterConfig!]!
+}
+
+type EntityTransformationFilterConfig {
+  alias: String!
+  filters: [PropertyFilterConfig!]!
+}
+
+type EntityTransformationProjectConfig {
+  alias: String!
+  fields: [String!]!
+}
+
+type EntityTransformationJoinConfig {
+  leftAlias: String!
+  rightAlias: String!
+  onField: String!
+}
+
+type EntityTransformationSortConfig {
+  alias: String!
+  field: String!
+  direction: JoinSortDirection!
+}
+
+type EntityTransformationPaginateConfig {
+  limit: Int
+  offset: Int
+}
+
+type EntityTransformationRecordEntity {
+  alias: String!
+  entity: Entity
+}
+
+type EntityTransformationRecordEdge {
+  entities: [EntityTransformationRecordEntity!]!
+}
+
+type EntityTransformationConnection {
+  edges: [EntityTransformationRecordEdge!]!
+  pageInfo: PageInfo!
+}
+
+input EntityTransformationNodeInput {
+  id: String
+  name: String!
+  type: EntityTransformationNodeType!
+  inputs: [String!]
+  load: EntityTransformationLoadConfigInput
+  filter: EntityTransformationFilterConfigInput
+  project: EntityTransformationProjectConfigInput
+  join: EntityTransformationJoinConfigInput
+  sort: EntityTransformationSortConfigInput
+  paginate: EntityTransformationPaginateConfigInput
+}
+
+input EntityTransformationLoadConfigInput {
+  alias: String!
+  entityType: String!
+  filters: [PropertyFilter!]
+}
+
+input EntityTransformationFilterConfigInput {
+  alias: String!
+  filters: [PropertyFilter!]
+}
+
+input EntityTransformationProjectConfigInput {
+  alias: String!
+  fields: [String!]!
+}
+
+input EntityTransformationJoinConfigInput {
+  leftAlias: String!
+  rightAlias: String!
+  onField: String!
+}
+
+input EntityTransformationSortConfigInput {
+  alias: String!
+  field: String!
+  direction: JoinSortDirection!
+}
+
+input EntityTransformationPaginateConfigInput {
+  limit: Int
+  offset: Int
+}
+
+input CreateEntityTransformationInput {
+  organizationId: String!
+  name: String!
+  description: String
+  nodes: [EntityTransformationNodeInput!]!
+}
+
+input UpdateEntityTransformationInput {
+  id: String!
+  name: String
+  description: String
+  nodes: [EntityTransformationNodeInput!]
+}
+
+input ExecuteEntityTransformationInput {
+  transformationId: String!
+  pagination: PaginationInput
+}
+
 type EntityJoinEdge {
   left: Entity!
   right: Entity!
@@ -332,6 +480,11 @@ type Query {
   entityJoinDefinition(id: String!): EntityJoinDefinition
   entityJoinDefinitions(organizationId: String!): [EntityJoinDefinition!]!
   executeEntityJoin(input: ExecuteEntityJoinInput!): EntityJoinConnection!
+
+  # Entity transformation queries
+  entityTransformation(id: String!): EntityTransformation
+  entityTransformations(organizationId: String!): [EntityTransformation!]!
+  executeEntityTransformation(input: ExecuteEntityTransformationInput!): EntityTransformationConnection!
 }
 
 type EntityConnection {
@@ -378,4 +531,9 @@ type Mutation {
   createEntityJoinDefinition(input: CreateEntityJoinDefinitionInput!): EntityJoinDefinition!
   updateEntityJoinDefinition(input: UpdateEntityJoinDefinitionInput!): EntityJoinDefinition!
   deleteEntityJoinDefinition(id: String!): Boolean!
+
+  # Entity transformation mutations
+  createEntityTransformation(input: CreateEntityTransformationInput!): EntityTransformation!
+  updateEntityTransformation(input: UpdateEntityTransformationInput!): EntityTransformation!
+  deleteEntityTransformation(id: String!): Boolean!
 }

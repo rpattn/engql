@@ -277,8 +277,13 @@ func convertEntitySort(sort *graph.EntitySortInput) *domain.EntitySort {
 		return nil
 	}
 
+	direction := graph.SortDirectionAsc
+	if sort.Direction != nil {
+		direction = *sort.Direction
+	}
+
 	result := &domain.EntitySort{
-		Direction: domain.SortDirection(strings.ToLower(string(sort.Direction))),
+		Direction: domain.SortDirection(strings.ToLower(string(direction))),
 	}
 
 	switch sort.Field {
