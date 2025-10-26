@@ -3,7 +3,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEntityTransformationQuery } from '@/generated/graphql'
 import { ExecutionRunner } from '@/features/transformations/components/ExecutionRunner'
 
-export const Route = createFileRoute('/transformations/$transformationId.execute')({
+export const Route = createFileRoute('/transformations/$transformationId/execute')({
   component: TransformationExecuteRoute,
 })
 
