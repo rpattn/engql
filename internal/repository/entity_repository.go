@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -496,6 +497,7 @@ func (r *entityRepository) List(
 	ctx context.Context,
 	organizationID uuid.UUID,
 	filter *domain.EntityFilter,
+	sort *domain.EntitySort,
 	limit int,
 	offset int,
 ) ([]domain.Entity, int, error) {
@@ -507,6 +509,9 @@ func (r *entityRepository) List(
 		TextSearch:     "",
 		PageLimit:      int32(limit),
 		PageOffset:     int32(offset),
+		SortField:      string(domain.EntitySortFieldCreatedAt),
+		SortDirection:  strings.ToUpper(string(domain.SortDirectionDesc)),
+		SortProperty:   sql.NullString{},
 	}
 
 	if filter != nil {
@@ -524,6 +529,29 @@ func (r *entityRepository) List(
 
 		if trimmed := strings.TrimSpace(filter.TextSearch); trimmed != "" {
 			params.TextSearch = "%" + trimmed + "%"
+		}
+	}
+
+	if sort != nil {
+		switch sort.Field {
+		case domain.EntitySortFieldCreatedAt,
+			domain.EntitySortFieldUpdatedAt,
+			domain.EntitySortFieldEntityType,
+			domain.EntitySortFieldPath,
+			domain.EntitySortFieldVersion:
+			params.SortField = string(sort.Field)
+		case domain.EntitySortFieldProperty:
+			if sort.PropertyKey != "" {
+				params.SortField = string(sort.Field)
+				params.SortProperty = sql.NullString{String: sort.PropertyKey, Valid: true}
+			}
+		}
+
+		switch sort.Direction {
+		case domain.SortDirectionAsc:
+			params.SortDirection = strings.ToUpper(string(domain.SortDirectionAsc))
+		case domain.SortDirectionDesc:
+			params.SortDirection = strings.ToUpper(string(domain.SortDirectionDesc))
 		}
 	}
 

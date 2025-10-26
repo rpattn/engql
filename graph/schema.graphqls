@@ -57,6 +57,20 @@ enum JoinSortDirection {
   DESC
 }
 
+enum SortDirection {
+  ASC
+  DESC
+}
+
+enum EntitySortField {
+  CREATED_AT
+  UPDATED_AT
+  ENTITY_TYPE
+  PATH
+  VERSION
+  PROPERTY
+}
+
 enum JoinType {
   REFERENCE
   CROSS
@@ -160,6 +174,12 @@ input EntityFilter {
   propertyFilters: [PropertyFilter!]
   textSearch: String
   pathFilter: PathFilter
+}
+
+input EntitySortInput {
+  field: EntitySortField!
+  direction: SortDirection = ASC
+  propertyKey: String
 }
 
 input PropertyFilter {
@@ -286,6 +306,7 @@ type Query {
     organizationId: String!
     filter: EntityFilter
     pagination: PaginationInput
+    sort: EntitySortInput
   ): EntityConnection!
   entity(id: String!): Entity
   entitiesByType(organizationId: String!, entityType: String!): [Entity!]!

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
-import type { Entity, EntityFilter } from '../generated/graphql'
+import type { Entity, EntityFilter, PropertyFilter as PropertyFilterInput } from '../generated/graphql'
+import { EntitySortField, FieldType, SortDirection } from '../generated/graphql'
 import {
   useCreateEntityMutation,
   useDeleteEntityMutation,
@@ -10,7 +11,11 @@ import {
   useGetOrganizationsQuery,
   useUpdateEntityMutation,
 } from '../generated/graphql'
-import EntityTable from '../features/entities/components/EntityTable'
+import EntityTable, {
+  BASE_COLUMN_IDS,
+  FIELD_COLUMN_PREFIX,
+  type SortState,
+} from '../features/entities/components/EntityTable'
 import EntityEditorModal from '../features/entities/components/EntityEditorModal'
 import {
   ColumnFilterValue,
@@ -20,6 +25,7 @@ import {
   prepareFieldValueForSubmit,
   safeParseProperties,
 } from '../features/entities/components/helpers'
+import { loadLastOrganizationId, persistLastOrganizationId } from '../lib/browserStorage'
 
 type ModalState =
   | { mode: 'create' }
@@ -34,19 +40,42 @@ function EntitiesPage() {
   const organizationsQuery = useGetOrganizationsQuery()
   const organizations = organizationsQuery.data?.organizations ?? []
 
-  const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null)
+  const [selectedOrgId, setSelectedOrgId] = useState<string | null>(
+    () => loadLastOrganizationId(),
+  )
   const [selectedSchemaId, setSelectedSchemaId] = useState<string | null>(null)
   const [columnFilters, setColumnFilters] = useState<Record<string, ColumnFilterValue>>({})
+  const [hiddenFieldNames, setHiddenFieldNames] = useState<string[]>([])
   const [modalState, setModalState] = useState<ModalState | null>(null)
   const [modalError, setModalError] = useState<string | null>(null)
   const [feedback, setFeedback] = useState<string | null>(null)
   const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
+  const [sortState, setSortState] = useState<SortState | null>(null)
 
   useEffect(() => {
-    if (!selectedOrgId && organizations.length > 0) {
-      setSelectedOrgId(organizations[0].id)
+    if (organizations.length === 0) {
+      setSelectedOrgId(null)
+      return
     }
-  }, [organizations, selectedOrgId])
+
+    setSelectedOrgId((current) => {
+      const activeId =
+        current && organizations.some((org) => org.id === current)
+          ? current
+          : loadLastOrganizationId()
+
+      if (activeId && organizations.some((org) => org.id === activeId)) {
+        return activeId
+      }
+
+      return organizations[0]?.id ?? null
+    })
+  }, [organizations])
+
+  useEffect(() => {
+    persistLastOrganizationId(selectedOrgId)
+  }, [selectedOrgId])
 
   const entitySchemasQuery = useEntitySchemasQuery(
     { organizationId: selectedOrgId ?? '' },
@@ -66,6 +95,7 @@ function EntitiesPage() {
   useEffect(() => {
     setColumnFilters({})
     setPage(0)
+    setHiddenFieldNames([])
   }, [selectedSchemaId, selectedOrgId])
 
   const selectedSchema = useMemo(
@@ -73,15 +103,64 @@ function EntitiesPage() {
     [schemas, selectedSchemaId],
   )
 
-  const propertyFilters = useMemo(() => {
+  useEffect(() => {
+    if (!selectedSchema) {
+      setHiddenFieldNames([])
+      return
+    }
+    setHiddenFieldNames((current) => {
+      const validNames = new Set((selectedSchema.fields ?? []).map((field) => field.name))
+      return current.filter((name) => validNames.has(name))
+    })
+  }, [selectedSchema])
+
+  const visibleSchemaFields = useMemo(() => {
+    if (!selectedSchema?.fields) {
+      return []
+    }
+    return selectedSchema.fields.filter((field) => !hiddenFieldNames.includes(field.name))
+  }, [hiddenFieldNames, selectedSchema])
+
+  const includeLinkedEntities = useMemo(() => {
+    return visibleSchemaFields.some((field) =>
+      field.type === FieldType.EntityReference || field.type === FieldType.EntityReferenceArray,
+    )
+  }, [visibleSchemaFields])
+
+  const propertyFilters = useMemo<PropertyFilterInput[]>(() => {
+    if (!selectedSchema?.fields) {
+      return []
+    }
+
     return Object.entries(columnFilters)
-      .map(([key, raw]) => [key, raw.trim()] as const)
-      .filter(([, value]) => value.length > 0)
-      .map(([key, value]) => ({
-        key,
-        value,
-      }))
-  }, [columnFilters])
+      .map(([key, raw]) => {
+        const trimmed = raw.trim()
+        if (trimmed.length === 0) {
+          return null
+        }
+
+        const schemaField = selectedSchema.fields?.find((field) => field.name === key)
+        if (!schemaField) {
+          return null
+        }
+
+        let normalizedValue = trimmed
+
+        if (schemaField.type === FieldType.Boolean) {
+          const normalized = trimmed.toLowerCase()
+          if (normalized !== 'true' && normalized !== 'false') {
+            return null
+          }
+          normalizedValue = normalized
+        }
+
+        return {
+          key,
+          value: normalizedValue,
+        }
+      })
+      .filter((filter): filter is PropertyFilterInput => Boolean(filter))
+  }, [columnFilters, selectedSchema])
 
   const entityFilter = useMemo(() => {
     const filter: EntityFilter = {}
@@ -94,6 +173,41 @@ function EntitiesPage() {
     return Object.keys(filter).length > 0 ? filter : undefined
   }, [selectedSchema, propertyFilters])
 
+  const sortInput = useMemo(() => {
+    if (!sortState) {
+      return undefined
+    }
+
+    const direction =
+      sortState.direction === 'asc' ? SortDirection.Asc : SortDirection.Desc
+
+    switch (sortState.columnId) {
+      case BASE_COLUMN_IDS.createdAt:
+        return { field: EntitySortField.CreatedAt, direction }
+      case BASE_COLUMN_IDS.updatedAt:
+        return { field: EntitySortField.UpdatedAt, direction }
+      case BASE_COLUMN_IDS.entity:
+        return { field: EntitySortField.EntityType, direction }
+      case BASE_COLUMN_IDS.path:
+        return { field: EntitySortField.Path, direction }
+      case BASE_COLUMN_IDS.version:
+        return { field: EntitySortField.Version, direction }
+      default: {
+        if (sortState.columnId.startsWith(FIELD_COLUMN_PREFIX)) {
+          const propertyKey = sortState.columnId.slice(FIELD_COLUMN_PREFIX.length)
+          if (propertyKey) {
+            return {
+              field: EntitySortField.Property,
+              direction,
+              propertyKey,
+            }
+          }
+        }
+        return undefined
+      }
+    }
+  }, [sortState])
+
   const queryVariables = useMemo(() => {
     if (!selectedOrgId) {
       return null
@@ -101,17 +215,20 @@ function EntitiesPage() {
     return {
       organizationId: selectedOrgId,
       pagination: {
-        limit: PAGE_SIZE,
-        offset: page * PAGE_SIZE,
+        limit: pageSize,
+        offset: page * pageSize,
       },
       filter: entityFilter,
+      includeLinkedEntities,
+      sort: sortInput,
     }
-  }, [entityFilter, page, selectedOrgId])
+  }, [entityFilter, includeLinkedEntities, page, pageSize, selectedOrgId, sortInput])
 
   const entitiesQuery = useEntitiesManagementQuery(
     queryVariables ?? {
       organizationId: '',
-      pagination: { limit: PAGE_SIZE, offset: 0 },
+      pagination: { limit: pageSize, offset: 0 },
+      sort: sortInput,
     },
     {
       enabled: Boolean(queryVariables),
@@ -129,8 +246,13 @@ function EntitiesPage() {
     }))
   }, [entities])
 
+  const handleSortChange = useCallback((next: SortState | null) => {
+    setSortState(next)
+    setPage(0)
+  }, [])
+
   const totalCount = entitiesQuery.data?.entities.pageInfo.totalCount ?? 0
-  const totalPages = totalCount > 0 ? Math.ceil(totalCount / PAGE_SIZE) : 0
+  const totalPages = totalCount > 0 ? Math.ceil(totalCount / pageSize) : 0
 
   useEffect(() => {
     if (page > 0 && totalPages > 0 && page >= totalPages) {
@@ -360,35 +482,63 @@ function EntitiesPage() {
           onDelete={handleDeleteEntity}
           summaryLabel={summaryLabel}
           isLoading={entitiesQuery.isLoading}
+          isFetching={entitiesQuery.isFetching}
+          hiddenFieldNames={hiddenFieldNames}
+          onHiddenFieldNamesChange={setHiddenFieldNames}
+          sortState={sortState}
+          onSortChange={handleSortChange}
         />
 
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between">
-            <button
-              type="button"
-              onClick={() => setPage((value) => Math.max(value - 1, 0))}
-              disabled={page === 0}
-              className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:border-gray-400 hover:text-gray-900 disabled:cursor-not-allowed disabled:text-gray-400"
-            >
-              Previous
-            </button>
-            <div className="text-sm text-gray-600">
-              Page {page + 1} of {totalPages}
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                if (page + 1 < totalPages) {
-                  setPage((value) => value + 1)
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <label className="flex items-center gap-2 text-sm text-gray-600">
+            <span>Rows per page:</span>
+            <select
+              value={pageSize}
+              onChange={(event) => {
+                const nextSize = Number(event.target.value)
+                if (!Number.isNaN(nextSize)) {
+                  setPageSize(nextSize)
+                  setPage(0)
                 }
               }}
-              disabled={page + 1 >= totalPages}
-              className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:border-gray-400 hover:text-gray-900 disabled:cursor-not-allowed disabled:text-gray-400"
+              className="rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
             >
-              Next
-            </button>
-          </div>
-        )}
+              {PAGE_SIZE_OPTIONS.map((size) => (
+                <option key={size} value={size}>
+                  {size}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {totalPages > 0 && (
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setPage((value) => Math.max(value - 1, 0))}
+                disabled={page === 0}
+                className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:border-gray-400 hover:text-gray-900 disabled:cursor-not-allowed disabled:text-gray-400"
+              >
+                Previous
+              </button>
+              <div className="text-sm text-gray-600">
+                Page {Math.min(page + 1, totalPages)} of {totalPages}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (page + 1 < totalPages) {
+                    setPage((value) => value + 1)
+                  }
+                }}
+                disabled={page + 1 >= totalPages}
+                className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:border-gray-400 hover:text-gray-900 disabled:cursor-not-allowed disabled:text-gray-400"
+              >
+                Next
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {modalState && selectedSchema && selectedOrgId && (
@@ -411,4 +561,5 @@ function EntitiesPage() {
   )
 }
 
-const PAGE_SIZE = 10
+const DEFAULT_PAGE_SIZE = 10
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100]

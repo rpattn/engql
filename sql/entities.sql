@@ -44,7 +44,56 @@ WHERE organization_id = sqlc.arg(organization_id)
         OR path::text ILIKE sqlc.arg(text_search)::text
         OR properties::text ILIKE sqlc.arg(text_search)::text
     )
-ORDER BY created_at DESC
+ORDER BY
+    CASE
+        WHEN sqlc.arg(sort_field)::text = 'created_at' AND sqlc.arg(sort_direction)::text = 'asc'
+            THEN created_at
+    END ASC,
+    CASE
+        WHEN sqlc.arg(sort_field)::text = 'created_at' AND sqlc.arg(sort_direction)::text = 'desc'
+            THEN created_at
+    END DESC,
+    CASE
+        WHEN sqlc.arg(sort_field)::text = 'updated_at' AND sqlc.arg(sort_direction)::text = 'asc'
+            THEN updated_at
+    END ASC,
+    CASE
+        WHEN sqlc.arg(sort_field)::text = 'updated_at' AND sqlc.arg(sort_direction)::text = 'desc'
+            THEN updated_at
+    END DESC,
+    CASE
+        WHEN sqlc.arg(sort_field)::text = 'entity_type' AND sqlc.arg(sort_direction)::text = 'asc'
+            THEN LOWER(entity_type)
+    END ASC,
+    CASE
+        WHEN sqlc.arg(sort_field)::text = 'entity_type' AND sqlc.arg(sort_direction)::text = 'desc'
+            THEN LOWER(entity_type)
+    END DESC,
+    CASE
+        WHEN sqlc.arg(sort_field)::text = 'path' AND sqlc.arg(sort_direction)::text = 'asc'
+            THEN path::text
+    END ASC,
+    CASE
+        WHEN sqlc.arg(sort_field)::text = 'path' AND sqlc.arg(sort_direction)::text = 'desc'
+            THEN path::text
+    END DESC,
+    CASE
+        WHEN sqlc.arg(sort_field)::text = 'version' AND sqlc.arg(sort_direction)::text = 'asc'
+            THEN version
+    END ASC,
+    CASE
+        WHEN sqlc.arg(sort_field)::text = 'version' AND sqlc.arg(sort_direction)::text = 'desc'
+            THEN version
+    END DESC,
+    CASE
+        WHEN sqlc.arg(sort_field)::text = 'property' AND sqlc.arg(sort_direction)::text = 'asc'
+            THEN LOWER(COALESCE(properties ->> sqlc.arg(sort_property), ''))
+    END ASC,
+    CASE
+        WHEN sqlc.arg(sort_field)::text = 'property' AND sqlc.arg(sort_direction)::text = 'desc'
+            THEN LOWER(COALESCE(properties ->> sqlc.arg(sort_property), ''))
+    END DESC,
+    created_at DESC
 LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
 
 SELECT id, organization_id, schema_id, entity_type, path, properties, version, created_at, updated_at

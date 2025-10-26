@@ -170,7 +170,7 @@ func (r *Resolver) EntitySchemaVersions(ctx context.Context, organizationID, nam
 }
 
 // Entities returns entities with filtering and pagination
-func (r *Resolver) Entities(ctx context.Context, organizationID string, filter *graph.EntityFilter, pagination *graph.PaginationInput) (*graph.EntityConnection, error) {
+func (r *Resolver) Entities(ctx context.Context, organizationID string, filter *graph.EntityFilter, pagination *graph.PaginationInput, sort *graph.EntitySortInput) (*graph.EntityConnection, error) {
 	orgID, err := uuid.Parse(organizationID)
 	if err != nil {
 		return nil, fmt.Errorf("invalid organization ID: %w", err)
@@ -191,7 +191,9 @@ func (r *Resolver) Entities(ctx context.Context, organizationID string, filter *
 	// Fetch only the requested page from the repository
 	domainFilter := convertEntityFilter(filter)
 
-	entities, totalCount, err := r.entityRepo.List(ctx, orgID, domainFilter, limit, offset)
+	domainSort := convertEntitySort(sort)
+
+	entities, totalCount, err := r.entityRepo.List(ctx, orgID, domainFilter, domainSort, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list entities: %w", err)
 	}
@@ -257,6 +259,46 @@ func convertEntityFilter(filter *graph.EntityFilter) *domain.EntityFilter {
 	}
 
 	if result.EntityType == "" && len(result.PropertyFilters) == 0 && strings.TrimSpace(result.TextSearch) == "" {
+		return nil
+	}
+
+	return result
+}
+
+func convertEntitySort(sort *graph.EntitySortInput) *domain.EntitySort {
+	if sort == nil {
+		return nil
+	}
+
+	result := &domain.EntitySort{
+		Direction: domain.SortDirection(strings.ToLower(string(sort.Direction))),
+	}
+
+	switch sort.Field {
+	case graph.EntitySortFieldCreatedAt:
+		result.Field = domain.EntitySortFieldCreatedAt
+	case graph.EntitySortFieldUpdatedAt:
+		result.Field = domain.EntitySortFieldUpdatedAt
+	case graph.EntitySortFieldEntityType:
+		result.Field = domain.EntitySortFieldEntityType
+	case graph.EntitySortFieldPath:
+		result.Field = domain.EntitySortFieldPath
+	case graph.EntitySortFieldVersion:
+		result.Field = domain.EntitySortFieldVersion
+	case graph.EntitySortFieldProperty:
+		result.Field = domain.EntitySortFieldProperty
+		if sort.PropertyKey != nil {
+			result.PropertyKey = strings.TrimSpace(*sort.PropertyKey)
+		}
+	default:
+		return nil
+	}
+
+	if result.Direction != domain.SortDirectionAsc && result.Direction != domain.SortDirectionDesc {
+		result.Direction = domain.SortDirectionDesc
+	}
+
+	if result.Field == domain.EntitySortFieldProperty && strings.TrimSpace(result.PropertyKey) == "" {
 		return nil
 	}
 

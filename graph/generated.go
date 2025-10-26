@@ -182,7 +182,7 @@ type ComplexityRoot struct {
 	}
 
 	Query struct {
-		Entities                           func(childComplexity int, organizationID string, filter *EntityFilter, pagination *PaginationInput) int
+		Entities                           func(childComplexity int, organizationID string, filter *EntityFilter, pagination *PaginationInput, sort *EntitySortInput) int
 		EntitiesByIDs                      func(childComplexity int, ids []string) int
 		EntitiesByType                     func(childComplexity int, organizationID string, entityType string) int
 		Entity                             func(childComplexity int, id string) int
@@ -245,7 +245,7 @@ type QueryResolver interface {
 	EntitySchema(ctx context.Context, id string) (*EntitySchema, error)
 	EntitySchemaByName(ctx context.Context, organizationID string, name string) (*EntitySchema, error)
 	EntitySchemaVersions(ctx context.Context, organizationID string, name string) ([]*EntitySchema, error)
-	Entities(ctx context.Context, organizationID string, filter *EntityFilter, pagination *PaginationInput) (*EntityConnection, error)
+	Entities(ctx context.Context, organizationID string, filter *EntityFilter, pagination *PaginationInput, sort *EntitySortInput) (*EntityConnection, error)
 	Entity(ctx context.Context, id string) (*Entity, error)
 	EntitiesByType(ctx context.Context, organizationID string, entityType string) ([]*Entity, error)
 	EntitiesByIDs(ctx context.Context, ids []string) ([]*Entity, error)
@@ -920,7 +920,7 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			return 0, false
 		}
 
-		return e.complexity.Query.Entities(childComplexity, args["organizationId"].(string), args["filter"].(*EntityFilter), args["pagination"].(*PaginationInput)), true
+		return e.complexity.Query.Entities(childComplexity, args["organizationId"].(string), args["filter"].(*EntityFilter), args["pagination"].(*PaginationInput), args["sort"].(*EntitySortInput)), true
 	case "Query.entitiesByIDs":
 		if e.complexity.Query.EntitiesByIDs == nil {
 			break
@@ -1591,6 +1591,11 @@ func (ec *executionContext) field_Query_entities_args(ctx context.Context, rawAr
 		return nil, err
 	}
 	args["pagination"] = arg2
+	arg3, err := graphql.ProcessArgField(ctx, rawArgs, "sort", ec.unmarshalOEntitySortInput2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntitySortInput)
+	if err != nil {
+		return nil, err
+	}
+	args["sort"] = arg3
 	return args, nil
 }
 
@@ -5431,7 +5436,7 @@ func (ec *executionContext) _Query_entities(ctx context.Context, field graphql.C
 		ec.fieldContext_Query_entities,
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.resolvers.Query().Entities(ctx, fc.Args["organizationId"].(string), fc.Args["filter"].(*EntityFilter), fc.Args["pagination"].(*PaginationInput))
+			return ec.resolvers.Query().Entities(ctx, fc.Args["organizationId"].(string), fc.Args["filter"].(*EntityFilter), fc.Args["pagination"].(*PaginationInput), fc.Args["sort"].(*EntitySortInput))
 		},
 		nil,
 		ec.marshalNEntityConnection2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityConnection,
@@ -8847,6 +8852,51 @@ func (ec *executionContext) unmarshalInputEntityFilter(ctx context.Context, obj 
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputEntitySortInput(ctx context.Context, obj any) (EntitySortInput, error) {
+	var it EntitySortInput
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	if _, present := asMap["direction"]; !present {
+		asMap["direction"] = "ASC"
+	}
+
+	fieldsInOrder := [...]string{"field", "direction", "propertyKey"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "field":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("field"))
+			data, err := ec.unmarshalNEntitySortField2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntitySortField(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Field = data
+		case "direction":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("direction"))
+			data, err := ec.unmarshalNSortDirection2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐSortDirection(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Direction = data
+		case "propertyKey":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("propertyKey"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.PropertyKey = data
+		}
+	}
+
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputExecuteEntityJoinInput(ctx context.Context, obj any) (ExecuteEntityJoinInput, error) {
 	var it ExecuteEntityJoinInput
 	asMap := map[string]any{}
@@ -11927,6 +11977,26 @@ func (ec *executionContext) marshalNJoinSortDirection2githubᚗcomᚋrpattnᚋen
 	return v
 }
 
+func (ec *executionContext) unmarshalNEntitySortField2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntitySortField(ctx context.Context, v any) (EntitySortField, error) {
+	var res EntitySortField
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNEntitySortField2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntitySortField(ctx context.Context, sel ast.SelectionSet, v EntitySortField) graphql.Marshaler {
+	return v
+}
+
+func (ec *executionContext) unmarshalNSortDirection2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐSortDirection(ctx context.Context, v any) (SortDirection, error) {
+	var res SortDirection
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNSortDirection2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐSortDirection(ctx context.Context, sel ast.SelectionSet, v SortDirection) graphql.Marshaler {
+	return v
+}
+
 func (ec *executionContext) unmarshalNJoinSortInput2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐJoinSortInput(ctx context.Context, v any) (*JoinSortInput, error) {
 	res, err := ec.unmarshalInputJoinSortInput(ctx, v)
 	return &res, graphql.ErrorOnPath(ctx, err)
@@ -12468,6 +12538,14 @@ func (ec *executionContext) unmarshalOEntityFilter2ᚖgithubᚗcomᚋrpattnᚋen
 		return nil, nil
 	}
 	res, err := ec.unmarshalInputEntityFilter(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalOEntitySortInput2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntitySortInput(ctx context.Context, v any) (*EntitySortInput, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputEntitySortInput(ctx, v)
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 

@@ -77,6 +77,12 @@ type EntityFilter struct {
 	PathFilter      *PathFilter       `json:"pathFilter,omitempty"`
 }
 
+type EntitySortInput struct {
+	Field       EntitySortField `json:"field"`
+	Direction   SortDirection   `json:"direction"`
+	PropertyKey *string         `json:"propertyKey,omitempty"`
+}
+
 type EntityHierarchy struct {
 	Current   *Entity   `json:"current"`
 	Ancestors []*Entity `json:"ancestors"`
@@ -439,6 +445,124 @@ func (e *JoinSortDirection) UnmarshalJSON(b []byte) error {
 }
 
 func (e JoinSortDirection) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type SortDirection string
+
+const (
+	SortDirectionAsc  SortDirection = "ASC"
+	SortDirectionDesc SortDirection = "DESC"
+)
+
+var AllSortDirection = []SortDirection{
+	SortDirectionAsc,
+	SortDirectionDesc,
+}
+
+func (e SortDirection) IsValid() bool {
+	switch e {
+	case SortDirectionAsc, SortDirectionDesc:
+		return true
+	}
+	return false
+}
+
+func (e SortDirection) String() string {
+	return string(e)
+}
+
+func (e *SortDirection) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = SortDirection(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid SortDirection", str)
+	}
+	return nil
+}
+
+func (e SortDirection) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *SortDirection) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e SortDirection) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type EntitySortField string
+
+const (
+	EntitySortFieldCreatedAt  EntitySortField = "CREATED_AT"
+	EntitySortFieldUpdatedAt  EntitySortField = "UPDATED_AT"
+	EntitySortFieldEntityType EntitySortField = "ENTITY_TYPE"
+	EntitySortFieldPath       EntitySortField = "PATH"
+	EntitySortFieldVersion    EntitySortField = "VERSION"
+	EntitySortFieldProperty   EntitySortField = "PROPERTY"
+)
+
+var AllEntitySortField = []EntitySortField{
+	EntitySortFieldCreatedAt,
+	EntitySortFieldUpdatedAt,
+	EntitySortFieldEntityType,
+	EntitySortFieldPath,
+	EntitySortFieldVersion,
+	EntitySortFieldProperty,
+}
+
+func (e EntitySortField) IsValid() bool {
+	switch e {
+	case EntitySortFieldCreatedAt, EntitySortFieldUpdatedAt, EntitySortFieldEntityType, EntitySortFieldPath, EntitySortFieldVersion, EntitySortFieldProperty:
+		return true
+	}
+	return false
+}
+
+func (e EntitySortField) String() string {
+	return string(e)
+}
+
+func (e *EntitySortField) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = EntitySortField(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid EntitySortField", str)
+	}
+	return nil
+}
+
+func (e EntitySortField) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *EntitySortField) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e EntitySortField) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil

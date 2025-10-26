@@ -7,6 +7,7 @@ package db
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"time"
 
@@ -585,18 +586,70 @@ WHERE organization_id = $1
         OR path::text ILIKE $5::text
         OR properties::text ILIKE $5::text
     )
-ORDER BY created_at DESC
-LIMIT $7 OFFSET $6
+ORDER BY
+    CASE
+        WHEN $6::text = 'created_at' AND $7::text = 'ASC'
+            THEN created_at
+    END ASC,
+    CASE
+        WHEN $6::text = 'created_at' AND $7::text = 'DESC'
+            THEN created_at
+    END DESC,
+    CASE
+        WHEN $6::text = 'updated_at' AND $7::text = 'ASC'
+            THEN updated_at
+    END ASC,
+    CASE
+        WHEN $6::text = 'updated_at' AND $7::text = 'DESC'
+            THEN updated_at
+    END DESC,
+    CASE
+        WHEN $6::text = 'entity_type' AND $7::text = 'ASC'
+            THEN LOWER(entity_type)
+    END ASC,
+    CASE
+        WHEN $6::text = 'entity_type' AND $7::text = 'DESC'
+            THEN LOWER(entity_type)
+    END DESC,
+    CASE
+        WHEN $6::text = 'path' AND $7::text = 'ASC'
+            THEN path::text
+    END ASC,
+    CASE
+        WHEN $6::text = 'path' AND $7::text = 'DESC'
+            THEN path::text
+    END DESC,
+    CASE
+        WHEN $6::text = 'version' AND $7::text = 'ASC'
+            THEN version
+    END ASC,
+    CASE
+        WHEN $6::text = 'version' AND $7::text = 'DESC'
+            THEN version
+    END DESC,
+    CASE
+        WHEN $6::text = 'property' AND $7::text = 'ASC'
+            THEN LOWER(COALESCE(properties ->> $8::text, ''))
+    END ASC,
+    CASE
+        WHEN $6::text = 'property' AND $7::text = 'DESC'
+            THEN LOWER(COALESCE(properties ->> $8::text, ''))
+    END DESC,
+    created_at DESC
+LIMIT $9 OFFSET $10
 `
 
 type ListEntitiesParams struct {
-	OrganizationID uuid.UUID `json:"organization_id"`
-	EntityType     string    `json:"entity_type"`
-	PropertyKeys   []string  `json:"property_keys"`
-	PropertyValues []string  `json:"property_values"`
-	TextSearch     string    `json:"text_search"`
-	PageOffset     int32     `json:"page_offset"`
-	PageLimit      int32     `json:"page_limit"`
+	OrganizationID uuid.UUID      `json:"organization_id"`
+	EntityType     string         `json:"entity_type"`
+	PropertyKeys   []string       `json:"property_keys"`
+	PropertyValues []string       `json:"property_values"`
+	TextSearch     string         `json:"text_search"`
+	SortField      string         `json:"sort_field"`
+	SortDirection  string         `json:"sort_direction"`
+	SortProperty   sql.NullString `json:"sort_property"`
+	PageLimit      int32          `json:"page_limit"`
+	PageOffset     int32          `json:"page_offset"`
 }
 
 type ListEntitiesRow struct {
@@ -619,8 +672,11 @@ func (q *Queries) ListEntities(ctx context.Context, arg ListEntitiesParams) ([]L
 		arg.PropertyKeys,
 		arg.PropertyValues,
 		arg.TextSearch,
-		arg.PageOffset,
+		arg.SortField,
+		arg.SortDirection,
+		arg.SortProperty,
 		arg.PageLimit,
+		arg.PageOffset,
 	)
 	if err != nil {
 		return nil, err

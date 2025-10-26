@@ -10,6 +10,7 @@ import {
   useGetOrganizationsQuery,
   useUpdateSchemaMutation,
 } from '../generated/graphql'
+import { loadLastOrganizationId, persistLastOrganizationId } from '../lib/browserStorage'
 
 type ModalMode = 'create' | 'edit'
 
@@ -52,7 +53,9 @@ export const Route = createFileRoute('/entity-schemas')({
 
 function EntitySchemasPage() {
   const queryClient = useQueryClient()
-  const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null)
+  const [selectedOrgId, setSelectedOrgId] = useState<string | null>(
+    () => loadLastOrganizationId(),
+  )
   const [modalState, setModalState] = useState<ModalState | null>(null)
   const [modalError, setModalError] = useState<string | null>(null)
   const [feedback, setFeedback] = useState<FeedbackState>(null)
@@ -61,10 +64,28 @@ function EntitySchemasPage() {
   const organizations = organizationsQuery.data?.organizations ?? []
 
   useEffect(() => {
-    if (!selectedOrgId && organizations.length > 0) {
-      setSelectedOrgId(organizations[0].id)
+    if (organizations.length === 0) {
+      setSelectedOrgId(null)
+      return
     }
-  }, [organizations, selectedOrgId])
+
+    setSelectedOrgId((current) => {
+      const activeId =
+        current && organizations.some((org) => org.id === current)
+          ? current
+          : loadLastOrganizationId()
+
+      if (activeId && organizations.some((org) => org.id === activeId)) {
+        return activeId
+      }
+
+      return organizations[0]?.id ?? null
+    })
+  }, [organizations])
+
+  useEffect(() => {
+    persistLastOrganizationId(selectedOrgId)
+  }, [selectedOrgId])
 
   const entitySchemasQueryKey = useMemo(
     () =>
