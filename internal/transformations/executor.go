@@ -253,8 +253,19 @@ func (e *Executor) executeJoin(
 					}
 					if referenceIndexAvailable {
 						useSchemaStrategy = true
+						referenceEntityType := fieldDef.ReferenceEntityType
 						for _, value := range values {
-							matches = append(matches, referenceRightIndex[value]...)
+							indices := referenceRightIndex[value]
+							if referenceEntityType == "" {
+								matches = append(matches, indices...)
+								continue
+							}
+							for _, idx := range indices {
+								entity := rightRecords[idx].Entities[node.Join.RightAlias]
+								if entity != nil && entity.EntityType == referenceEntityType {
+									matches = append(matches, idx)
+								}
+							}
 						}
 					}
 				}

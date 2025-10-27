@@ -1343,3 +1343,157 @@ func TestExecutor_JoinReferenceMatchesCanonicalValue(t *testing.T) {
 		t.Fatalf("expected canonical slug acct-001, got %v", right.Properties["slug"])
 	}
 }
+
+func TestExecutor_JoinReferenceRespectsReferenceEntityType(t *testing.T) {
+	orgID := uuid.New()
+	repo := &mockEntityRepository{
+		entities: []domain.Entity{
+			{
+				ID:             uuid.New(),
+				OrganizationID: orgID,
+				EntityType:     "ticket",
+				Properties: map[string]any{
+					"accountRef": "acct-001",
+				},
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			},
+			{
+				ID:             uuid.New(),
+				OrganizationID: orgID,
+				EntityType:     "account",
+				Properties: map[string]any{
+					"slug": "acct-001",
+				},
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			},
+			{
+				ID:             uuid.New(),
+				OrganizationID: orgID,
+				EntityType:     "contact",
+				Properties: map[string]any{
+					"slug": "acct-001",
+				},
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			},
+		},
+	}
+	schemaProvider := &mockSchemaProvider{
+		schemas: map[string]domain.EntitySchema{
+			"ticket": {
+				OrganizationID: orgID,
+				Name:           "ticket",
+				Fields: []domain.FieldDefinition{
+					{
+						Name:                "accountRef",
+						Type:                domain.FieldTypeReference,
+						ReferenceEntityType: "account",
+					},
+				},
+			},
+			"account": {
+				OrganizationID: orgID,
+				Name:           "account",
+				Fields: []domain.FieldDefinition{
+					{Name: "slug", Type: domain.FieldTypeReference},
+				},
+			},
+			"contact": {
+				OrganizationID: orgID,
+				Name:           "contact",
+				Fields: []domain.FieldDefinition{
+					{Name: "slug", Type: domain.FieldTypeReference},
+				},
+			},
+		},
+	}
+	executor := NewExecutor(repo, schemaProvider)
+
+	loadTicketsID := uuid.New()
+	loadAccountsID := uuid.New()
+	loadContactsID := uuid.New()
+	projectContactsID := uuid.New()
+	unionID := uuid.New()
+	joinNodeID := uuid.New()
+	transformation := domain.EntityTransformation{
+		ID:             uuid.New(),
+		OrganizationID: orgID,
+		Name:           "join-reference-entity-type",
+		Nodes: []domain.EntityTransformationNode{
+			{
+				ID:   loadTicketsID,
+				Name: "load-tickets",
+				Type: domain.TransformationNodeLoad,
+				Load: &domain.EntityTransformationLoadConfig{
+					Alias:      "tickets",
+					EntityType: "ticket",
+				},
+			},
+			{
+				ID:   loadAccountsID,
+				Name: "load-accounts",
+				Type: domain.TransformationNodeLoad,
+				Load: &domain.EntityTransformationLoadConfig{
+					Alias:      "accounts",
+					EntityType: "account",
+				},
+			},
+			{
+				ID:   loadContactsID,
+				Name: "load-contacts",
+				Type: domain.TransformationNodeLoad,
+				Load: &domain.EntityTransformationLoadConfig{
+					Alias:      "contacts",
+					EntityType: "contact",
+				},
+			},
+			{
+				ID:     projectContactsID,
+				Name:   "rename-contacts",
+				Type:   domain.TransformationNodeProject,
+				Inputs: []uuid.UUID{loadContactsID},
+				Project: &domain.EntityTransformationProjectConfig{
+					Alias: "accounts",
+				},
+			},
+			{
+				ID:     unionID,
+				Name:   "union-refs",
+				Type:   domain.TransformationNodeUnion,
+				Inputs: []uuid.UUID{loadAccountsID, projectContactsID},
+			},
+			{
+				ID:     joinNodeID,
+				Name:   "join",
+				Type:   domain.TransformationNodeJoin,
+				Inputs: []uuid.UUID{loadTicketsID, unionID},
+				Join: &domain.EntityTransformationJoinConfig{
+					LeftAlias:  "tickets",
+					RightAlias: "accounts",
+					OnField:    "accountRef",
+				},
+			},
+		},
+	}
+
+	result, err := executor.Execute(context.Background(), transformation, domain.EntityTransformationExecutionOptions{})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if result.TotalCount != 1 {
+		t.Fatalf("expected single joined record, got %d", result.TotalCount)
+	}
+	if len(result.Records) != 1 {
+		t.Fatalf("expected 1 record, got %d", len(result.Records))
+	}
+	record := result.Records[0]
+	right := record.Entities["accounts"]
+	if right == nil {
+		t.Fatalf("expected account entity to be joined")
+	}
+	if right.EntityType != "account" {
+		t.Fatalf("expected joined entity type account, got %s", right.EntityType)
+	}
+}
