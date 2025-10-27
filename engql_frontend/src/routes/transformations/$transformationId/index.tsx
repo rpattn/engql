@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 
 import {
   useDeleteEntityTransformationMutation,
+  useEntitySchemasQuery,
   useEntityTransformationQuery,
   useEntityTransformationsQuery,
   useUpdateEntityTransformationMutation,
@@ -60,6 +61,12 @@ function TransformationDetailRoute() {
   })
 
   const transformation = detailQuery.data?.entityTransformation
+  const organizationId = (transformation?.organizationId ?? '').trim()
+
+  const entitySchemasQuery = useEntitySchemasQuery(
+    { organizationId },
+    { enabled: Boolean(organizationId) },
+  )
 
   const initialGraph = useMemo(() => {
     if (!transformation) {
@@ -190,40 +197,14 @@ function TransformationDetailRoute() {
     return map
   }, [schemaSummaries])
 
-  const schemaEntityTypeOptions = useMemo(() => {
-    const map: Record<string, string[]> = {}
+  const entityTypeOptions = useMemo(() => {
+    const schemas = entitySchemasQuery.data?.entitySchemas ?? []
+    const names = schemas
+      .map((schema) => schema.name.trim())
+      .filter(Boolean)
 
-    for (const summary of schemaSummaries) {
-      const entityTypes = summary.entityTypes
-        .map((entityType) => entityType.trim())
-        .filter(Boolean)
-
-      if (!entityTypes.length) {
-        continue
-      }
-
-      const sortedUnique = Array.from(new Set(entityTypes)).sort((a, b) =>
-        a.localeCompare(b),
-      )
-
-      const aliasKeys = new Set<string>()
-      if (summary.alias.trim()) {
-        aliasKeys.add(summary.alias.trim())
-      }
-      const sanitized = sanitizeAlias(summary.alias)
-      if (sanitized) {
-        aliasKeys.add(sanitized)
-      }
-
-      for (const key of aliasKeys) {
-        const existing = map[key] ?? []
-        const combined = new Set([...existing, ...sortedUnique])
-        map[key] = Array.from(combined).sort((a, b) => a.localeCompare(b))
-      }
-    }
-
-    return map
-  }, [schemaSummaries])
+    return Array.from(new Set(names)).sort((a, b) => a.localeCompare(b))
+  }, [entitySchemasQuery.data?.entitySchemas])
 
   if (detailQuery.isLoading) {
     return (
@@ -367,7 +348,7 @@ function TransformationDetailRoute() {
               }}
               allNodes={graphController.graph.nodes}
               schemaFieldOptions={schemaFieldOptions}
-              schemaEntityTypeOptions={schemaEntityTypeOptions}
+              entityTypeOptions={entityTypeOptions}
             />
           </div>
           <TransformationPreviewPanel

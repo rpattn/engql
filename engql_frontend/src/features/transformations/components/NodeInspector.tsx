@@ -11,7 +11,6 @@ import {
 import { formatNodeType } from '../utils/format'
 
 type SchemaFieldOptions = Record<string, string[]>
-type SchemaEntityTypeOptions = Record<string, string[]>
 
 type NodeInspectorProps = {
   node: TransformationCanvasNode | null
@@ -22,7 +21,7 @@ type NodeInspectorProps = {
   onDelete: (nodeId: string) => void
   allNodes: TransformationCanvasNode[]
   schemaFieldOptions: SchemaFieldOptions
-  schemaEntityTypeOptions: SchemaEntityTypeOptions
+  entityTypeOptions: string[]
 }
 
 type FilterRow = {
@@ -38,7 +37,7 @@ export function NodeInspector({
   onDelete,
   allNodes,
   schemaFieldOptions,
-  schemaEntityTypeOptions,
+  entityTypeOptions,
 }: NodeInspectorProps) {
   if (!node) {
     return (
@@ -81,23 +80,6 @@ export function NodeInspector({
     return (
       schemaFieldOptions[trimmed] ??
       schemaFieldOptions[sanitizeAlias(trimmed)] ??
-      []
-    )
-  }
-
-  const getEntityTypeOptions = (alias?: string | null) => {
-    if (!alias) {
-      return [] as string[]
-    }
-
-    const trimmed = alias.trim()
-    if (!trimmed.length) {
-      return [] as string[]
-    }
-
-    return (
-      schemaEntityTypeOptions[trimmed] ??
-      schemaEntityTypeOptions[sanitizeAlias(trimmed)] ??
       []
     )
   }
@@ -268,9 +250,6 @@ export function NodeInspector({
             <label className="block text-xs font-medium text-slate-600">
               Entity type
               {(() => {
-                const entityTypeOptions = getEntityTypeOptions(
-                  data.config.load.alias,
-                )
                 const entityTypeListId = entityTypeOptions.length
                   ? `load-entity-types-${node.id}`
                   : undefined
