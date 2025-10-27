@@ -11,6 +11,7 @@ import {
 import { formatNodeType } from '../utils/format'
 
 type SchemaFieldOptions = Record<string, string[]>
+type SchemaEntityTypeOptions = Record<string, string[]>
 
 type NodeInspectorProps = {
   node: TransformationCanvasNode | null
@@ -21,6 +22,7 @@ type NodeInspectorProps = {
   onDelete: (nodeId: string) => void
   allNodes: TransformationCanvasNode[]
   schemaFieldOptions: SchemaFieldOptions
+  schemaEntityTypeOptions: SchemaEntityTypeOptions
 }
 
 type FilterRow = {
@@ -36,6 +38,7 @@ export function NodeInspector({
   onDelete,
   allNodes,
   schemaFieldOptions,
+  schemaEntityTypeOptions,
 }: NodeInspectorProps) {
   if (!node) {
     return (
@@ -78,6 +81,23 @@ export function NodeInspector({
     return (
       schemaFieldOptions[trimmed] ??
       schemaFieldOptions[sanitizeAlias(trimmed)] ??
+      []
+    )
+  }
+
+  const getEntityTypeOptions = (alias?: string | null) => {
+    if (!alias) {
+      return [] as string[]
+    }
+
+    const trimmed = alias.trim()
+    if (!trimmed.length) {
+      return [] as string[]
+    }
+
+    return (
+      schemaEntityTypeOptions[trimmed] ??
+      schemaEntityTypeOptions[sanitizeAlias(trimmed)] ??
       []
     )
   }
@@ -247,30 +267,51 @@ export function NodeInspector({
             </label>
             <label className="block text-xs font-medium text-slate-600">
               Entity type
-              <input
-                value={data.config.load.entityType}
-                onChange={(event) =>
-                  updateConfig((config) => ({
-                    ...config,
-                    load: {
-                      ...config.load!,
-                      entityType: event.target.value,
-                      alias:
-                        isAliasDerivedFromEntityType(
-                          config.load!.alias,
-                          config.load!.entityType,
-                        ) && event.target.value.trim()
-                          ? generateUniqueAlias(
-                              event.target.value,
-                              allNodes,
-                              node.id,
-                            )
-                          : config.load!.alias,
-                    },
-                  }))
-                }
-                className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
-              />
+              {(() => {
+                const entityTypeOptions = getEntityTypeOptions(
+                  data.config.load.alias,
+                )
+                const entityTypeListId = entityTypeOptions.length
+                  ? `load-entity-types-${node.id}`
+                  : undefined
+
+                return (
+                  <>
+                    <input
+                      value={data.config.load.entityType}
+                      onChange={(event) =>
+                        updateConfig((config) => ({
+                          ...config,
+                          load: {
+                            ...config.load!,
+                            entityType: event.target.value,
+                            alias:
+                              isAliasDerivedFromEntityType(
+                                config.load!.alias,
+                                config.load!.entityType,
+                              ) && event.target.value.trim()
+                                ? generateUniqueAlias(
+                                    event.target.value,
+                                    allNodes,
+                                    node.id,
+                                  )
+                                : config.load!.alias,
+                          },
+                        }))
+                      }
+                      list={entityTypeListId}
+                      className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
+                    />
+                    {entityTypeListId && (
+                      <datalist id={entityTypeListId}>
+                        {entityTypeOptions.map((option) => (
+                          <option key={option} value={option} />
+                        ))}
+                      </datalist>
+                    )}
+                  </>
+                )
+              })()}
             </label>
             {renderFilters(
               data.config.load.filters,

@@ -190,6 +190,41 @@ function TransformationDetailRoute() {
     return map
   }, [schemaSummaries])
 
+  const schemaEntityTypeOptions = useMemo(() => {
+    const map: Record<string, string[]> = {}
+
+    for (const summary of schemaSummaries) {
+      const entityTypes = summary.entityTypes
+        .map((entityType) => entityType.trim())
+        .filter(Boolean)
+
+      if (!entityTypes.length) {
+        continue
+      }
+
+      const sortedUnique = Array.from(new Set(entityTypes)).sort((a, b) =>
+        a.localeCompare(b),
+      )
+
+      const aliasKeys = new Set<string>()
+      if (summary.alias.trim()) {
+        aliasKeys.add(summary.alias.trim())
+      }
+      const sanitized = sanitizeAlias(summary.alias)
+      if (sanitized) {
+        aliasKeys.add(sanitized)
+      }
+
+      for (const key of aliasKeys) {
+        const existing = map[key] ?? []
+        const combined = new Set([...existing, ...sortedUnique])
+        map[key] = Array.from(combined).sort((a, b) => a.localeCompare(b))
+      }
+    }
+
+    return map
+  }, [schemaSummaries])
+
   if (detailQuery.isLoading) {
     return (
       <p className="rounded border border-slate-200 p-6 text-sm text-slate-500">Loading…</p>
@@ -332,6 +367,7 @@ function TransformationDetailRoute() {
               }}
               allNodes={graphController.graph.nodes}
               schemaFieldOptions={schemaFieldOptions}
+              schemaEntityTypeOptions={schemaEntityTypeOptions}
             />
           </div>
           <TransformationPreviewPanel
