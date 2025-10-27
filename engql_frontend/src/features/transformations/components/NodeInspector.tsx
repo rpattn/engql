@@ -3,6 +3,7 @@ import { useMemo } from 'react'
 import { EntityTransformationNodeType } from '@/generated/graphql'
 
 import type { TransformationCanvasNode, TransformationNodeData } from '../types'
+import { formatNodeType } from '../utils/format'
 
 type NodeInspectorProps = {
   node: TransformationCanvasNode | null
@@ -31,7 +32,7 @@ export function NodeInspector({ node, onUpdate, onDelete }: NodeInspectorProps) 
 
   const { data } = node
 
-  const typeLabel = useMemo(() => formatType(data.type), [data.type])
+  const typeLabel = useMemo(() => formatNodeType(data.type), [data.type])
 
   const updateData = (updater: (data: TransformationNodeData) => TransformationNodeData) => {
     onUpdate(node.id, (current) => ({
@@ -480,12 +481,4 @@ export function NodeInspector({ node, onUpdate, onDelete }: NodeInspectorProps) 
       </div>
     </aside>
   )
-}
-
-function formatType(type: EntityTransformationNodeType) {
-  return type
-    .toLowerCase()
-    .split('_')
-    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
-    .join(' ')
 }

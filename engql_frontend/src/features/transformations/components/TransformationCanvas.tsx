@@ -1,7 +1,10 @@
+import { useMemo } from 'react'
+
 import ReactFlow, { Background, Controls } from 'reactflow'
 
 import type { TransformationCanvasNode } from '../types'
 import type { TransformationGraphController } from '../hooks/useTransformationGraph'
+import { TransformationNode } from './TransformationNode'
 
 import 'reactflow/dist/style.css'
 
@@ -14,6 +17,13 @@ export function TransformationCanvas({
   onSelect: (node: TransformationCanvasNode | null) => void
   selectedNodeId: string | null
 }) {
+  const nodeTypes = useMemo(
+    () => ({
+      transformation: TransformationNode,
+    }),
+    [],
+  )
+
   return (
     <div className="flex h-full flex-col gap-2">
       {controller.error && (
@@ -33,6 +43,7 @@ export function TransformationCanvas({
           fitView
           nodes={controller.graph.nodes}
           edges={controller.graph.edges}
+          nodeTypes={nodeTypes}
           onNodesChange={controller.onNodesChange}
           onEdgesChange={controller.onEdgesChange}
           onConnect={controller.onConnect}
