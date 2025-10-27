@@ -88,7 +88,11 @@ func (e *Executor) executeLoad(ctx context.Context, transformation domain.Entity
 		return nil, fmt.Errorf("load entities: %w", err)
 	}
 	records := make([]domain.EntityTransformationRecord, 0, len(entities))
-	for _, entity := range entities {
+	for i := range entities {
+		entity := entities[i]
+		if !domain.ApplyPropertyFilters(&entity, node.Load.Filters) {
+			continue
+		}
 		entityCopy := entity
 		record := domain.EntityTransformationRecord{Entities: map[string]*domain.Entity{node.Load.Alias: &entityCopy}}
 		records = append(records, record)

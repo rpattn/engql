@@ -190,11 +190,20 @@ func ApplyPropertyFilters(entity *Entity, filters []PropertyFilter) bool {
 	for _, filter := range filters {
 		value, ok := entity.Properties[filter.Key]
 		if filter.Exists != nil {
-			if *filter.Exists && !ok {
-				return false
-			}
-			if !*filter.Exists && ok {
-				return false
+			if *filter.Exists {
+				if !ok {
+					return false
+				}
+			} else {
+				if ok {
+					if filter.Value == "" && len(filter.InArray) == 0 {
+						if !propertyValueIsEmpty(value) {
+							return false
+						}
+					} else {
+						return false
+					}
+				}
 			}
 		}
 		if filter.Value != "" {
@@ -222,6 +231,27 @@ func ApplyPropertyFilters(entity *Entity, filters []PropertyFilter) bool {
 		}
 	}
 	return true
+}
+
+func propertyValueIsEmpty(value any) bool {
+	if value == nil {
+		return true
+	}
+	switch v := value.(type) {
+	case string:
+		return v == ""
+	case *string:
+		if v == nil {
+			return true
+		}
+		return *v == ""
+	case fmt.Stringer:
+		return v.String() == ""
+	case []byte:
+		return len(v) == 0
+	default:
+		return false
+	}
 }
 
 func ProjectEntity(entity *Entity, fields []string) *Entity {

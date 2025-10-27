@@ -273,6 +273,176 @@ func TestExecutor_FilterAmbiguousAliasError(t *testing.T) {
 	}
 }
 
+func TestExecutor_LoadFilterExistsFalse(t *testing.T) {
+	orgID := uuid.New()
+	repo := &mockEntityRepository{
+		entities: []domain.Entity{
+			{
+				ID:             uuid.New(),
+				OrganizationID: orgID,
+				EntityType:     "user",
+				Properties: map[string]any{
+					"status": "",
+				},
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			},
+			{
+				ID:             uuid.New(),
+				OrganizationID: orgID,
+				EntityType:     "user",
+				Properties:     map[string]any{},
+				CreatedAt:      time.Now(),
+				UpdatedAt:      time.Now(),
+			},
+			{
+				ID:             uuid.New(),
+				OrganizationID: orgID,
+				EntityType:     "user",
+				Properties: map[string]any{
+					"status": "active",
+				},
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			},
+		},
+	}
+	executor := NewExecutor(repo)
+	loadNodeID := uuid.New()
+	existsFalse := false
+	transformation := domain.EntityTransformation{
+		ID:             uuid.New(),
+		OrganizationID: orgID,
+		Name:           "load-exists-false",
+		Nodes: []domain.EntityTransformationNode{
+			{
+				ID:   loadNodeID,
+				Name: "load-users",
+				Type: domain.TransformationNodeLoad,
+				Load: &domain.EntityTransformationLoadConfig{
+					Alias:      "users",
+					EntityType: "user",
+					Filters: []domain.PropertyFilter{
+						{Key: "status", Exists: &existsFalse},
+					},
+				},
+			},
+		},
+	}
+	result, err := executor.Execute(context.Background(), transformation, domain.EntityTransformationExecutionOptions{})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if result.TotalCount != 2 {
+		t.Fatalf("expected total count 2, got %d", result.TotalCount)
+	}
+	if len(result.Records) != 2 {
+		t.Fatalf("expected 2 records, got %d", len(result.Records))
+	}
+	for _, record := range result.Records {
+		entity := record.Entities["users"]
+		if entity == nil {
+			t.Fatalf("expected entity for alias users")
+		}
+		status, ok := entity.Properties["status"]
+		if ok {
+			if str, _ := status.(string); str != "" {
+				t.Fatalf("expected empty status, got %v", status)
+			}
+		}
+	}
+}
+
+func TestExecutor_FilterExistsFalse(t *testing.T) {
+	orgID := uuid.New()
+	repo := &mockEntityRepository{
+		entities: []domain.Entity{
+			{
+				ID:             uuid.New(),
+				OrganizationID: orgID,
+				EntityType:     "user",
+				Properties: map[string]any{
+					"status": "",
+				},
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			},
+			{
+				ID:             uuid.New(),
+				OrganizationID: orgID,
+				EntityType:     "user",
+				Properties:     map[string]any{},
+				CreatedAt:      time.Now(),
+				UpdatedAt:      time.Now(),
+			},
+			{
+				ID:             uuid.New(),
+				OrganizationID: orgID,
+				EntityType:     "user",
+				Properties: map[string]any{
+					"status": "active",
+				},
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			},
+		},
+	}
+	executor := NewExecutor(repo)
+	loadNodeID := uuid.New()
+	filterNodeID := uuid.New()
+	existsFalse := false
+	transformation := domain.EntityTransformation{
+		ID:             uuid.New(),
+		OrganizationID: orgID,
+		Name:           "filter-exists-false",
+		Nodes: []domain.EntityTransformationNode{
+			{
+				ID:   loadNodeID,
+				Name: "load-users",
+				Type: domain.TransformationNodeLoad,
+				Load: &domain.EntityTransformationLoadConfig{
+					Alias:      "users",
+					EntityType: "user",
+				},
+			},
+			{
+				ID:     filterNodeID,
+				Name:   "filter-users",
+				Type:   domain.TransformationNodeFilter,
+				Inputs: []uuid.UUID{loadNodeID},
+				Filter: &domain.EntityTransformationFilterConfig{
+					Alias: "users",
+					Filters: []domain.PropertyFilter{
+						{Key: "status", Exists: &existsFalse},
+					},
+				},
+			},
+		},
+	}
+	result, err := executor.Execute(context.Background(), transformation, domain.EntityTransformationExecutionOptions{})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if result.TotalCount != 2 {
+		t.Fatalf("expected total count 2, got %d", result.TotalCount)
+	}
+	if len(result.Records) != 2 {
+		t.Fatalf("expected 2 records, got %d", len(result.Records))
+	}
+	for _, record := range result.Records {
+		entity := record.Entities["users"]
+		if entity == nil {
+			t.Fatalf("expected entity for alias users")
+		}
+		status, ok := entity.Properties["status"]
+		if ok {
+			if str, _ := status.(string); str != "" {
+				t.Fatalf("expected empty status, got %v", status)
+			}
+		}
+	}
+}
+
 func TestExecutor_FilterAliasNotFoundError(t *testing.T) {
 	orgID := uuid.New()
 	repo := &mockEntityRepository{
