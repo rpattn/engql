@@ -11,6 +11,7 @@ import {
 import { NodeInspector } from '@/features/transformations/components/NodeInspector'
 import { NodePalette } from '@/features/transformations/components/NodePalette'
 import { TransformationCanvas } from '@/features/transformations/components/TransformationCanvas'
+import { TransformationPreviewPanel } from '@/features/transformations/components/TransformationPreviewPanel'
 import { TransformationToolbar } from '@/features/transformations/components/TransformationToolbar'
 import { useTransformationGraph } from '@/features/transformations/hooks/useTransformationGraph'
 import {
@@ -70,6 +71,7 @@ function TransformationDetailRoute() {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
+  const [previewRefreshKey, setPreviewRefreshKey] = useState(0)
 
   useEffect(() => {
     if (transformation) {
@@ -115,6 +117,41 @@ function TransformationDetailRoute() {
       null,
     [graphController.graph.nodes, selectedNodeId],
   )
+
+  const selectedAliases = useMemo(() => {
+    if (!selectedNode) {
+      return [] as string[]
+    }
+
+    const aliases = new Set<string>()
+    const { config } = selectedNode.data
+
+    if (config.load?.alias) {
+      aliases.add(config.load.alias)
+    }
+
+    if (config.filter?.alias) {
+      aliases.add(config.filter.alias)
+    }
+
+    if (config.project?.alias) {
+      aliases.add(config.project.alias)
+    }
+
+    if (config.join?.leftAlias) {
+      aliases.add(config.join.leftAlias)
+    }
+
+    if (config.join?.rightAlias) {
+      aliases.add(config.join.rightAlias)
+    }
+
+    if (config.sort?.alias) {
+      aliases.add(config.sort.alias)
+    }
+
+    return Array.from(aliases)
+  }, [selectedNode])
 
   if (detailQuery.isLoading) {
     return (
@@ -182,6 +219,15 @@ function TransformationDetailRoute() {
         isSaving={updateMutation.isPending}
         isExecuting={false}
         isDirty={isDirty}
+        extra={
+          <button
+            type="button"
+            onClick={() => setPreviewRefreshKey((key) => key + 1)}
+            className="rounded border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100"
+          >
+            Refresh preview
+          </button>
+        }
       />
 
       <section className="grid gap-4 md:grid-cols-2">
@@ -238,14 +284,24 @@ function TransformationDetailRoute() {
             onSelect={(node) => setSelectedNodeId(node?.id ?? null)}
           />
         </div>
-        <NodeInspector
-          node={selectedNode}
-          onUpdate={graphController.updateNode}
-          onDelete={(nodeId) => {
-            graphController.removeNode(nodeId)
-            setSelectedNodeId(null)
-          }}
-        />
+        <div className="flex flex-col gap-3">
+          <div className="flex-1">
+            <NodeInspector
+              node={selectedNode}
+              onUpdate={graphController.updateNode}
+              onDelete={(nodeId) => {
+                graphController.removeNode(nodeId)
+                setSelectedNodeId(null)
+              }}
+            />
+          </div>
+          <TransformationPreviewPanel
+            transformationId={transformationId}
+            isDirty={isDirty}
+            highlightedAliases={selectedAliases}
+            refreshKey={previewRefreshKey}
+          />
+        </div>
       </section>
     </div>
   )
