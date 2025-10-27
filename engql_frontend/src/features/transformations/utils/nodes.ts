@@ -15,6 +15,10 @@ import type {
 } from '../types'
 import { topologicalSort } from './topology'
 
+export function buildEdgeId(sourceId: string, targetId: string, index: number) {
+  return `edge-${sourceId}-${targetId}-${index}`
+}
+
 let counter = 0
 
 export function createNodeId(prefix = 'node') {
@@ -114,7 +118,7 @@ export function createGraphStateFromDefinition(
 
   const edges = definitionNodes.flatMap((node) =>
     node.inputs.map((sourceId, index) => ({
-      id: `${sourceId}-${node.id}-${index}`,
+      id: buildEdgeId(sourceId, node.id, index),
       source: sourceId,
       target: node.id,
       animated: false,
