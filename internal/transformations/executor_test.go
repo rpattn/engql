@@ -1608,3 +1608,29 @@ func TestExecutor_UnionAliasAppliedToRecords(t *testing.T) {
 		t.Fatalf("expected second record priority b, got %v", second.Properties["priority"])
 	}
 }
+
+func TestApplyUnionAlias_WithMultipleEntitiesLeavesRecordUntouched(t *testing.T) {
+	record := domain.EntityTransformationRecord{
+		Entities: map[string]*domain.Entity{
+			"left":  {ID: uuid.New()},
+			"right": {ID: uuid.New()},
+		},
+	}
+
+	cfg := &domain.EntityTransformationUnionConfig{Alias: "union"}
+	if err := applyUnionAlias(&record, cfg); err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if _, ok := record.Entities["union"]; ok {
+		t.Fatalf("expected union alias to be skipped when multiple entities are present")
+	}
+
+	if _, ok := record.Entities["left"]; !ok {
+		t.Fatalf("expected original left alias to remain")
+	}
+
+	if _, ok := record.Entities["right"]; !ok {
+		t.Fatalf("expected original right alias to remain")
+	}
+}

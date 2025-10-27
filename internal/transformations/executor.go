@@ -448,7 +448,10 @@ func applyUnionAlias(record *domain.EntityTransformationRecord, config *domain.E
 	}
 	existingAlias, ok := singleAliasFromEntities(record.Entities)
 	if !ok {
-		return fmt.Errorf("union alias %q requires records with a single entity alias", alias)
+		// When multiple entity aliases are present on a record, we can't safely
+		// collapse them under a single union alias. Leave the record untouched
+		// so union nodes can be applied to joined results without failing.
+		return nil
 	}
 	entity := record.Entities[existingAlias]
 	delete(record.Entities, existingAlias)
