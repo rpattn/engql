@@ -207,28 +207,6 @@ function TransformationDetailRoute() {
     return Array.from(new Set(names)).sort((a, b) => a.localeCompare(b))
   }, [entitySchemasQuery.data?.entitySchemas])
 
-  if (detailQuery.isLoading) {
-    return (
-      <p className="rounded border border-slate-200 p-6 text-sm text-slate-500">Loading…</p>
-    )
-  }
-
-  if (detailQuery.error) {
-    return (
-      <p className="rounded border border-rose-300 bg-rose-50 p-6 text-sm text-rose-700">
-        {(detailQuery.error as Error).message}
-      </p>
-    )
-  }
-
-  if (!transformation) {
-    return (
-      <p className="rounded border border-slate-200 p-6 text-sm text-slate-500">
-        Transformation not found.
-      </p>
-    )
-  }
-
   const handleSave = useCallback(() => {
     if (!isDirty || updateMutation.isPending) {
       return
@@ -285,6 +263,28 @@ function TransformationDetailRoute() {
     window.addEventListener('keydown', handleKeydown)
     return () => window.removeEventListener('keydown', handleKeydown)
   }, [handleSave])
+
+  if (detailQuery.isLoading) {
+    return (
+      <p className="rounded border border-slate-200 p-6 text-sm text-slate-500">Loading…</p>
+    )
+  }
+
+  if (detailQuery.error) {
+    return (
+      <p className="rounded border border-rose-300 bg-rose-50 p-6 text-sm text-rose-700">
+        {(detailQuery.error as Error).message}
+      </p>
+    )
+  }
+
+  if (!transformation) {
+    return (
+      <p className="rounded border border-slate-200 p-6 text-sm text-slate-500">
+        Transformation not found.
+      </p>
+    )
+  }
 
   const handleExecute = () => {
     navigate({
