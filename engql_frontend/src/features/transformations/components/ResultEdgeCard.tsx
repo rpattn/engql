@@ -1,5 +1,14 @@
 import type { EntityTransformationRecordEdge } from '@/generated/graphql'
 
+function formatProperties(raw: string) {
+  try {
+    const parsed = JSON.parse(raw)
+    return typeof parsed === 'string' ? parsed : JSON.stringify(parsed, null, 2)
+  } catch {
+    return raw
+  }
+}
+
 export function ResultEdgeCard({ edge }: { edge: EntityTransformationRecordEdge }) {
   return (
     <div className="rounded border border-slate-200 bg-white p-3">
@@ -26,6 +35,12 @@ export function ResultEdgeCard({ edge }: { edge: EntityTransformationRecordEdge 
                     <span className="font-medium">Reference:</span> {node.entity.referenceValue}
                   </li>
                 )}
+                <li>
+                  <span className="font-medium">Properties:</span>
+                  <pre className="mt-1 max-h-40 overflow-auto rounded border border-slate-200 bg-slate-50 p-2 text-[11px] leading-snug text-slate-600">
+                    {formatProperties(node.entity.properties)}
+                  </pre>
+                </li>
               </ul>
             ) : (
               <p className="mt-1 text-xs text-slate-400">No entity returned.</p>
