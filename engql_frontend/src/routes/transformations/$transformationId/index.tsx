@@ -18,6 +18,8 @@ import {
   createGraphStateFromDefinition,
   serializeGraph,
 } from '@/features/transformations/utils/nodes'
+import type { TransformationAliasSummary } from '@/features/transformations/utils/preview'
+import { sanitizeAlias } from '@/features/transformations/utils/alias'
 
 export const Route = createFileRoute('/transformations/$transformationId/')({
   component: TransformationDetailRoute,
@@ -72,6 +74,7 @@ function TransformationDetailRoute() {
   const [description, setDescription] = useState('')
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [previewRefreshKey, setPreviewRefreshKey] = useState(0)
+  const [schemaSummaries, setSchemaSummaries] = useState<TransformationAliasSummary[]>([])
 
   useEffect(() => {
     if (transformation) {
@@ -152,6 +155,40 @@ function TransformationDetailRoute() {
 
     return Array.from(aliases)
   }, [selectedNode])
+
+  const schemaFieldOptions = useMemo(() => {
+    const map: Record<string, string[]> = {}
+
+    for (const summary of schemaSummaries) {
+      const keys = summary.sampleFields
+        .map((field) => field.key.trim())
+        .filter(Boolean)
+      if (!keys.length) {
+        continue
+      }
+
+      const sortedUnique = Array.from(new Set(keys)).sort((a, b) =>
+        a.localeCompare(b),
+      )
+
+      const aliasKeys = new Set<string>()
+      if (summary.alias.trim()) {
+        aliasKeys.add(summary.alias.trim())
+      }
+      const sanitized = sanitizeAlias(summary.alias)
+      if (sanitized) {
+        aliasKeys.add(sanitized)
+      }
+
+      for (const key of aliasKeys) {
+        const existing = map[key] ?? []
+        const combined = new Set([...existing, ...sortedUnique])
+        map[key] = Array.from(combined).sort((a, b) => a.localeCompare(b))
+      }
+    }
+
+    return map
+  }, [schemaSummaries])
 
   if (detailQuery.isLoading) {
     return (
@@ -293,6 +330,8 @@ function TransformationDetailRoute() {
                 graphController.removeNode(nodeId)
                 setSelectedNodeId(null)
               }}
+              allNodes={graphController.graph.nodes}
+              schemaFieldOptions={schemaFieldOptions}
             />
           </div>
           <TransformationPreviewPanel
@@ -300,6 +339,7 @@ function TransformationDetailRoute() {
             isDirty={isDirty}
             highlightedAliases={selectedAliases}
             refreshKey={previewRefreshKey}
+            onSchemaSummariesChange={setSchemaSummaries}
           />
         </div>
       </section>

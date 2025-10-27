@@ -18,6 +18,12 @@ import type {
 } from '../types'
 import { EntityTransformationNodeType } from '@/generated/graphql'
 import { formatNodeType } from '../utils/format'
+import {
+  diffNodeAliases,
+  getNodePrimaryAlias,
+  replaceAliasInNode,
+  type AliasChange,
+} from '../utils/alias'
 import { buildEdgeId, createNewNode, serializeGraph } from '../utils/nodes'
 import { wouldIntroduceCycle } from '../utils/topology'
 
@@ -53,6 +59,90 @@ function createEdgeId(
   }
 
   return candidate
+}
+
+function applyAliasFromConnection(
+  node: TransformationCanvasNode,
+  alias: string,
+  existingIncoming: number,
+): TransformationCanvasNode {
+  const { data } = node
+  const { config } = data
+
+  const updateNode = (updatedConfig: TransformationNodeData['config']) => ({
+    ...node,
+    data: {
+      ...data,
+      config: updatedConfig,
+    },
+  })
+
+  switch (data.type) {
+    case EntityTransformationNodeType.Filter: {
+      if (!config.filter) {
+        return node
+      }
+      if (config.filter.alias === alias) {
+        return node
+      }
+      return updateNode({
+        ...config,
+        filter: { ...config.filter, alias },
+      })
+    }
+    case EntityTransformationNodeType.Project: {
+      if (!config.project) {
+        return node
+      }
+      if (config.project.alias === alias) {
+        return node
+      }
+      return updateNode({
+        ...config,
+        project: { ...config.project, alias },
+      })
+    }
+    case EntityTransformationNodeType.Sort: {
+      if (!config.sort) {
+        return node
+      }
+      if (config.sort.alias === alias) {
+        return node
+      }
+      return updateNode({
+        ...config,
+        sort: { ...config.sort, alias },
+      })
+    }
+    case EntityTransformationNodeType.Join:
+    case EntityTransformationNodeType.LeftJoin:
+    case EntityTransformationNodeType.AntiJoin: {
+      if (!config.join) {
+        return node
+      }
+
+      const nextJoin = { ...config.join }
+
+      if (existingIncoming === 0) {
+        if (nextJoin.leftAlias === alias) {
+          return node
+        }
+        nextJoin.leftAlias = alias
+      } else {
+        if (nextJoin.rightAlias === alias) {
+          return node
+        }
+        nextJoin.rightAlias = alias
+      }
+
+      return updateNode({
+        ...config,
+        join: nextJoin,
+      })
+    }
+    default:
+      return node
+  }
 }
 
 export type TransformationGraphController = {
@@ -152,10 +242,77 @@ export function useTransformationGraph(
       nodeId: string,
       updater: (node: TransformationCanvasNode) => TransformationCanvasNode,
     ) => {
-      setGraph((current) => ({
-        nodes: current.nodes.map((node) => (node.id === nodeId ? updater(node) : node)),
-        edges: current.edges,
-      }))
+      setGraph((current) => {
+        const adjacency = new Map<string, string[]>()
+        for (const edge of current.edges) {
+          if (!adjacency.has(edge.source)) {
+            adjacency.set(edge.source, [])
+          }
+          adjacency.get(edge.source)!.push(edge.target)
+        }
+
+        const nextNodes = [...current.nodes]
+        let aliasChanges: AliasChange[] = []
+
+        for (let index = 0; index < nextNodes.length; index += 1) {
+          const node = nextNodes[index]
+          if (node.id !== nodeId) {
+            continue
+          }
+
+          const updated = updater(node)
+          aliasChanges = diffNodeAliases(node, updated)
+          nextNodes[index] = updated
+          break
+        }
+
+        if (aliasChanges.length > 0) {
+          const queue = aliasChanges.map((change) => ({
+            sourceId: nodeId,
+            oldAlias: change.oldAlias,
+            newAlias: change.newAlias,
+          }))
+          const visited = new Set<string>()
+
+          while (queue.length > 0) {
+            const currentItem = queue.shift()!
+            const key = `${currentItem.sourceId}:${currentItem.oldAlias}->${currentItem.newAlias}`
+            if (visited.has(key)) {
+              continue
+            }
+            visited.add(key)
+
+            const targets = adjacency.get(currentItem.sourceId) ?? []
+            for (const targetId of targets) {
+              const targetIndex = nextNodes.findIndex((node) => node.id === targetId)
+              if (targetIndex === -1) {
+                continue
+              }
+
+              const targetNode = nextNodes[targetIndex]
+              const updatedTarget = replaceAliasInNode(
+                targetNode,
+                currentItem.oldAlias,
+                currentItem.newAlias,
+              )
+
+              if (updatedTarget !== targetNode) {
+                nextNodes[targetIndex] = updatedTarget
+                queue.push({
+                  sourceId: targetId,
+                  oldAlias: currentItem.oldAlias,
+                  newAlias: currentItem.newAlias,
+                })
+              }
+            }
+          }
+        }
+
+        return {
+          nodes: nextNodes,
+          edges: current.edges,
+        }
+      })
     },
     [setGraph],
   )
@@ -197,6 +354,9 @@ export function useTransformationGraph(
           return current
         }
 
+        const sourceNode = current.nodes.find((node) => node.id === sourceId)
+        const sourceAlias = sourceNode ? getNodePrimaryAlias(sourceNode) : null
+
         const incoming = current.edges.filter((edge) => edge.target === targetId)
 
         if (incoming.some((edge) => edge.source === sourceId)) {
@@ -232,8 +392,73 @@ export function useTransformationGraph(
 
         setError(null)
 
+        let nextNodes = current.nodes
+        let aliasChanges: AliasChange[] = []
+
+        if (sourceAlias) {
+          nextNodes = current.nodes.map((node) => {
+            if (node.id !== targetId) {
+              return node
+            }
+
+            const updated = applyAliasFromConnection(node, sourceAlias, incoming.length)
+            aliasChanges = diffNodeAliases(node, updated)
+            return updated
+          })
+        }
+
+        if (aliasChanges.length) {
+          const adjacency = new Map<string, string[]>()
+          for (const edge of current.edges) {
+            if (!adjacency.has(edge.source)) {
+              adjacency.set(edge.source, [])
+            }
+            adjacency.get(edge.source)!.push(edge.target)
+          }
+
+          const queue = aliasChanges.map((change) => ({
+            sourceId: targetId,
+            oldAlias: change.oldAlias,
+            newAlias: change.newAlias,
+          }))
+          const visited = new Set<string>()
+
+          while (queue.length) {
+            const currentItem = queue.shift()!
+            const key = `${currentItem.sourceId}:${currentItem.oldAlias}->${currentItem.newAlias}`
+            if (visited.has(key)) {
+              continue
+            }
+            visited.add(key)
+
+            const targets = adjacency.get(currentItem.sourceId) ?? []
+            for (const downstreamId of targets) {
+              const index = nextNodes.findIndex((node) => node.id === downstreamId)
+              if (index === -1) {
+                continue
+              }
+
+              const existingNode = nextNodes[index]
+              const updatedNode = replaceAliasInNode(
+                existingNode,
+                currentItem.oldAlias,
+                currentItem.newAlias,
+              )
+
+              if (updatedNode !== existingNode) {
+                nextNodes[index] = updatedNode
+                queue.push({
+                  sourceId: downstreamId,
+                  oldAlias: currentItem.oldAlias,
+                  newAlias: currentItem.newAlias,
+                })
+              }
+            }
+          }
+        }
+
         return {
-          nodes: current.nodes,
+          nodes: nextNodes,
           edges: [...current.edges, nextEdge],
         }
       })

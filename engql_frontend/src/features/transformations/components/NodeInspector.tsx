@@ -3,7 +3,14 @@ import { useMemo } from 'react'
 import { EntityTransformationNodeType } from '@/generated/graphql'
 
 import type { TransformationCanvasNode, TransformationNodeData } from '../types'
+import {
+  generateUniqueAlias,
+  isAliasDerivedFromEntityType,
+  sanitizeAlias,
+} from '../utils/alias'
 import { formatNodeType } from '../utils/format'
+
+type SchemaFieldOptions = Record<string, string[]>
 
 type NodeInspectorProps = {
   node: TransformationCanvasNode | null
@@ -12,6 +19,8 @@ type NodeInspectorProps = {
     updater: (node: TransformationCanvasNode) => TransformationCanvasNode,
   ) => void
   onDelete: (nodeId: string) => void
+  allNodes: TransformationCanvasNode[]
+  schemaFieldOptions: SchemaFieldOptions
 }
 
 type FilterRow = {
@@ -21,7 +30,13 @@ type FilterRow = {
   inArray?: string[] | null
 }
 
-export function NodeInspector({ node, onUpdate, onDelete }: NodeInspectorProps) {
+export function NodeInspector({
+  node,
+  onUpdate,
+  onDelete,
+  allNodes,
+  schemaFieldOptions,
+}: NodeInspectorProps) {
   if (!node) {
     return (
       <aside className="rounded-md border border-dashed border-slate-300 p-4 text-sm text-slate-500">
@@ -50,9 +65,28 @@ export function NodeInspector({ node, onUpdate, onDelete }: NodeInspectorProps) 
     }))
   }
 
+  const getFieldOptions = (alias?: string | null) => {
+    if (!alias) {
+      return [] as string[]
+    }
+
+    const trimmed = alias.trim()
+    if (!trimmed.length) {
+      return [] as string[]
+    }
+
+    return (
+      schemaFieldOptions[trimmed] ??
+      schemaFieldOptions[sanitizeAlias(trimmed)] ??
+      []
+    )
+  }
+
   const renderFilters = (
     filters: FilterRow[] | undefined,
     onChange: (rows: FilterRow[]) => void,
+    alias?: string,
+    contextKey = 'filters',
   ) => {
     const rows = filters ?? []
 
@@ -65,6 +99,12 @@ export function NodeInspector({ node, onUpdate, onDelete }: NodeInspectorProps) 
     const removeRow = (index: number) => {
       onChange(rows.filter((_, rowIndex) => rowIndex !== index))
     }
+
+    const propertyOptions = getFieldOptions(alias)
+    const datalistId =
+      alias && propertyOptions.length
+        ? `${contextKey}-properties-${node.id}-${sanitizeAlias(alias) || 'default'}`
+        : undefined
 
     return (
       <div className="space-y-2">
@@ -80,6 +120,7 @@ export function NodeInspector({ node, onUpdate, onDelete }: NodeInspectorProps) 
                     key: event.target.value,
                   })
                 }
+                list={datalistId}
                 className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
               />
             </label>
@@ -134,6 +175,13 @@ export function NodeInspector({ node, onUpdate, onDelete }: NodeInspectorProps) 
             </button>
           </div>
         ))}
+        {datalistId && (
+          <datalist id={datalistId}>
+            {propertyOptions.map((option) => (
+              <option key={option} value={option} />
+            ))}
+          </datalist>
+        )}
         <button
           type="button"
           onClick={() => onChange([...rows, { key: '' }])}
@@ -207,20 +255,35 @@ export function NodeInspector({ node, onUpdate, onDelete }: NodeInspectorProps) 
                     load: {
                       ...config.load!,
                       entityType: event.target.value,
+                      alias:
+                        isAliasDerivedFromEntityType(
+                          config.load!.alias,
+                          config.load!.entityType,
+                        ) && event.target.value.trim()
+                          ? generateUniqueAlias(
+                              event.target.value,
+                              allNodes,
+                              node.id,
+                            )
+                          : config.load!.alias,
                     },
                   }))
                 }
                 className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
               />
             </label>
-            {renderFilters(data.config.load.filters, (rows) =>
-              updateConfig((config) => ({
-                ...config,
-                load: {
-                  ...config.load!,
-                  filters: rows,
-                },
-              })),
+            {renderFilters(
+              data.config.load.filters,
+              (rows) =>
+                updateConfig((config) => ({
+                  ...config,
+                  load: {
+                    ...config.load!,
+                    filters: rows,
+                  },
+                })),
+              data.config.load.alias,
+              'load',
             )}
           </div>
         )}
@@ -246,14 +309,18 @@ export function NodeInspector({ node, onUpdate, onDelete }: NodeInspectorProps) 
                 className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
               />
             </label>
-            {renderFilters(data.config.filter.filters, (rows) =>
-              updateConfig((config) => ({
-                ...config,
-                filter: {
-                  ...config.filter!,
-                  filters: rows,
-                },
-              })),
+            {renderFilters(
+              data.config.filter.filters,
+              (rows) =>
+                updateConfig((config) => ({
+                  ...config,
+                  filter: {
+                    ...config.filter!,
+                    filters: rows,
+                  },
+                })),
+              data.config.filter.alias,
+              'filter',
             )}
           </div>
         )}
@@ -340,19 +407,43 @@ export function NodeInspector({ node, onUpdate, onDelete }: NodeInspectorProps) 
             </label>
             <label className="block text-xs font-medium text-slate-600">
               Join field
-              <input
-                value={data.config.join.onField}
-                onChange={(event) =>
-                  updateConfig((config) => ({
-                    ...config,
-                    join: {
-                      ...config.join!,
-                      onField: event.target.value,
-                    },
-                  }))
-                }
-                className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
-              />
+              {(() => {
+                const joinFieldOptions = Array.from(
+                  new Set([
+                    ...getFieldOptions(data.config.join.leftAlias),
+                    ...getFieldOptions(data.config.join.rightAlias),
+                  ]),
+                )
+                const joinFieldListId = joinFieldOptions.length
+                  ? `join-field-${node.id}`
+                  : undefined
+
+                return (
+                  <>
+                    <input
+                      value={data.config.join.onField}
+                      onChange={(event) =>
+                        updateConfig((config) => ({
+                          ...config,
+                          join: {
+                            ...config.join!,
+                            onField: event.target.value,
+                          },
+                        }))
+                      }
+                      list={joinFieldListId}
+                      className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
+                    />
+                    {joinFieldListId && (
+                      <datalist id={joinFieldListId}>
+                        {joinFieldOptions.map((option) => (
+                          <option key={option} value={option} />
+                        ))}
+                      </datalist>
+                    )}
+                  </>
+                )
+              })()}
             </label>
           </div>
         )}
@@ -380,19 +471,38 @@ export function NodeInspector({ node, onUpdate, onDelete }: NodeInspectorProps) 
             </label>
             <label className="block text-xs font-medium text-slate-600">
               Field
-              <input
-                value={data.config.sort.field}
-                onChange={(event) =>
-                  updateConfig((config) => ({
-                    ...config,
-                    sort: {
-                      ...config.sort!,
-                      field: event.target.value,
-                    },
-                  }))
-                }
-                className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
-              />
+              {(() => {
+                const sortFieldOptions = getFieldOptions(data.config.sort.alias)
+                const sortFieldListId = sortFieldOptions.length
+                  ? `sort-field-${node.id}-${sanitizeAlias(data.config.sort.alias) || 'default'}`
+                  : undefined
+
+                return (
+                  <>
+                    <input
+                      value={data.config.sort.field}
+                      onChange={(event) =>
+                        updateConfig((config) => ({
+                          ...config,
+                          sort: {
+                            ...config.sort!,
+                            field: event.target.value,
+                          },
+                        }))
+                      }
+                      list={sortFieldListId}
+                      className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
+                    />
+                    {sortFieldListId && (
+                      <datalist id={sortFieldListId}>
+                        {sortFieldOptions.map((option) => (
+                          <option key={option} value={option} />
+                        ))}
+                      </datalist>
+                    )}
+                  </>
+                )
+              })()}
             </label>
             <label className="block text-xs font-medium text-slate-600">
               Direction
