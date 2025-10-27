@@ -39,6 +39,11 @@ export function NodeInspector({
   schemaFieldOptions,
   entityTypeOptions,
 }: NodeInspectorProps) {
+  const typeLabel = useMemo(
+    () => (node ? formatNodeType(node.data.type) : ''),
+    [node?.data.type],
+  )
+
   if (!node) {
     return (
       <aside className="rounded-md border border-dashed border-slate-300 p-4 text-sm text-slate-500">
@@ -48,8 +53,6 @@ export function NodeInspector({
   }
 
   const { data } = node
-
-  const typeLabel = useMemo(() => formatNodeType(data.type), [data.type])
 
   const updateData = (updater: (data: TransformationNodeData) => TransformationNodeData) => {
     onUpdate(node.id, (current) => ({
