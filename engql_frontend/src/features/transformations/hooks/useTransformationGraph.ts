@@ -16,8 +16,44 @@ import type {
   TransformationGraphState,
   TransformationNodeData,
 } from '../types'
-import { createNewNode, serializeGraph } from '../utils/nodes'
+import { EntityTransformationNodeType } from '@/generated/graphql'
+import { formatNodeType } from '../utils/format'
+import { buildEdgeId, createNewNode, serializeGraph } from '../utils/nodes'
 import { wouldIntroduceCycle } from '../utils/topology'
+
+const MAX_INPUTS_BY_TYPE: Partial<Record<EntityTransformationNodeType, number>> = {
+  [EntityTransformationNodeType.Load]: 0,
+  [EntityTransformationNodeType.Filter]: 1,
+  [EntityTransformationNodeType.Project]: 1,
+  [EntityTransformationNodeType.Sort]: 1,
+  [EntityTransformationNodeType.Paginate]: 1,
+  [EntityTransformationNodeType.Join]: 2,
+  [EntityTransformationNodeType.LeftJoin]: 2,
+  [EntityTransformationNodeType.AntiJoin]: 2,
+}
+
+function getMaxInputsForType(type: EntityTransformationNodeType) {
+  return MAX_INPUTS_BY_TYPE[type] ?? null
+}
+
+function createEdgeId(
+  sourceId: string,
+  targetId: string,
+  edges: TransformationCanvasEdge[],
+) {
+  const existingForTarget = edges.filter((edge) => edge.target === targetId)
+  const usedIds = new Set(existingForTarget.map((edge) => edge.id))
+
+  let index = existingForTarget.length
+  let candidate = buildEdgeId(sourceId, targetId, index)
+
+  while (usedIds.has(candidate)) {
+    index += 1
+    candidate = buildEdgeId(sourceId, targetId, index)
+  }
+
+  return candidate
+}
 
 export type TransformationGraphController = {
   graph: TransformationGraphState
@@ -148,42 +184,59 @@ export function useTransformationGraph(
 
   const onConnect = useCallback(
     (connection: Connection) => {
-      if (!connection.source || !connection.target) {
+      const sourceId = connection.source
+      const targetId = connection.target
+
+      if (!sourceId || !targetId) {
         return
       }
 
       setGraph((current) => {
-        if (
-          wouldIntroduceCycle(
-            current.nodes,
-            current.edges,
-            connection.source!,
-            connection.target!,
-          )
-        ) {
+        const targetNode = current.nodes.find((node) => node.id === targetId)
+        if (!targetNode) {
+          return current
+        }
+
+        const incoming = current.edges.filter((edge) => edge.target === targetId)
+
+        if (incoming.some((edge) => edge.source === sourceId)) {
+          setError('These nodes are already connected.')
+          return current
+        }
+
+        const maxInputs = getMaxInputsForType(targetNode.data.type)
+        if (maxInputs !== null && incoming.length >= maxInputs) {
+          const label = formatNodeType(targetNode.data.type)
+          if (maxInputs === 0) {
+            setError(`${label} nodes cannot receive incoming connections.`)
+          } else {
+            setError(`${label} nodes can only accept ${maxInputs} input${maxInputs === 1 ? '' : 's'}.`)
+          }
+          return current
+        }
+
+        if (wouldIntroduceCycle(current.nodes, current.edges, sourceId, targetId)) {
           setError('This connection would create a cycle. Try a different target.')
           return current
         }
 
-        const edgeId = `${connection.source}-${connection.target}`
-        if (current.edges.some((edge) => edge.id === edgeId)) {
-          return current
-        }
+        const edgeId = createEdgeId(sourceId, targetId, current.edges)
 
         const nextEdge: TransformationCanvasEdge = {
           id: edgeId,
-          source: connection.source!,
-          target: connection.target!,
+          source: sourceId,
+          target: targetId,
           animated: false,
           type: connection.type ?? 'default',
         }
+
+        setError(null)
 
         return {
           nodes: current.nodes,
           edges: [...current.edges, nextEdge],
         }
       })
-      setError(null)
     },
     [setGraph],
   )
