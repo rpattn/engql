@@ -14,14 +14,20 @@ type EntityRepository interface {
 	List(ctx context.Context, organizationID uuid.UUID, filter *domain.EntityFilter, sort *domain.EntitySort, limit int, offset int) ([]domain.Entity, int, error)
 }
 
+// SchemaProvider exposes schema lookup capabilities used by the executor.
+type SchemaProvider interface {
+	GetByName(ctx context.Context, organizationID uuid.UUID, entityType string) (domain.EntitySchema, error)
+}
+
 // Executor walks a transformation DAG and produces execution results.
 type Executor struct {
-	entityRepo EntityRepository
+	entityRepo     EntityRepository
+	schemaProvider SchemaProvider
 }
 
 // NewExecutor constructs a transformation executor.
-func NewExecutor(entityRepo EntityRepository) *Executor {
-	return &Executor{entityRepo: entityRepo}
+func NewExecutor(entityRepo EntityRepository, schemaProvider SchemaProvider) *Executor {
+	return &Executor{entityRepo: entityRepo, schemaProvider: schemaProvider}
 }
 
 // Execute runs the transformation graph and returns paginated results.
@@ -32,9 +38,10 @@ func (e *Executor) Execute(ctx context.Context, transformation domain.EntityTran
 	}
 
 	results := make(map[uuid.UUID][]domain.EntityTransformationRecord)
+	schemaCache := make(map[string]schemaCacheEntry)
 
 	for _, node := range sorted {
-		nodeResults, err := e.executeNode(ctx, transformation, node, results)
+		nodeResults, err := e.executeNode(ctx, transformation, node, results, schemaCache)
 		if err != nil {
 			return domain.EntityTransformationExecutionResult{}, fmt.Errorf("execute node %s: %w", node.ID, err)
 		}
@@ -56,7 +63,13 @@ func (e *Executor) Execute(ctx context.Context, transformation domain.EntityTran
 	return domain.EntityTransformationExecutionResult{Records: finalRecords, TotalCount: totalCount}, nil
 }
 
-func (e *Executor) executeNode(ctx context.Context, transformation domain.EntityTransformation, node domain.EntityTransformationNode, cache map[uuid.UUID][]domain.EntityTransformationRecord) ([]domain.EntityTransformationRecord, error) {
+func (e *Executor) executeNode(
+	ctx context.Context,
+	transformation domain.EntityTransformation,
+	node domain.EntityTransformationNode,
+	cache map[uuid.UUID][]domain.EntityTransformationRecord,
+	schemaCache map[string]schemaCacheEntry,
+) ([]domain.EntityTransformationRecord, error) {
 	switch node.Type {
 	case domain.TransformationNodeLoad:
 		return e.executeLoad(ctx, transformation, node)
@@ -65,7 +78,7 @@ func (e *Executor) executeNode(ctx context.Context, transformation domain.Entity
 	case domain.TransformationNodeProject:
 		return e.executeProject(node, cache)
 	case domain.TransformationNodeJoin, domain.TransformationNodeLeftJoin, domain.TransformationNodeAntiJoin:
-		return e.executeJoin(node, cache)
+		return e.executeJoin(ctx, transformation.OrganizationID, node, cache, schemaCache)
 	case domain.TransformationNodeUnion:
 		return e.executeUnion(node, cache)
 	case domain.TransformationNodeSort:
@@ -159,7 +172,13 @@ func (e *Executor) executeProject(node domain.EntityTransformationNode, cache ma
 	return projected, nil
 }
 
-func (e *Executor) executeJoin(node domain.EntityTransformationNode, cache map[uuid.UUID][]domain.EntityTransformationRecord) ([]domain.EntityTransformationRecord, error) {
+func (e *Executor) executeJoin(
+	ctx context.Context,
+	organizationID uuid.UUID,
+	node domain.EntityTransformationNode,
+	cache map[uuid.UUID][]domain.EntityTransformationRecord,
+	schemaCache map[string]schemaCacheEntry,
+) ([]domain.EntityTransformationRecord, error) {
 	if len(node.Inputs) != 2 {
 		return nil, fmt.Errorf("join node requires two inputs")
 	}
@@ -175,15 +194,22 @@ func (e *Executor) executeJoin(node domain.EntityTransformationNode, cache map[u
 		return nil, fmt.Errorf("join right input missing")
 	}
 
-	rightIndex := make(map[string][]domain.EntityTransformationRecord)
-	for _, record := range rightRecords {
+	literalRightIndex := make(map[string][]int)
+	idRightIndex := make(map[string][]int)
+	for idx, record := range rightRecords {
 		entity := record.Entities[node.Join.RightAlias]
 		if entity == nil {
 			continue
 		}
 		key := fmt.Sprintf("%v", entity.Properties[node.Join.OnField])
-		rightIndex[key] = append(rightIndex[key], record)
+		literalRightIndex[key] = append(literalRightIndex[key], idx)
+		idRightIndex[entity.ID.String()] = append(idRightIndex[entity.ID.String()], idx)
 	}
+
+	var referenceRightIndex map[string][]int
+	var referenceIndexAvailable bool
+	var referenceIndexBuilt bool
+	leftFieldCache := make(map[string]*domain.FieldDefinition)
 
 	var results []domain.EntityTransformationRecord
 	for _, leftRecord := range leftRecords {
@@ -191,33 +217,182 @@ func (e *Executor) executeJoin(node domain.EntityTransformationNode, cache map[u
 		if leftEntity == nil {
 			continue
 		}
-		key := fmt.Sprintf("%v", leftEntity.Properties[node.Join.OnField])
-		matches := rightIndex[key]
+		matches := []int{}
+		useSchemaStrategy := false
+
+		fieldDef, fieldFound := leftFieldCache[leftEntity.EntityType]
+		if !fieldFound {
+			schema, schemaErr := e.getSchema(ctx, organizationID, leftEntity.EntityType, schemaCache)
+			if schemaErr == nil && schema != nil {
+				if field := schemaFieldByName(schema, node.Join.OnField); field != nil {
+					copyField := *field
+					fieldDef = &copyField
+				}
+			}
+			leftFieldCache[leftEntity.EntityType] = fieldDef
+		}
+
+		if fieldDef != nil {
+			switch fieldDef.Type {
+			case domain.FieldTypeEntityReference, domain.FieldTypeEntityReferenceArray:
+				useSchemaStrategy = true
+				identifiers := normalizeUUIDStringSlice(leftEntity.Properties[node.Join.OnField])
+				if len(identifiers) > 0 {
+					for _, value := range identifiers {
+						matches = append(matches, idRightIndex[value]...)
+					}
+				}
+			case domain.FieldTypeReference:
+				values := normalizeStringSlice(leftEntity.Properties[node.Join.OnField])
+				if len(values) == 0 {
+					useSchemaStrategy = true
+				} else {
+					if !referenceIndexBuilt {
+						referenceRightIndex, referenceIndexAvailable = e.buildReferenceIndex(ctx, organizationID, node.Join.RightAlias, rightRecords, schemaCache)
+						referenceIndexBuilt = true
+					}
+					if referenceIndexAvailable {
+						useSchemaStrategy = true
+						for _, value := range values {
+							matches = append(matches, referenceRightIndex[value]...)
+						}
+					}
+				}
+			}
+		}
+
+		if !useSchemaStrategy {
+			key := fmt.Sprintf("%v", leftEntity.Properties[node.Join.OnField])
+			matches = append(matches, literalRightIndex[key]...)
+		}
+
+		deduped := make([]int, 0, len(matches))
+		seen := make(map[int]struct{}, len(matches))
+		for _, idx := range matches {
+			if _, ok := seen[idx]; ok {
+				continue
+			}
+			seen[idx] = struct{}{}
+			deduped = append(deduped, idx)
+		}
 
 		switch node.Type {
 		case domain.TransformationNodeJoin:
-			for _, rightRecord := range matches {
-				combined := mergeRecords(leftRecord, rightRecord)
+			for _, idx := range deduped {
+				combined := mergeRecords(leftRecord, rightRecords[idx])
 				results = append(results, combined)
 			}
 		case domain.TransformationNodeLeftJoin:
-			if len(matches) == 0 {
+			if len(deduped) == 0 {
 				combined := leftRecord.Clone()
 				combined.Entities[node.Join.RightAlias] = nil
 				results = append(results, combined)
 				continue
 			}
-			for _, rightRecord := range matches {
-				combined := mergeRecords(leftRecord, rightRecord)
+			for _, idx := range deduped {
+				combined := mergeRecords(leftRecord, rightRecords[idx])
 				results = append(results, combined)
 			}
 		case domain.TransformationNodeAntiJoin:
-			if len(matches) == 0 {
+			if len(deduped) == 0 {
 				results = append(results, leftRecord.Clone())
 			}
 		}
 	}
 	return results, nil
+}
+
+type schemaCacheEntry struct {
+	schema *domain.EntitySchema
+	err    error
+}
+
+func (e *Executor) getSchema(ctx context.Context, organizationID uuid.UUID, entityType string, cache map[string]schemaCacheEntry) (*domain.EntitySchema, error) {
+	if entityType == "" {
+		return nil, nil
+	}
+	if entry, ok := cache[entityType]; ok {
+		return entry.schema, entry.err
+	}
+	if e.schemaProvider == nil {
+		cache[entityType] = schemaCacheEntry{}
+		return nil, nil
+	}
+	schema, err := e.schemaProvider.GetByName(ctx, organizationID, entityType)
+	if err != nil {
+		cache[entityType] = schemaCacheEntry{err: err}
+		return nil, err
+	}
+	schemaCopy := schema
+	cache[entityType] = schemaCacheEntry{schema: &schemaCopy}
+	return &schemaCopy, nil
+}
+
+func schemaFieldByName(schema *domain.EntitySchema, fieldName string) *domain.FieldDefinition {
+	if schema == nil {
+		return nil
+	}
+	for _, field := range schema.Fields {
+		if field.Name == fieldName {
+			copyField := field
+			return &copyField
+		}
+	}
+	return nil
+}
+
+func (e *Executor) buildReferenceIndex(
+	ctx context.Context,
+	organizationID uuid.UUID,
+	alias string,
+	rightRecords []domain.EntityTransformationRecord,
+	cache map[string]schemaCacheEntry,
+) (map[string][]int, bool) {
+	if e.schemaProvider == nil {
+		return nil, false
+	}
+
+	index := make(map[string][]int)
+	canonicalFieldCache := make(map[string]string)
+	foundCanonical := false
+
+	for idx, record := range rightRecords {
+		entity := record.Entities[alias]
+		if entity == nil {
+			continue
+		}
+
+		canonicalField, cached := canonicalFieldCache[entity.EntityType]
+		if !cached {
+			schema, err := e.getSchema(ctx, organizationID, entity.EntityType, cache)
+			if err != nil || schema == nil {
+				canonicalFieldCache[entity.EntityType] = ""
+				continue
+			}
+			name, ok := domain.NewReferenceFieldSet(schema.Fields).CanonicalName()
+			if !ok {
+				canonicalFieldCache[entity.EntityType] = ""
+				continue
+			}
+			canonicalField = name
+			canonicalFieldCache[entity.EntityType] = canonicalField
+		}
+
+		if canonicalField == "" {
+			continue
+		}
+		foundCanonical = true
+
+		values := normalizeStringSlice(entity.Properties[canonicalField])
+		for _, value := range values {
+			index[value] = append(index[value], idx)
+		}
+	}
+
+	if !foundCanonical {
+		return nil, false
+	}
+	return index, true
 }
 
 func (e *Executor) executeUnion(node domain.EntityTransformationNode, cache map[uuid.UUID][]domain.EntityTransformationRecord) ([]domain.EntityTransformationRecord, error) {
@@ -429,4 +604,128 @@ func singleAliasAcrossRecords(records []domain.EntityTransformationRecord) (stri
 		return "", false
 	}
 	return alias, true
+}
+
+func normalizeStringSlice(value any) []string {
+	seen := make(map[string]struct{})
+	var result []string
+
+	add := func(candidate string) {
+		if candidate == "" {
+			return
+		}
+		if _, ok := seen[candidate]; ok {
+			return
+		}
+		seen[candidate] = struct{}{}
+		result = append(result, candidate)
+	}
+
+	switch v := value.(type) {
+	case nil:
+	case string:
+		add(v)
+	case *string:
+		if v != nil {
+			add(*v)
+		}
+	case []string:
+		for _, item := range v {
+			add(item)
+		}
+	case []*string:
+		for _, item := range v {
+			if item != nil {
+				add(*item)
+			}
+		}
+	case []any:
+		for _, item := range v {
+			for _, normalized := range normalizeStringSlice(item) {
+				add(normalized)
+			}
+		}
+	case fmt.Stringer:
+		add(v.String())
+	default:
+		add(fmt.Sprintf("%v", value))
+	}
+
+	return result
+}
+
+func normalizeUUIDStringSlice(value any) []string {
+	seen := make(map[string]struct{})
+	var result []string
+
+	addParsed := func(candidate string) {
+		if candidate == "" {
+			return
+		}
+		id, err := uuid.Parse(candidate)
+		if err != nil {
+			return
+		}
+		normalized := id.String()
+		if _, ok := seen[normalized]; ok {
+			return
+		}
+		seen[normalized] = struct{}{}
+		result = append(result, normalized)
+	}
+
+	appendNormalized := func(values []string) {
+		for _, value := range values {
+			if value == "" {
+				continue
+			}
+			if _, ok := seen[value]; ok {
+				continue
+			}
+			seen[value] = struct{}{}
+			result = append(result, value)
+		}
+	}
+
+	switch v := value.(type) {
+	case nil:
+	case uuid.UUID:
+		if v != uuid.Nil {
+			addParsed(v.String())
+		}
+	case *uuid.UUID:
+		if v != nil && *v != uuid.Nil {
+			addParsed(v.String())
+		}
+	case []uuid.UUID:
+		for _, item := range v {
+			if item != uuid.Nil {
+				addParsed(item.String())
+			}
+		}
+	case []*uuid.UUID:
+		for _, item := range v {
+			if item != nil && *item != uuid.Nil {
+				addParsed(item.String())
+			}
+		}
+	case string:
+		addParsed(v)
+	case *string:
+		if v != nil {
+			addParsed(*v)
+		}
+	case []string:
+		for _, item := range v {
+			addParsed(item)
+		}
+	case []any:
+		for _, item := range v {
+			appendNormalized(normalizeUUIDStringSlice(item))
+		}
+	default:
+		addParsed(fmt.Sprintf("%v", value))
+	}
+
+	return result
 }
