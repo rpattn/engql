@@ -55,7 +55,7 @@ func main() {
 	entityRepo := repository.NewEntityRepository(queries, conn.Pool)
 	entityJoinRepo := repository.NewEntityJoinRepository(queries, conn.Pool)
 	entityTransformationRepo := repository.NewEntityTransformationRepository(queries, conn.Pool)
-	transformationExecutor := transformations.NewExecutor(entityRepo)
+	transformationExecutor := transformations.NewExecutor(entityRepo, entitySchemaRepo)
 	ingestionLogRepo := repository.NewIngestionLogRepository(conn.Pool)
 	ingestionService := ingestion.NewService(entitySchemaRepo, entityRepo, ingestionLogRepo)
 

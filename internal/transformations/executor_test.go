@@ -2,6 +2,7 @@ package transformations
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -48,6 +49,20 @@ func (m *mockEntityRepository) List(ctx context.Context, organizationID uuid.UUI
 	return result, len(result), nil
 }
 
+type mockSchemaProvider struct {
+	schemas map[string]domain.EntitySchema
+}
+
+func (m *mockSchemaProvider) GetByName(ctx context.Context, organizationID uuid.UUID, entityType string) (domain.EntitySchema, error) {
+	if m == nil {
+		return domain.EntitySchema{}, fmt.Errorf("schema provider not configured")
+	}
+	if schema, ok := m.schemas[entityType]; ok {
+		return schema, nil
+	}
+	return domain.EntitySchema{}, fmt.Errorf("schema %s not found", entityType)
+}
+
 func TestExecutor_LoadAndFilter(t *testing.T) {
 	orgID := uuid.New()
 	repo := &mockEntityRepository{
@@ -74,7 +89,7 @@ func TestExecutor_LoadAndFilter(t *testing.T) {
 			},
 		},
 	}
-	executor := NewExecutor(repo)
+	executor := NewExecutor(repo, nil)
 	loadNodeID := uuid.New()
 	filterNodeID := uuid.New()
 	transformation := domain.EntityTransformation{
@@ -141,7 +156,7 @@ func TestExecutor_FilterFallbackAlias(t *testing.T) {
 			},
 		},
 	}
-	executor := NewExecutor(repo)
+	executor := NewExecutor(repo, nil)
 	loadNodeID := uuid.New()
 	filterNodeID := uuid.New()
 	transformation := domain.EntityTransformation{
@@ -216,7 +231,7 @@ func TestExecutor_FilterAmbiguousAliasError(t *testing.T) {
 			},
 		},
 	}
-	executor := NewExecutor(repo)
+	executor := NewExecutor(repo, nil)
 	loadUsersID := uuid.New()
 	loadOrdersID := uuid.New()
 	joinNodeID := uuid.New()
@@ -307,7 +322,7 @@ func TestExecutor_LoadFilterExistsFalse(t *testing.T) {
 			},
 		},
 	}
-	executor := NewExecutor(repo)
+	executor := NewExecutor(repo, nil)
 	loadNodeID := uuid.New()
 	existsFalse := false
 	transformation := domain.EntityTransformation{
@@ -387,7 +402,7 @@ func TestExecutor_FilterExistsFalse(t *testing.T) {
 			},
 		},
 	}
-	executor := NewExecutor(repo)
+	executor := NewExecutor(repo, nil)
 	loadNodeID := uuid.New()
 	filterNodeID := uuid.New()
 	existsFalse := false
@@ -470,7 +485,7 @@ func TestExecutor_FilterAliasNotFoundError(t *testing.T) {
 			},
 		},
 	}
-	executor := NewExecutor(repo)
+	executor := NewExecutor(repo, nil)
 	loadUsersID := uuid.New()
 	loadOrdersID := uuid.New()
 	joinNodeID := uuid.New()
@@ -545,7 +560,7 @@ func TestExecutor_Project(t *testing.T) {
 			},
 		},
 	}
-	executor := NewExecutor(repo)
+	executor := NewExecutor(repo, nil)
 	loadNodeID := uuid.New()
 	projectNodeID := uuid.New()
 	transformation := domain.EntityTransformation{
@@ -614,7 +629,7 @@ func TestExecutor_ProjectFallbackAlias(t *testing.T) {
 			},
 		},
 	}
-	executor := NewExecutor(repo)
+	executor := NewExecutor(repo, nil)
 	loadNodeID := uuid.New()
 	projectNodeID := uuid.New()
 	transformation := domain.EntityTransformation{
@@ -692,7 +707,7 @@ func TestExecutor_ProjectAliasMissingError(t *testing.T) {
 			},
 		},
 	}
-	executor := NewExecutor(repo)
+	executor := NewExecutor(repo, nil)
 	loadUsersID := uuid.New()
 	loadOrdersID := uuid.New()
 	joinNodeID := uuid.New()
@@ -775,7 +790,7 @@ func TestExecutor_Sort(t *testing.T) {
 			},
 		},
 	}
-	executor := NewExecutor(repo)
+	executor := NewExecutor(repo, nil)
 	loadNodeID := uuid.New()
 	sortNodeID := uuid.New()
 	transformation := domain.EntityTransformation{
@@ -849,7 +864,7 @@ func TestExecutor_SortFallbackAlias(t *testing.T) {
 			},
 		},
 	}
-	executor := NewExecutor(repo)
+	executor := NewExecutor(repo, nil)
 	loadNodeID := uuid.New()
 	sortNodeID := uuid.New()
 	transformation := domain.EntityTransformation{
@@ -922,7 +937,7 @@ func TestExecutor_SortAliasMissingError(t *testing.T) {
 			},
 		},
 	}
-	executor := NewExecutor(repo)
+	executor := NewExecutor(repo, nil)
 	loadUsersID := uuid.New()
 	loadOrdersID := uuid.New()
 	joinNodeID := uuid.New()
@@ -977,5 +992,508 @@ func TestExecutor_SortAliasMissingError(t *testing.T) {
 	_, err := executor.Execute(context.Background(), transformation, domain.EntityTransformationExecutionOptions{})
 	if err == nil {
 		t.Fatalf("expected error when sort alias missing")
+	}
+}
+
+func TestExecutor_JoinEntityReferenceMatchesIDs(t *testing.T) {
+	orgID := uuid.New()
+	userID := uuid.New()
+	repo := &mockEntityRepository{
+		entities: []domain.Entity{
+			{
+				ID:             uuid.New(),
+				OrganizationID: orgID,
+				EntityType:     "device",
+				Properties: map[string]any{
+					"owner": userID.String(),
+				},
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			},
+			{
+				ID:             userID,
+				OrganizationID: orgID,
+				EntityType:     "user",
+				Properties: map[string]any{
+					"username": "primary",
+				},
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			},
+		},
+	}
+	schemaProvider := &mockSchemaProvider{
+		schemas: map[string]domain.EntitySchema{
+			"device": {
+				OrganizationID: orgID,
+				Name:           "device",
+				Fields: []domain.FieldDefinition{
+					{
+						Name:                "owner",
+						Type:                domain.FieldTypeEntityReference,
+						ReferenceEntityType: "user",
+					},
+				},
+			},
+		},
+	}
+	executor := NewExecutor(repo, schemaProvider)
+
+	loadDevicesID := uuid.New()
+	loadUsersID := uuid.New()
+	joinNodeID := uuid.New()
+	transformation := domain.EntityTransformation{
+		ID:             uuid.New(),
+		OrganizationID: orgID,
+		Name:           "join-entity-reference",
+		Nodes: []domain.EntityTransformationNode{
+			{
+				ID:   loadDevicesID,
+				Name: "load-devices",
+				Type: domain.TransformationNodeLoad,
+				Load: &domain.EntityTransformationLoadConfig{
+					Alias:      "devices",
+					EntityType: "device",
+				},
+			},
+			{
+				ID:   loadUsersID,
+				Name: "load-users",
+				Type: domain.TransformationNodeLoad,
+				Load: &domain.EntityTransformationLoadConfig{
+					Alias:      "users",
+					EntityType: "user",
+				},
+			},
+			{
+				ID:     joinNodeID,
+				Name:   "join",
+				Type:   domain.TransformationNodeJoin,
+				Inputs: []uuid.UUID{loadDevicesID, loadUsersID},
+				Join: &domain.EntityTransformationJoinConfig{
+					LeftAlias:  "devices",
+					RightAlias: "users",
+					OnField:    "owner",
+				},
+			},
+		},
+	}
+
+	result, err := executor.Execute(context.Background(), transformation, domain.EntityTransformationExecutionOptions{})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if result.TotalCount != 1 {
+		t.Fatalf("expected 1 record, got %d", result.TotalCount)
+	}
+	if len(result.Records) != 1 {
+		t.Fatalf("expected 1 record, got %d", len(result.Records))
+	}
+	record := result.Records[0]
+	right := record.Entities["users"]
+	if right == nil {
+		t.Fatalf("expected right entity to be joined")
+	}
+	if right.ID != userID {
+		t.Fatalf("expected user %s, got %s", userID, right.ID)
+	}
+}
+
+func TestExecutor_JoinEntityReferenceArrayFanout(t *testing.T) {
+	orgID := uuid.New()
+	firstUser := uuid.New()
+	secondUser := uuid.New()
+	repo := &mockEntityRepository{
+		entities: []domain.Entity{
+			{
+				ID:             uuid.New(),
+				OrganizationID: orgID,
+				EntityType:     "group",
+				Properties: map[string]any{
+					"members": []string{firstUser.String(), secondUser.String(), firstUser.String()},
+				},
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			},
+			{
+				ID:             firstUser,
+				OrganizationID: orgID,
+				EntityType:     "user",
+				Properties: map[string]any{
+					"username": "first",
+				},
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			},
+			{
+				ID:             secondUser,
+				OrganizationID: orgID,
+				EntityType:     "user",
+				Properties: map[string]any{
+					"username": "second",
+				},
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			},
+		},
+	}
+	schemaProvider := &mockSchemaProvider{
+		schemas: map[string]domain.EntitySchema{
+			"group": {
+				OrganizationID: orgID,
+				Name:           "group",
+				Fields: []domain.FieldDefinition{
+					{
+						Name:                "members",
+						Type:                domain.FieldTypeEntityReferenceArray,
+						ReferenceEntityType: "user",
+					},
+				},
+			},
+		},
+	}
+	executor := NewExecutor(repo, schemaProvider)
+
+	loadGroupsID := uuid.New()
+	loadUsersID := uuid.New()
+	joinNodeID := uuid.New()
+	transformation := domain.EntityTransformation{
+		ID:             uuid.New(),
+		OrganizationID: orgID,
+		Name:           "join-entity-reference-array",
+		Nodes: []domain.EntityTransformationNode{
+			{
+				ID:   loadGroupsID,
+				Name: "load-groups",
+				Type: domain.TransformationNodeLoad,
+				Load: &domain.EntityTransformationLoadConfig{
+					Alias:      "groups",
+					EntityType: "group",
+				},
+			},
+			{
+				ID:   loadUsersID,
+				Name: "load-users",
+				Type: domain.TransformationNodeLoad,
+				Load: &domain.EntityTransformationLoadConfig{
+					Alias:      "users",
+					EntityType: "user",
+				},
+			},
+			{
+				ID:     joinNodeID,
+				Name:   "join",
+				Type:   domain.TransformationNodeJoin,
+				Inputs: []uuid.UUID{loadGroupsID, loadUsersID},
+				Join: &domain.EntityTransformationJoinConfig{
+					LeftAlias:  "groups",
+					RightAlias: "users",
+					OnField:    "members",
+				},
+			},
+		},
+	}
+
+	result, err := executor.Execute(context.Background(), transformation, domain.EntityTransformationExecutionOptions{})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if result.TotalCount != 2 {
+		t.Fatalf("expected 2 records, got %d", result.TotalCount)
+	}
+	if len(result.Records) != 2 {
+		t.Fatalf("expected 2 records, got %d", len(result.Records))
+	}
+	seen := make(map[uuid.UUID]struct{})
+	for _, record := range result.Records {
+		right := record.Entities["users"]
+		if right == nil {
+			t.Fatalf("expected joined user entity")
+		}
+		seen[right.ID] = struct{}{}
+	}
+	if len(seen) != 2 {
+		t.Fatalf("expected two distinct user matches, got %d", len(seen))
+	}
+	if _, ok := seen[firstUser]; !ok {
+		t.Fatalf("expected matches to include first user")
+	}
+	if _, ok := seen[secondUser]; !ok {
+		t.Fatalf("expected matches to include second user")
+	}
+}
+
+func TestExecutor_JoinReferenceMatchesCanonicalValue(t *testing.T) {
+	orgID := uuid.New()
+	repo := &mockEntityRepository{
+		entities: []domain.Entity{
+			{
+				ID:             uuid.New(),
+				OrganizationID: orgID,
+				EntityType:     "ticket",
+				Properties: map[string]any{
+					"accountRef": "acct-001",
+				},
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			},
+			{
+				ID:             uuid.New(),
+				OrganizationID: orgID,
+				EntityType:     "account",
+				Properties: map[string]any{
+					"slug": "acct-001",
+				},
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			},
+			{
+				ID:             uuid.New(),
+				OrganizationID: orgID,
+				EntityType:     "account",
+				Properties: map[string]any{
+					"slug": "acct-002",
+				},
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			},
+		},
+	}
+	schemaProvider := &mockSchemaProvider{
+		schemas: map[string]domain.EntitySchema{
+			"ticket": {
+				OrganizationID: orgID,
+				Name:           "ticket",
+				Fields: []domain.FieldDefinition{
+					{
+						Name:                "accountRef",
+						Type:                domain.FieldTypeReference,
+						ReferenceEntityType: "account",
+					},
+				},
+			},
+			"account": {
+				OrganizationID: orgID,
+				Name:           "account",
+				Fields: []domain.FieldDefinition{
+					{Name: "slug", Type: domain.FieldTypeReference},
+					{Name: "alternate", Type: domain.FieldTypeReference},
+				},
+			},
+		},
+	}
+	executor := NewExecutor(repo, schemaProvider)
+
+	loadTicketsID := uuid.New()
+	loadAccountsID := uuid.New()
+	joinNodeID := uuid.New()
+	transformation := domain.EntityTransformation{
+		ID:             uuid.New(),
+		OrganizationID: orgID,
+		Name:           "join-reference-canonical",
+		Nodes: []domain.EntityTransformationNode{
+			{
+				ID:   loadTicketsID,
+				Name: "load-tickets",
+				Type: domain.TransformationNodeLoad,
+				Load: &domain.EntityTransformationLoadConfig{
+					Alias:      "tickets",
+					EntityType: "ticket",
+				},
+			},
+			{
+				ID:   loadAccountsID,
+				Name: "load-accounts",
+				Type: domain.TransformationNodeLoad,
+				Load: &domain.EntityTransformationLoadConfig{
+					Alias:      "accounts",
+					EntityType: "account",
+				},
+			},
+			{
+				ID:     joinNodeID,
+				Name:   "join",
+				Type:   domain.TransformationNodeJoin,
+				Inputs: []uuid.UUID{loadTicketsID, loadAccountsID},
+				Join: &domain.EntityTransformationJoinConfig{
+					LeftAlias:  "tickets",
+					RightAlias: "accounts",
+					OnField:    "accountRef",
+				},
+			},
+		},
+	}
+
+	result, err := executor.Execute(context.Background(), transformation, domain.EntityTransformationExecutionOptions{})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if result.TotalCount != 1 {
+		t.Fatalf("expected single joined record, got %d", result.TotalCount)
+	}
+	if len(result.Records) != 1 {
+		t.Fatalf("expected 1 record, got %d", len(result.Records))
+	}
+	record := result.Records[0]
+	right := record.Entities["accounts"]
+	if right == nil {
+		t.Fatalf("expected account entity to be joined")
+	}
+	if slug, _ := right.Properties["slug"].(string); slug != "acct-001" {
+		t.Fatalf("expected canonical slug acct-001, got %v", right.Properties["slug"])
+	}
+}
+
+func TestExecutor_JoinReferenceRespectsReferenceEntityType(t *testing.T) {
+	orgID := uuid.New()
+	repo := &mockEntityRepository{
+		entities: []domain.Entity{
+			{
+				ID:             uuid.New(),
+				OrganizationID: orgID,
+				EntityType:     "ticket",
+				Properties: map[string]any{
+					"accountRef": "acct-001",
+				},
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			},
+			{
+				ID:             uuid.New(),
+				OrganizationID: orgID,
+				EntityType:     "account",
+				Properties: map[string]any{
+					"slug": "acct-001",
+				},
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			},
+			{
+				ID:             uuid.New(),
+				OrganizationID: orgID,
+				EntityType:     "contact",
+				Properties: map[string]any{
+					"slug": "acct-001",
+				},
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			},
+		},
+	}
+	schemaProvider := &mockSchemaProvider{
+		schemas: map[string]domain.EntitySchema{
+			"ticket": {
+				OrganizationID: orgID,
+				Name:           "ticket",
+				Fields: []domain.FieldDefinition{
+					{
+						Name:                "accountRef",
+						Type:                domain.FieldTypeReference,
+						ReferenceEntityType: "account",
+					},
+				},
+			},
+			"account": {
+				OrganizationID: orgID,
+				Name:           "account",
+				Fields: []domain.FieldDefinition{
+					{Name: "slug", Type: domain.FieldTypeReference},
+				},
+			},
+			"contact": {
+				OrganizationID: orgID,
+				Name:           "contact",
+				Fields: []domain.FieldDefinition{
+					{Name: "slug", Type: domain.FieldTypeReference},
+				},
+			},
+		},
+	}
+	executor := NewExecutor(repo, schemaProvider)
+
+	loadTicketsID := uuid.New()
+	loadAccountsID := uuid.New()
+	loadContactsID := uuid.New()
+	projectContactsID := uuid.New()
+	unionID := uuid.New()
+	joinNodeID := uuid.New()
+	transformation := domain.EntityTransformation{
+		ID:             uuid.New(),
+		OrganizationID: orgID,
+		Name:           "join-reference-entity-type",
+		Nodes: []domain.EntityTransformationNode{
+			{
+				ID:   loadTicketsID,
+				Name: "load-tickets",
+				Type: domain.TransformationNodeLoad,
+				Load: &domain.EntityTransformationLoadConfig{
+					Alias:      "tickets",
+					EntityType: "ticket",
+				},
+			},
+			{
+				ID:   loadAccountsID,
+				Name: "load-accounts",
+				Type: domain.TransformationNodeLoad,
+				Load: &domain.EntityTransformationLoadConfig{
+					Alias:      "accounts",
+					EntityType: "account",
+				},
+			},
+			{
+				ID:   loadContactsID,
+				Name: "load-contacts",
+				Type: domain.TransformationNodeLoad,
+				Load: &domain.EntityTransformationLoadConfig{
+					Alias:      "contacts",
+					EntityType: "contact",
+				},
+			},
+			{
+				ID:     projectContactsID,
+				Name:   "rename-contacts",
+				Type:   domain.TransformationNodeProject,
+				Inputs: []uuid.UUID{loadContactsID},
+				Project: &domain.EntityTransformationProjectConfig{
+					Alias: "accounts",
+				},
+			},
+			{
+				ID:     unionID,
+				Name:   "union-refs",
+				Type:   domain.TransformationNodeUnion,
+				Inputs: []uuid.UUID{loadAccountsID, projectContactsID},
+			},
+			{
+				ID:     joinNodeID,
+				Name:   "join",
+				Type:   domain.TransformationNodeJoin,
+				Inputs: []uuid.UUID{loadTicketsID, unionID},
+				Join: &domain.EntityTransformationJoinConfig{
+					LeftAlias:  "tickets",
+					RightAlias: "accounts",
+					OnField:    "accountRef",
+				},
+			},
+		},
+	}
+
+	result, err := executor.Execute(context.Background(), transformation, domain.EntityTransformationExecutionOptions{})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if result.TotalCount != 1 {
+		t.Fatalf("expected single joined record, got %d", result.TotalCount)
+	}
+	if len(result.Records) != 1 {
+		t.Fatalf("expected 1 record, got %d", len(result.Records))
+	}
+	record := result.Records[0]
+	right := record.Entities["accounts"]
+	if right == nil {
+		t.Fatalf("expected account entity to be joined")
+	}
+	if right.EntityType != "account" {
+		t.Fatalf("expected joined entity type account, got %s", right.EntityType)
 	}
 }
