@@ -40,7 +40,7 @@ export function createNewNode(
 
   return {
     id,
-    type: 'default',
+    type: 'transformation',
     data,
     position: derivePosition(positionIndex),
   }
@@ -106,7 +106,7 @@ export function createGraphStateFromDefinition(
 
     return {
       id: node.id,
-      type: 'default',
+      type: 'transformation',
       position: derivePosition(index),
       data,
     }
