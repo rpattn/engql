@@ -1,9 +1,10 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import {
   useDeleteEntityTransformationMutation,
+  useEntitySchemasQuery,
   useEntityTransformationQuery,
   useEntityTransformationsQuery,
   useUpdateEntityTransformationMutation,
@@ -18,6 +19,8 @@ import {
   createGraphStateFromDefinition,
   serializeGraph,
 } from '@/features/transformations/utils/nodes'
+import type { TransformationAliasSummary } from '@/features/transformations/utils/preview'
+import { sanitizeAlias } from '@/features/transformations/utils/alias'
 
 export const Route = createFileRoute('/transformations/$transformationId/')({
   component: TransformationDetailRoute,
@@ -58,6 +61,12 @@ function TransformationDetailRoute() {
   })
 
   const transformation = detailQuery.data?.entityTransformation
+  const organizationId = (transformation?.organizationId ?? '').trim()
+
+  const entitySchemasQuery = useEntitySchemasQuery(
+    { organizationId },
+    { enabled: Boolean(organizationId) },
+  )
 
   const initialGraph = useMemo(() => {
     if (!transformation) {
@@ -72,6 +81,8 @@ function TransformationDetailRoute() {
   const [description, setDescription] = useState('')
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [previewRefreshKey, setPreviewRefreshKey] = useState(0)
+  const [schemaSummaries, setSchemaSummaries] = useState<TransformationAliasSummary[]>([])
+  const [isAutoSaveEnabled, setIsAutoSaveEnabled] = useState(false)
 
   useEffect(() => {
     if (transformation) {
@@ -153,6 +164,49 @@ function TransformationDetailRoute() {
     return Array.from(aliases)
   }, [selectedNode])
 
+  const schemaFieldOptions = useMemo(() => {
+    const map: Record<string, string[]> = {}
+
+    for (const summary of schemaSummaries) {
+      const keys = summary.sampleFields
+        .map((field) => field.key.trim())
+        .filter(Boolean)
+      if (!keys.length) {
+        continue
+      }
+
+      const sortedUnique = Array.from(new Set(keys)).sort((a, b) =>
+        a.localeCompare(b),
+      )
+
+      const aliasKeys = new Set<string>()
+      if (summary.alias.trim()) {
+        aliasKeys.add(summary.alias.trim())
+      }
+      const sanitized = sanitizeAlias(summary.alias)
+      if (sanitized) {
+        aliasKeys.add(sanitized)
+      }
+
+      for (const key of aliasKeys) {
+        const existing = map[key] ?? []
+        const combined = new Set([...existing, ...sortedUnique])
+        map[key] = Array.from(combined).sort((a, b) => a.localeCompare(b))
+      }
+    }
+
+    return map
+  }, [schemaSummaries])
+
+  const entityTypeOptions = useMemo(() => {
+    const schemas = entitySchemasQuery.data?.entitySchemas ?? []
+    const names = schemas
+      .map((schema) => schema.name.trim())
+      .filter(Boolean)
+
+    return Array.from(new Set(names)).sort((a, b) => a.localeCompare(b))
+  }, [entitySchemasQuery.data?.entitySchemas])
+
   if (detailQuery.isLoading) {
     return (
       <p className="rounded border border-slate-200 p-6 text-sm text-slate-500">Loading…</p>
@@ -175,7 +229,11 @@ function TransformationDetailRoute() {
     )
   }
 
-  const handleSave = () => {
+  const handleSave = useCallback(() => {
+    if (!isDirty || updateMutation.isPending) {
+      return
+    }
+
     if (!trimmedName) {
       alert('Name is required')
       return
@@ -189,7 +247,44 @@ function TransformationDetailRoute() {
         nodes: graphController.serialize(),
       },
     })
-  }
+  }, [
+    updateMutation,
+    trimmedName,
+    trimmedDescription,
+    graphController,
+    transformationId,
+    isDirty,
+  ])
+
+  useEffect(() => {
+    if (!isAutoSaveEnabled) {
+      return
+    }
+
+    if (!trimmedName || !isDirty || updateMutation.isPending) {
+      return
+    }
+
+    handleSave()
+  }, [
+    handleSave,
+    isAutoSaveEnabled,
+    isDirty,
+    trimmedName,
+    updateMutation.isPending,
+  ])
+
+  useEffect(() => {
+    const handleKeydown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+        event.preventDefault()
+        handleSave()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeydown)
+    return () => window.removeEventListener('keydown', handleKeydown)
+  }, [handleSave])
 
   const handleExecute = () => {
     navigate({
@@ -220,13 +315,24 @@ function TransformationDetailRoute() {
         isExecuting={false}
         isDirty={isDirty}
         extra={
-          <button
-            type="button"
-            onClick={() => setPreviewRefreshKey((key) => key + 1)}
-            className="rounded border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100"
-          >
-            Refresh preview
-          </button>
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 text-xs font-medium text-slate-600">
+              <input
+                type="checkbox"
+                className="h-3 w-3 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                checked={isAutoSaveEnabled}
+                onChange={(event) => setIsAutoSaveEnabled(event.target.checked)}
+              />
+              Auto-save
+            </label>
+            <button
+              type="button"
+              onClick={() => setPreviewRefreshKey((key) => key + 1)}
+              className="rounded border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100"
+            >
+              Refresh preview
+            </button>
+          </div>
         }
       />
 
@@ -293,6 +399,9 @@ function TransformationDetailRoute() {
                 graphController.removeNode(nodeId)
                 setSelectedNodeId(null)
               }}
+              allNodes={graphController.graph.nodes}
+              schemaFieldOptions={schemaFieldOptions}
+              entityTypeOptions={entityTypeOptions}
             />
           </div>
           <TransformationPreviewPanel
@@ -300,6 +409,7 @@ function TransformationDetailRoute() {
             isDirty={isDirty}
             highlightedAliases={selectedAliases}
             refreshKey={previewRefreshKey}
+            onSchemaSummariesChange={setSchemaSummaries}
           />
         </div>
       </section>
