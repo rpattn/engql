@@ -203,6 +203,7 @@ type EntityTransformationNode struct {
 	Filter   *EntityTransformationFilterConfig   `json:"filter,omitempty"`
 	Project  *EntityTransformationProjectConfig  `json:"project,omitempty"`
 	Join     *EntityTransformationJoinConfig     `json:"join,omitempty"`
+	Union    *EntityTransformationUnionConfig    `json:"union,omitempty"`
 	Sort     *EntityTransformationSortConfig     `json:"sort,omitempty"`
 	Paginate *EntityTransformationPaginateConfig `json:"paginate,omitempty"`
 }
@@ -216,8 +217,17 @@ type EntityTransformationNodeInput struct {
 	Filter   *EntityTransformationFilterConfigInput   `json:"filter,omitempty"`
 	Project  *EntityTransformationProjectConfigInput  `json:"project,omitempty"`
 	Join     *EntityTransformationJoinConfigInput     `json:"join,omitempty"`
+	Union    *EntityTransformationUnionConfigInput    `json:"union,omitempty"`
 	Sort     *EntityTransformationSortConfigInput     `json:"sort,omitempty"`
 	Paginate *EntityTransformationPaginateConfigInput `json:"paginate,omitempty"`
+}
+
+type EntityTransformationUnionConfig struct {
+	Alias *string `json:"alias,omitempty"`
+}
+
+type EntityTransformationUnionConfigInput struct {
+	Alias *string `json:"alias,omitempty"`
 }
 
 type EntityTransformationPaginateConfig struct {

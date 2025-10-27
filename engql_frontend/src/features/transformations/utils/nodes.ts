@@ -77,6 +77,9 @@ export function buildDefaultConfig(
         paginate: { limit: 25, offset: 0 },
       }
     case NodeType.Union:
+      return {
+        union: { alias: 'union' },
+      }
     default:
       return {}
   }
@@ -93,6 +96,7 @@ export function createGraphStateFromDefinition(
         : undefined,
       project: node.project ? { ...node.project } : undefined,
       join: node.join ? { ...node.join } : undefined,
+      union: node.union ? { ...node.union } : undefined,
       sort: node.sort ? { ...node.sort } : undefined,
       paginate: node.paginate ? { ...node.paginate } : undefined,
     }
@@ -156,6 +160,7 @@ export function serializeGraph(
         ? { ...node.data.config.project }
         : undefined,
       join: node.data.config.join ? { ...node.data.config.join } : undefined,
+      union: node.data.config.union ? { ...node.data.config.union } : undefined,
       sort: node.data.config.sort ? { ...node.data.config.sort } : undefined,
       paginate: node.data.config.paginate ? { ...node.data.config.paginate } : undefined,
     }

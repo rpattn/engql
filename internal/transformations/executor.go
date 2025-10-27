@@ -3,6 +3,7 @@ package transformations
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/rpattn/engql/internal/domain"
 
@@ -417,10 +418,42 @@ func (e *Executor) executeUnion(node domain.EntityTransformationNode, cache map[
 			return nil, fmt.Errorf("union input missing")
 		}
 		for _, record := range inputRecords {
-			results = append(results, record.Clone())
+			cloned := record.Clone()
+			if err := applyUnionAlias(&cloned, node.Union); err != nil {
+				return nil, err
+			}
+			results = append(results, cloned)
 		}
 	}
 	return results, nil
+}
+
+func applyUnionAlias(record *domain.EntityTransformationRecord, config *domain.EntityTransformationUnionConfig) error {
+	if record == nil || config == nil {
+		return nil
+	}
+	alias := strings.TrimSpace(config.Alias)
+	if alias == "" {
+		return nil
+	}
+	if record.Entities == nil {
+		record.Entities = map[string]*domain.Entity{}
+	}
+	if _, exists := record.Entities[alias]; exists {
+		return nil
+	}
+	if len(record.Entities) == 0 {
+		record.Entities[alias] = nil
+		return nil
+	}
+	existingAlias, ok := singleAliasFromEntities(record.Entities)
+	if !ok {
+		return fmt.Errorf("union alias %q requires records with a single entity alias", alias)
+	}
+	entity := record.Entities[existingAlias]
+	delete(record.Entities, existingAlias)
+	record.Entities[alias] = entity
+	return nil
 }
 
 func (e *Executor) executeSort(node domain.EntityTransformationNode, cache map[uuid.UUID][]domain.EntityTransformationRecord) ([]domain.EntityTransformationRecord, error) {

@@ -408,6 +408,9 @@ fragment EntityTransformationNodeFields on EntityTransformationNode {
     rightAlias
     onField
   }
+  union {
+    alias
+  }
   sort {
     alias
     field

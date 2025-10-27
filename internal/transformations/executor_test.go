@@ -1497,3 +1497,114 @@ func TestExecutor_JoinReferenceRespectsReferenceEntityType(t *testing.T) {
 		t.Fatalf("expected joined entity type account, got %s", right.EntityType)
 	}
 }
+
+func TestExecutor_UnionAliasAppliedToRecords(t *testing.T) {
+	orgID := uuid.New()
+	repo := &mockEntityRepository{
+		entities: []domain.Entity{
+			{
+				ID:             uuid.New(),
+				OrganizationID: orgID,
+				EntityType:     "ticket",
+				Properties: map[string]any{
+					"priority": "b",
+				},
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			},
+			{
+				ID:             uuid.New(),
+				OrganizationID: orgID,
+				EntityType:     "ticket",
+				Properties: map[string]any{
+					"priority": "a",
+				},
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			},
+		},
+	}
+	executor := NewExecutor(repo, nil)
+
+	loadFirstID := uuid.New()
+	loadSecondID := uuid.New()
+	unionID := uuid.New()
+	sortID := uuid.New()
+
+	transformation := domain.EntityTransformation{
+		ID:             uuid.New(),
+		OrganizationID: orgID,
+		Name:           "union-alias",
+		Nodes: []domain.EntityTransformationNode{
+			{
+				ID:   loadFirstID,
+				Name: "load-first",
+				Type: domain.TransformationNodeLoad,
+				Load: &domain.EntityTransformationLoadConfig{
+					Alias:      "first",
+					EntityType: "ticket",
+					Filters: []domain.PropertyFilter{
+						{Key: "priority", Value: "b"},
+					},
+				},
+			},
+			{
+				ID:   loadSecondID,
+				Name: "load-second",
+				Type: domain.TransformationNodeLoad,
+				Load: &domain.EntityTransformationLoadConfig{
+					Alias:      "second",
+					EntityType: "ticket",
+					Filters: []domain.PropertyFilter{
+						{Key: "priority", Value: "a"},
+					},
+				},
+			},
+			{
+				ID:     unionID,
+				Name:   "union-tickets",
+				Type:   domain.TransformationNodeUnion,
+				Inputs: []uuid.UUID{loadFirstID, loadSecondID},
+				Union: &domain.EntityTransformationUnionConfig{
+					Alias: "tickets",
+				},
+			},
+			{
+				ID:     sortID,
+				Name:   "sort-tickets",
+				Type:   domain.TransformationNodeSort,
+				Inputs: []uuid.UUID{unionID},
+				Sort: &domain.EntityTransformationSortConfig{
+					Alias:     "tickets",
+					Field:     "priority",
+					Direction: domain.JoinSortAsc,
+				},
+			},
+		},
+	}
+
+	result, err := executor.Execute(context.Background(), transformation, domain.EntityTransformationExecutionOptions{})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if result.TotalCount != 2 {
+		t.Fatalf("expected 2 records, got %d", result.TotalCount)
+	}
+	if len(result.Records) != 2 {
+		t.Fatalf("expected 2 records, got %d", len(result.Records))
+	}
+	first := result.Records[0].Entities["tickets"]
+	if first == nil {
+		t.Fatalf("expected tickets alias to be present on first record")
+	}
+	if first.Properties["priority"] != "a" {
+		t.Fatalf("expected first record sorted ascending by priority, got %v", first.Properties["priority"])
+	}
+	second := result.Records[1].Entities["tickets"]
+	if second == nil {
+		t.Fatalf("expected tickets alias to be present on second record")
+	}
+	if second.Properties["priority"] != "b" {
+		t.Fatalf("expected second record priority b, got %v", second.Properties["priority"])
+	}
+}

@@ -234,6 +234,7 @@ export type EntityTransformationNode = {
   name: Scalars['String']['output'];
   paginate?: Maybe<EntityTransformationPaginateConfig>;
   project?: Maybe<EntityTransformationProjectConfig>;
+  union?: Maybe<EntityTransformationUnionConfig>;
   sort?: Maybe<EntityTransformationSortConfig>;
   type: EntityTransformationNodeType;
 };
@@ -247,6 +248,7 @@ export type EntityTransformationNodeInput = {
   name: Scalars['String']['input'];
   paginate?: InputMaybe<EntityTransformationPaginateConfigInput>;
   project?: InputMaybe<EntityTransformationProjectConfigInput>;
+  union?: InputMaybe<EntityTransformationUnionConfigInput>;
   sort?: InputMaybe<EntityTransformationSortConfigInput>;
   type: EntityTransformationNodeType;
 };
@@ -283,6 +285,15 @@ export type EntityTransformationProjectConfig = {
 export type EntityTransformationProjectConfigInput = {
   alias: Scalars['String']['input'];
   fields: Array<Scalars['String']['input']>;
+};
+
+export type EntityTransformationUnionConfig = {
+  __typename?: 'EntityTransformationUnionConfig';
+  alias?: Maybe<Scalars['String']['output']>;
+};
+
+export type EntityTransformationUnionConfigInput = {
+  alias?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type EntityTransformationRecordEdge = {
@@ -966,7 +977,7 @@ export type ExecuteJoinQueryVariables = Exact<{
 
 export type ExecuteJoinQuery = { __typename?: 'Query', executeEntityJoin: { __typename?: 'EntityJoinConnection', edges: Array<{ __typename?: 'EntityJoinEdge', left: { __typename?: 'Entity', id: string, entityType: string, properties: string }, right: { __typename?: 'Entity', id: string, entityType: string, properties: string } }>, pageInfo: { __typename?: 'PageInfo', totalCount: number, hasNextPage: boolean, hasPreviousPage: boolean } } };
 
-export type EntityTransformationNodeFieldsFragment = { __typename?: 'EntityTransformationNode', id: string, name: string, type: EntityTransformationNodeType, inputs: Array<string>, load?: { __typename?: 'EntityTransformationLoadConfig', alias: string, entityType: string, filters: Array<{ __typename?: 'PropertyFilterConfig', key: string, value?: string | null, exists?: boolean | null, inArray?: Array<string> | null }> } | null, filter?: { __typename?: 'EntityTransformationFilterConfig', alias: string, filters: Array<{ __typename?: 'PropertyFilterConfig', key: string, value?: string | null, exists?: boolean | null, inArray?: Array<string> | null }> } | null, project?: { __typename?: 'EntityTransformationProjectConfig', alias: string, fields: Array<string> } | null, join?: { __typename?: 'EntityTransformationJoinConfig', leftAlias: string, rightAlias: string, onField: string } | null, sort?: { __typename?: 'EntityTransformationSortConfig', alias: string, field: string, direction: JoinSortDirection } | null, paginate?: { __typename?: 'EntityTransformationPaginateConfig', limit?: number | null, offset?: number | null } | null };
+export type EntityTransformationNodeFieldsFragment = { __typename?: 'EntityTransformationNode', id: string, name: string, type: EntityTransformationNodeType, inputs: Array<string>, load?: { __typename?: 'EntityTransformationLoadConfig', alias: string, entityType: string, filters: Array<{ __typename?: 'PropertyFilterConfig', key: string, value?: string | null, exists?: boolean | null, inArray?: Array<string> | null }> } | null, filter?: { __typename?: 'EntityTransformationFilterConfig', alias: string, filters: Array<{ __typename?: 'PropertyFilterConfig', key: string, value?: string | null, exists?: boolean | null, inArray?: Array<string> | null }> } | null, project?: { __typename?: 'EntityTransformationProjectConfig', alias: string, fields: Array<string> } | null, join?: { __typename?: 'EntityTransformationJoinConfig', leftAlias: string, rightAlias: string, onField: string } | null, union?: { __typename?: 'EntityTransformationUnionConfig', alias?: string | null } | null, sort?: { __typename?: 'EntityTransformationSortConfig', alias: string, field: string, direction: JoinSortDirection } | null, paginate?: { __typename?: 'EntityTransformationPaginateConfig', limit?: number | null, offset?: number | null } | null };
 
 export type EntityTransformationsQueryVariables = Exact<{
   organizationId: Scalars['String']['input'];
@@ -1044,6 +1055,9 @@ export const EntityTransformationNodeFieldsFragmentDoc = `
     leftAlias
     rightAlias
     onField
+  }
+  union {
+    alias
   }
   sort {
     alias

@@ -11,6 +11,7 @@ export type TransformationNodeConfig = {
   filter?: EntityTransformationNodeInput['filter']
   project?: EntityTransformationNodeInput['project']
   join?: EntityTransformationNodeInput['join']
+  union?: EntityTransformationNodeInput['union']
   sort?: EntityTransformationNodeInput['sort']
   paginate?: EntityTransformationNodeInput['paginate']
 }

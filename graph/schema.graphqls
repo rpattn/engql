@@ -250,6 +250,7 @@ type EntityTransformationNode {
   filter: EntityTransformationFilterConfig
   project: EntityTransformationProjectConfig
   join: EntityTransformationJoinConfig
+  union: EntityTransformationUnionConfig
   sort: EntityTransformationSortConfig
   paginate: EntityTransformationPaginateConfig
 }
@@ -274,6 +275,10 @@ type EntityTransformationJoinConfig {
   leftAlias: String!
   rightAlias: String!
   onField: String!
+}
+
+type EntityTransformationUnionConfig {
+  alias: String
 }
 
 type EntityTransformationSortConfig {
@@ -310,6 +315,7 @@ input EntityTransformationNodeInput {
   filter: EntityTransformationFilterConfigInput
   project: EntityTransformationProjectConfigInput
   join: EntityTransformationJoinConfigInput
+  union: EntityTransformationUnionConfigInput
   sort: EntityTransformationSortConfigInput
   paginate: EntityTransformationPaginateConfigInput
 }
@@ -334,6 +340,10 @@ input EntityTransformationJoinConfigInput {
   leftAlias: String!
   rightAlias: String!
   onField: String!
+}
+
+input EntityTransformationUnionConfigInput {
+  alias: String
 }
 
 input EntityTransformationSortConfigInput {

@@ -245,7 +245,13 @@ func graphNodeToDomain(input *graph.EntityTransformationNodeInput) (domain.Entit
 			Offset: input.Paginate.Offset,
 		}
 	case domain.TransformationNodeUnion:
-		// no config needed
+		if input.Union != nil {
+			alias := ""
+			if input.Union.Alias != nil {
+				alias = *input.Union.Alias
+			}
+			node.Union = &domain.EntityTransformationUnionConfig{Alias: alias}
+		}
 	default:
 		return domain.EntityTransformationNode{}, fmt.Errorf("unsupported node type: %s", node.Type)
 	}
@@ -330,6 +336,16 @@ func mapNodeToGraph(node domain.EntityTransformationNode) *graph.EntityTransform
 			LeftAlias:  node.Join.LeftAlias,
 			RightAlias: node.Join.RightAlias,
 			OnField:    node.Join.OnField,
+		}
+	}
+	if node.Union != nil {
+		var aliasPtr *string
+		if node.Union.Alias != "" {
+			alias := node.Union.Alias
+			aliasPtr = &alias
+		}
+		gqlNode.Union = &graph.EntityTransformationUnionConfig{
+			Alias: aliasPtr,
 		}
 	}
 	if node.Sort != nil {

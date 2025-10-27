@@ -168,6 +168,7 @@ type ComplexityRoot struct {
 		Name     func(childComplexity int) int
 		Paginate func(childComplexity int) int
 		Project  func(childComplexity int) int
+		Union    func(childComplexity int) int
 		Sort     func(childComplexity int) int
 		Type     func(childComplexity int) int
 	}
@@ -852,6 +853,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.EntityTransformationNode.Project(childComplexity), true
+	case "EntityTransformationNode.union":
+		if e.complexity.EntityTransformationNode.Union == nil {
+			break
+		}
+
+		return e.complexity.EntityTransformationNode.Union(childComplexity), true
 	case "EntityTransformationNode.sort":
 		if e.complexity.EntityTransformationNode.Sort == nil {
 			break
@@ -4421,6 +4428,8 @@ func (ec *executionContext) fieldContext_EntityTransformation_nodes(_ context.Co
 				return ec.fieldContext_EntityTransformationNode_project(ctx, field)
 			case "join":
 				return ec.fieldContext_EntityTransformationNode_join(ctx, field)
+			case "union":
+				return ec.fieldContext_EntityTransformationNode_union(ctx, field)
 			case "sort":
 				return ec.fieldContext_EntityTransformationNode_sort(ctx, field)
 			case "paginate":
@@ -5072,6 +5081,39 @@ func (ec *executionContext) fieldContext_EntityTransformationNode_join(_ context
 	return fc, nil
 }
 
+func (ec *executionContext) _EntityTransformationNode_union(ctx context.Context, field graphql.CollectedField, obj *EntityTransformationNode) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityTransformationNode_union,
+		func(ctx context.Context) (any, error) {
+			return obj.Union, nil
+		},
+		nil,
+		ec.marshalOEntityTransformationUnionConfig2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationUnionConfig,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityTransformationNode_union(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityTransformationNode",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "alias":
+				return ec.fieldContext_EntityTransformationUnionConfig_alias(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type EntityTransformationUnionConfig", field.Name)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _EntityTransformationNode_sort(ctx context.Context, field graphql.CollectedField, obj *EntityTransformationNode) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -5250,6 +5292,35 @@ func (ec *executionContext) _EntityTransformationProjectConfig_fields(ctx contex
 func (ec *executionContext) fieldContext_EntityTransformationProjectConfig_fields(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "EntityTransformationProjectConfig",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityTransformationUnionConfig_alias(ctx context.Context, field graphql.CollectedField, obj *EntityTransformationUnionConfig) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityTransformationUnionConfig_alias,
+		func(ctx context.Context) (any, error) {
+			return obj.Alias, nil
+		},
+		nil,
+		ec.marshalOString2ᚖstring,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityTransformationUnionConfig_alias(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityTransformationUnionConfig",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
@@ -11051,7 +11122,7 @@ func (ec *executionContext) unmarshalInputEntityTransformationNodeInput(ctx cont
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"id", "name", "type", "inputs", "load", "filter", "project", "join", "sort", "paginate"}
+	fieldsInOrder := [...]string{"id", "name", "type", "inputs", "load", "filter", "project", "join", "union", "sort", "paginate"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -11114,6 +11185,13 @@ func (ec *executionContext) unmarshalInputEntityTransformationNodeInput(ctx cont
 				return it, err
 			}
 			it.Join = data
+		case "union":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("union"))
+			data, err := ec.unmarshalOEntityTransformationUnionConfigInput2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationUnionConfigInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Union = data
 		case "sort":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("sort"))
 			data, err := ec.unmarshalOEntityTransformationSortConfigInput2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationSortConfigInput(ctx, v)
@@ -11196,6 +11274,33 @@ func (ec *executionContext) unmarshalInputEntityTransformationProjectConfigInput
 				return it, err
 			}
 			it.Fields = data
+		}
+	}
+
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputEntityTransformationUnionConfigInput(ctx context.Context, obj any) (EntityTransformationUnionConfigInput, error) {
+	var it EntityTransformationUnionConfigInput
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"alias"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "alias":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("alias"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Alias = data
 		}
 	}
 
@@ -12736,6 +12841,8 @@ func (ec *executionContext) _EntityTransformationNode(ctx context.Context, sel a
 			out.Values[i] = ec._EntityTransformationNode_project(ctx, field, obj)
 		case "join":
 			out.Values[i] = ec._EntityTransformationNode_join(ctx, field, obj)
+		case "union":
+			out.Values[i] = ec._EntityTransformationNode_union(ctx, field, obj)
 		case "sort":
 			out.Values[i] = ec._EntityTransformationNode_sort(ctx, field, obj)
 		case "paginate":
@@ -12822,6 +12929,42 @@ func (ec *executionContext) _EntityTransformationProjectConfig(ctx context.Conte
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var entityTransformationUnionConfigImplementors = []string{"EntityTransformationUnionConfig"}
+
+func (ec *executionContext) _EntityTransformationUnionConfig(ctx context.Context, sel ast.SelectionSet, obj *EntityTransformationUnionConfig) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, entityTransformationUnionConfigImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("EntityTransformationUnionConfig")
+		case "alias":
+			out.Values[i] = ec._EntityTransformationUnionConfig_alias(ctx, field, obj)
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -15964,6 +16107,21 @@ func (ec *executionContext) unmarshalOEntityTransformationProjectConfigInput2ᚖ
 		return nil, nil
 	}
 	res, err := ec.unmarshalInputEntityTransformationProjectConfigInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOEntityTransformationUnionConfig2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationUnionConfig(ctx context.Context, sel ast.SelectionSet, v *EntityTransformationUnionConfig) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._EntityTransformationUnionConfig(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalOEntityTransformationUnionConfigInput2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationUnionConfigInput(ctx context.Context, v any) (*EntityTransformationUnionConfigInput, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputEntityTransformationUnionConfigInput(ctx, v)
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 

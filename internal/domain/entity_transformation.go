@@ -43,8 +43,13 @@ type EntityTransformationNode struct {
 	Filter   *EntityTransformationFilterConfig   `json:"filter,omitempty"`
 	Project  *EntityTransformationProjectConfig  `json:"project,omitempty"`
 	Join     *EntityTransformationJoinConfig     `json:"join,omitempty"`
+	Union    *EntityTransformationUnionConfig    `json:"union,omitempty"`
 	Sort     *EntityTransformationSortConfig     `json:"sort,omitempty"`
 	Paginate *EntityTransformationPaginateConfig `json:"paginate,omitempty"`
+}
+
+type EntityTransformationUnionConfig struct {
+	Alias string `json:"alias"`
 }
 
 type EntityTransformationLoadConfig struct {

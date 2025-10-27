@@ -301,6 +301,30 @@ export function NodeInspector({ node, onUpdate, onDelete }: NodeInspectorProps) 
           </div>
         )}
 
+        {data.config.union && (
+          <div className="space-y-3">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Union configuration
+            </h4>
+            <label className="block text-xs font-medium text-slate-600">
+              Alias
+              <input
+                value={data.config.union.alias ?? ''}
+                onChange={(event) =>
+                  updateConfig((config) => ({
+                    ...config,
+                    union: {
+                      ...config.union!,
+                      alias: event.target.value,
+                    },
+                  }))
+                }
+                className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
+              />
+            </label>
+          </div>
+        )}
+
         {data.config.join && (
           <div className="space-y-3">
             <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">

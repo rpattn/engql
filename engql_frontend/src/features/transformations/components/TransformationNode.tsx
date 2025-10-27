@@ -165,6 +165,8 @@ function summarizeConfiguration(data: TransformationNodeData) {
       break
     }
     case EntityTransformationNodeType.Union: {
+      const alias = config.union?.alias?.trim()
+      if (alias) summary.push({ label: 'Alias', value: alias })
       break
     }
     default:
