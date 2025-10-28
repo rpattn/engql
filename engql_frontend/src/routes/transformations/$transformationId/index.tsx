@@ -22,6 +22,8 @@ import {
 import type { TransformationAliasSummary } from '@/features/transformations/utils/preview'
 import { sanitizeAlias } from '@/features/transformations/utils/alias'
 
+const AUTO_SAVE_DEBOUNCE_MS = 800
+
 export const Route = createFileRoute('/transformations/$transformationId/')({
   component: TransformationDetailRoute,
 })
@@ -89,6 +91,7 @@ function TransformationDetailRoute() {
     graphSignature: '',
   })
   const pendingBaselineRef = useRef<typeof baseline | null>(null)
+  const autoSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     if (transformation) {
@@ -257,15 +260,26 @@ function TransformationDetailRoute() {
   }, [updateMutation.isError])
 
   useEffect(() => {
-    if (!isAutoSaveEnabled) {
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current)
+      autoSaveTimeoutRef.current = null
+    }
+
+    if (!isAutoSaveEnabled || !trimmedName || !isDirty || updateMutation.isPending) {
       return
     }
 
-    if (!trimmedName || !isDirty || updateMutation.isPending) {
-      return
-    }
+    autoSaveTimeoutRef.current = window.setTimeout(() => {
+      autoSaveTimeoutRef.current = null
+      handleSave()
+    }, AUTO_SAVE_DEBOUNCE_MS)
 
-    handleSave()
+    return () => {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current)
+        autoSaveTimeoutRef.current = null
+      }
+    }
   }, [
     handleSave,
     isAutoSaveEnabled,

@@ -24,6 +24,19 @@ export function TransformationCanvas({
     [],
   )
 
+  const nodes = useMemo(
+    () =>
+      controller.graph.nodes.map((node) => {
+        const isSelected = node.id === selectedNodeId
+        if ((node.selected ?? false) === isSelected) {
+          return node
+        }
+
+        return { ...node, selected: isSelected }
+      }),
+    [controller.graph.nodes, selectedNodeId],
+  )
+
   return (
     <div className="flex h-full flex-col gap-2">
       {controller.error && (
@@ -41,7 +54,7 @@ export function TransformationCanvas({
       <div className="flex-1 overflow-hidden rounded border border-slate-200">
         <ReactFlow
           fitView
-          nodes={controller.graph.nodes}
+          nodes={nodes}
           edges={controller.graph.edges}
           nodeTypes={nodeTypes}
           onNodesChange={controller.onNodesChange}
