@@ -139,22 +139,40 @@ function TransformationDetailRoute() {
       return
     }
 
-    const existing = graphController.graph.nodes.find(
-      (node) => node.id === selectedNodeId,
-    )
+    const nodes = graphController.graph.nodes
+    const existing = nodes.find((node) => node.id === selectedNodeId)
 
     if (!existing) {
       setSelectedNodeId(null)
       return
     }
 
-    if (existing.selected) {
+    const otherSelected = nodes.filter(
+      (node) => node.selected && node.id !== selectedNodeId,
+    )
+
+    if (!existing.selected) {
+      if (otherSelected.length > 0) {
+        return
+      }
+
+      graphController.onNodesChange([
+        { id: selectedNodeId, type: 'select', selected: true },
+      ])
       return
     }
 
-    graphController.onNodesChange([
-      { id: selectedNodeId, type: 'select', selected: true },
-    ])
+    if (otherSelected.length === 0) {
+      return
+    }
+
+    graphController.onNodesChange(
+      otherSelected.map((node) => ({
+        id: node.id,
+        type: 'select',
+        selected: false,
+      })),
+    )
   }, [graphController.graph.nodes, graphController.onNodesChange, selectedNodeId])
 
   const selectedAliases = useMemo(() => {
