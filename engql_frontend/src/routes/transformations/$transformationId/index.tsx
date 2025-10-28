@@ -92,6 +92,8 @@ function TransformationDetailRoute() {
   })
   const pendingBaselineRef = useRef<typeof baseline | null>(null)
   const autoSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const canvasContainerRef = useRef<HTMLDivElement | null>(null)
+  const inspectorRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     if (transformation) {
@@ -174,6 +176,36 @@ function TransformationDetailRoute() {
       })),
     )
   }, [graphController.graph.nodes, graphController.onNodesChange, selectedNodeId])
+
+  useEffect(() => {
+    if (!selectedNodeId) {
+      return
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!(event.target instanceof Node)) {
+        return
+      }
+
+      const canvasElement = canvasContainerRef.current
+      const inspectorElement = inspectorRef.current
+
+      if (
+        canvasElement?.contains(event.target) ||
+        inspectorElement?.contains(event.target)
+      ) {
+        return
+      }
+
+      setSelectedNodeId(null)
+    }
+
+    window.addEventListener('pointerdown', handlePointerDown)
+
+    return () => {
+      window.removeEventListener('pointerdown', handlePointerDown)
+    }
+  }, [selectedNodeId])
 
   const selectedAliases = useMemo(() => {
     if (!selectedNode) {
@@ -473,15 +505,19 @@ function TransformationDetailRoute() {
             setSelectedNodeId(node.id)
           }}
         />
-        <div className="min-h-[520px] rounded border border-slate-200 bg-white p-2">
+        <div
+          ref={canvasContainerRef}
+          className="min-h-[520px] rounded border border-slate-200 bg-white p-2"
+        >
           <TransformationCanvas
             controller={graphController}
             selectedNodeId={selectedNodeId}
             onSelect={(node) => setSelectedNodeId(node?.id ?? null)}
+            onDeselect={() => setSelectedNodeId(null)}
           />
         </div>
         <div className="flex flex-col gap-3">
-          <div className="flex-1">
+          <div className="flex-1" ref={inspectorRef}>
             <NodeInspector
               node={selectedNode}
               onUpdate={graphController.updateNode}

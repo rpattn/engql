@@ -11,10 +11,12 @@ import 'reactflow/dist/style.css'
 export function TransformationCanvas({
   controller,
   onSelect,
+  onDeselect,
   selectedNodeId,
 }: {
   controller: TransformationGraphController
   onSelect: (node: TransformationCanvasNode | null) => void
+  onDeselect: () => void
   selectedNodeId: string | null
 }) {
   const nodeTypes = useMemo(
@@ -47,6 +49,7 @@ export function TransformationCanvas({
           onNodesChange={controller.onNodesChange}
           onEdgesChange={controller.onEdgesChange}
           onConnect={controller.onConnect}
+          onPaneClick={onDeselect}
           onSelectionChange={(changes) => {
             const next = changes.nodes?.find((node) => node.selected) ?? null
             const nextId = next?.id ?? null
