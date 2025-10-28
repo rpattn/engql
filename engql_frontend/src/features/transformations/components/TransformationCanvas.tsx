@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { MutableRefObject, useMemo } from 'react'
 
 import ReactFlow, { Background, Controls } from 'reactflow'
 
@@ -13,11 +13,13 @@ export function TransformationCanvas({
   onSelect,
   onDeselect,
   selectedNodeId,
+  preserveSelectionRef,
 }: {
   controller: TransformationGraphController
   onSelect: (node: TransformationCanvasNode | null) => void
   onDeselect: () => void
   selectedNodeId: string | null
+  preserveSelectionRef: MutableRefObject<boolean>
 }) {
   const nodeTypes = useMemo(
     () => ({
@@ -51,8 +53,14 @@ export function TransformationCanvas({
           onConnect={controller.onConnect}
           onPaneClick={onDeselect}
           onSelectionChange={(changes) => {
+            const shouldPreserveSelection = preserveSelectionRef.current
             const next = changes.nodes?.find((node) => node.selected) ?? null
             const nextId = next?.id ?? null
+            const deselectingCurrent =
+              !!selectedNodeId &&
+              changes.nodes?.some(
+                (node) => node.id === selectedNodeId && node.selected === false,
+              )
 
             if (nextId) {
               if (nextId === selectedNodeId) {
@@ -63,10 +71,7 @@ export function TransformationCanvas({
               return
             }
 
-            if (
-              selectedNodeId &&
-              changes.nodes?.some((node) => node.id === selectedNodeId)
-            ) {
+            if (shouldPreserveSelection && deselectingCurrent) {
               // React Flow emitted a selection reset for the existing node (for example
               // after the graph re-renders). Keep our explicit selection state so the
               // inspector stays open.

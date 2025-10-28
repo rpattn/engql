@@ -21,6 +21,7 @@ import {
 } from '@/features/transformations/utils/nodes'
 import type { TransformationAliasSummary } from '@/features/transformations/utils/preview'
 import { sanitizeAlias } from '@/features/transformations/utils/alias'
+import type { TransformationCanvasNode } from '@/features/transformations/types'
 
 const AUTO_SAVE_DEBOUNCE_MS = 800
 
@@ -94,14 +95,41 @@ function TransformationDetailRoute() {
   const autoSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const canvasContainerRef = useRef<HTMLDivElement | null>(null)
   const inspectorRef = useRef<HTMLDivElement | null>(null)
+  const preserveSelectionRef = useRef(false)
+
+  const clearSelection = useCallback(() => {
+    preserveSelectionRef.current = false
+    setSelectedNodeId(null)
+  }, [])
+
+  const selectNodeById = useCallback((nodeId: string) => {
+    preserveSelectionRef.current = true
+    setSelectedNodeId(nodeId)
+  }, [])
+
+  const handleCanvasSelect = useCallback(
+    (node: TransformationCanvasNode | null) => {
+      if (node) {
+        selectNodeById(node.id)
+        return
+      }
+
+      clearSelection()
+    },
+    [clearSelection, selectNodeById],
+  )
+
+  const handleCanvasDeselect = useCallback(() => {
+    clearSelection()
+  }, [clearSelection])
 
   useEffect(() => {
     if (transformation) {
       setName(transformation.name)
       setDescription(transformation.description ?? '')
-      setSelectedNodeId(null)
+      clearSelection()
     }
-  }, [transformation?.id])
+  }, [clearSelection, transformation?.id])
 
   const initialGraphSignature = useMemo(() => {
     return JSON.stringify(serializeGraph(initialGraph))
@@ -145,7 +173,7 @@ function TransformationDetailRoute() {
     const existing = nodes.find((node) => node.id === selectedNodeId)
 
     if (!existing) {
-      setSelectedNodeId(null)
+      clearSelection()
       return
     }
 
@@ -175,7 +203,12 @@ function TransformationDetailRoute() {
         selected: false,
       })),
     )
-  }, [graphController.graph.nodes, graphController.onNodesChange, selectedNodeId])
+  }, [
+    clearSelection,
+    graphController.graph.nodes,
+    graphController.onNodesChange,
+    selectedNodeId,
+  ])
 
   useEffect(() => {
     if (!selectedNodeId) {
@@ -197,7 +230,7 @@ function TransformationDetailRoute() {
         return
       }
 
-      setSelectedNodeId(null)
+      clearSelection()
       graphController.onNodesChange([
         { id: selectedNodeId, type: 'select', selected: false },
       ])
@@ -208,7 +241,7 @@ function TransformationDetailRoute() {
     return () => {
       window.removeEventListener('pointerdown', handlePointerDown)
     }
-  }, [graphController, selectedNodeId])
+  }, [clearSelection, graphController, selectedNodeId])
 
   const selectedAliases = useMemo(() => {
     if (!selectedNode) {
@@ -505,7 +538,7 @@ function TransformationDetailRoute() {
         <NodePalette
           onAdd={(type) => {
             const node = graphController.addNode(type)
-            setSelectedNodeId(node.id)
+            selectNodeById(node.id)
           }}
         />
         <div
@@ -515,8 +548,9 @@ function TransformationDetailRoute() {
           <TransformationCanvas
             controller={graphController}
             selectedNodeId={selectedNodeId}
-            onSelect={(node) => setSelectedNodeId(node?.id ?? null)}
-            onDeselect={() => setSelectedNodeId(null)}
+            onSelect={handleCanvasSelect}
+            onDeselect={handleCanvasDeselect}
+            preserveSelectionRef={preserveSelectionRef}
           />
         </div>
         <div className="flex flex-col gap-3">
@@ -526,7 +560,7 @@ function TransformationDetailRoute() {
               onUpdate={graphController.updateNode}
               onDelete={(nodeId) => {
                 graphController.removeNode(nodeId)
-                setSelectedNodeId(null)
+                clearSelection()
               }}
               allNodes={graphController.graph.nodes}
               schemaFieldOptions={schemaFieldOptions}
