@@ -134,6 +134,29 @@ function TransformationDetailRoute() {
     [graphController.graph.nodes, selectedNodeId],
   )
 
+  useEffect(() => {
+    if (!selectedNodeId) {
+      return
+    }
+
+    const existing = graphController.graph.nodes.find(
+      (node) => node.id === selectedNodeId,
+    )
+
+    if (!existing) {
+      setSelectedNodeId(null)
+      return
+    }
+
+    if (existing.selected) {
+      return
+    }
+
+    graphController.onNodesChange([
+      { id: selectedNodeId, type: 'select', selected: true },
+    ])
+  }, [graphController.graph.nodes, graphController.onNodesChange, selectedNodeId])
+
   const selectedAliases = useMemo(() => {
     if (!selectedNode) {
       return [] as string[]
