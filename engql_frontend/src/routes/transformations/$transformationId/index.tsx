@@ -97,10 +97,14 @@ function TransformationDetailRoute() {
   const inspectorRef = useRef<HTMLDivElement | null>(null)
   const preserveSelectionRef = useRef(false)
 
-  const clearSelection = useCallback(() => {
+  const disableSelectionPreservation = useCallback(() => {
     preserveSelectionRef.current = false
-    setSelectedNodeId(null)
   }, [])
+
+  const clearSelection = useCallback(() => {
+    disableSelectionPreservation()
+    setSelectedNodeId(null)
+  }, [disableSelectionPreservation])
 
   const selectNodeById = useCallback((nodeId: string) => {
     preserveSelectionRef.current = true
@@ -120,6 +124,10 @@ function TransformationDetailRoute() {
   )
 
   const { onNodesChange } = graphController
+
+  const handleCanvasBackgroundPointerDown = useCallback(() => {
+    disableSelectionPreservation()
+  }, [disableSelectionPreservation])
 
   const handleCanvasDeselect = useCallback(() => {
     const previousSelection = selectedNodeId
@@ -240,6 +248,7 @@ function TransformationDetailRoute() {
         return
       }
 
+      disableSelectionPreservation()
       clearSelection()
       graphController.onNodesChange([
         { id: selectedNodeId, type: 'select', selected: false },
@@ -251,7 +260,12 @@ function TransformationDetailRoute() {
     return () => {
       window.removeEventListener('pointerdown', handlePointerDown)
     }
-  }, [clearSelection, graphController, selectedNodeId])
+  }, [
+    clearSelection,
+    disableSelectionPreservation,
+    graphController,
+    selectedNodeId,
+  ])
 
   const selectedAliases = useMemo(() => {
     if (!selectedNode) {
@@ -560,6 +574,7 @@ function TransformationDetailRoute() {
             selectedNodeId={selectedNodeId}
             onSelect={handleCanvasSelect}
             onDeselect={handleCanvasDeselect}
+            onBackgroundPointerDown={handleCanvasBackgroundPointerDown}
             preserveSelectionRef={preserveSelectionRef}
           />
         </div>
