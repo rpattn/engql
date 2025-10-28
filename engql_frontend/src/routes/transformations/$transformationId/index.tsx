@@ -119,9 +119,19 @@ function TransformationDetailRoute() {
     [clearSelection, selectNodeById],
   )
 
+  const { onNodesChange } = graphController
+
   const handleCanvasDeselect = useCallback(() => {
+    const previousSelection = selectedNodeId
+
     clearSelection()
-  }, [clearSelection])
+
+    if (previousSelection) {
+      onNodesChange([
+        { id: previousSelection, type: 'select', selected: false },
+      ])
+    }
+  }, [clearSelection, onNodesChange, selectedNodeId])
 
   useEffect(() => {
     if (transformation) {
