@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import {
   useDeleteEntityTransformationMutation,
@@ -83,6 +83,12 @@ function TransformationDetailRoute() {
   const [previewRefreshKey, setPreviewRefreshKey] = useState(0)
   const [schemaSummaries, setSchemaSummaries] = useState<TransformationAliasSummary[]>([])
   const [isAutoSaveEnabled, setIsAutoSaveEnabled] = useState(false)
+  const [baseline, setBaseline] = useState({
+    name: '',
+    description: '',
+    graphSignature: '',
+  })
+  const pendingBaselineRef = useRef<typeof baseline | null>(null)
 
   useEffect(() => {
     if (transformation) {
@@ -104,22 +110,18 @@ function TransformationDetailRoute() {
   const trimmedDescription = description.trim()
 
   const isDirty = useMemo(() => {
-    if (!transformation) {
-      return false
-    }
-
-    const initialDescription = transformation.description ?? ''
     return (
-      trimmedName !== transformation.name ||
-      trimmedDescription !== initialDescription.trim() ||
-      currentGraphSignature !== initialGraphSignature
+      trimmedName !== baseline.name ||
+      trimmedDescription !== baseline.description ||
+      currentGraphSignature !== baseline.graphSignature
     )
   }, [
-    transformation,
     trimmedName,
+    baseline.name,
     trimmedDescription,
+    baseline.description,
     currentGraphSignature,
-    initialGraphSignature,
+    baseline.graphSignature,
   ])
 
   const selectedNode = useMemo(
@@ -217,6 +219,12 @@ function TransformationDetailRoute() {
       return
     }
 
+    pendingBaselineRef.current = {
+      name: trimmedName,
+      description: trimmedDescription,
+      graphSignature: currentGraphSignature,
+    }
+
     updateMutation.mutate({
       input: {
         id: transformationId,
@@ -232,7 +240,21 @@ function TransformationDetailRoute() {
     graphController,
     transformationId,
     isDirty,
+    currentGraphSignature,
   ])
+
+  useEffect(() => {
+    if (updateMutation.isSuccess && pendingBaselineRef.current) {
+      setBaseline(pendingBaselineRef.current)
+      pendingBaselineRef.current = null
+    }
+  }, [updateMutation.isSuccess])
+
+  useEffect(() => {
+    if (updateMutation.isError) {
+      pendingBaselineRef.current = null
+    }
+  }, [updateMutation.isError])
 
   useEffect(() => {
     if (!isAutoSaveEnabled) {
@@ -251,6 +273,19 @@ function TransformationDetailRoute() {
     trimmedName,
     updateMutation.isPending,
   ])
+
+  useEffect(() => {
+    if (!transformation) {
+      setBaseline({ name: '', description: '', graphSignature: '' })
+      return
+    }
+
+    setBaseline({
+      name: transformation.name.trim(),
+      description: (transformation.description ?? '').trim(),
+      graphSignature: initialGraphSignature,
+    })
+  }, [transformation, initialGraphSignature])
 
   useEffect(() => {
     const handleKeydown = (event: KeyboardEvent) => {

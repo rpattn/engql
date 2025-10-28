@@ -176,10 +176,15 @@ export function useTransformationGraph(
 
   const resetRef = useRef(reset)
   const initialGraphSignatureRef = useRef<string | null>(null)
+  const latestGraphSignatureRef = useRef(JSON.stringify(initialGraph))
 
   useEffect(() => {
     resetRef.current = reset
   }, [reset])
+
+  useEffect(() => {
+    latestGraphSignatureRef.current = JSON.stringify(present)
+  }, [present])
 
   useEffect(() => {
     const nextSignature = JSON.stringify(initialGraph)
@@ -189,6 +194,11 @@ export function useTransformationGraph(
     }
 
     initialGraphSignatureRef.current = nextSignature
+
+    if (latestGraphSignatureRef.current === nextSignature) {
+      setError(null)
+      return
+    }
 
     resetRef.current(initialGraph)
     setError(null)
