@@ -198,6 +198,9 @@ function TransformationDetailRoute() {
       }
 
       setSelectedNodeId(null)
+      graphController.onNodesChange([
+        { id: selectedNodeId, type: 'select', selected: false },
+      ])
     }
 
     window.addEventListener('pointerdown', handlePointerDown)
@@ -205,7 +208,7 @@ function TransformationDetailRoute() {
     return () => {
       window.removeEventListener('pointerdown', handlePointerDown)
     }
-  }, [selectedNodeId])
+  }, [graphController, selectedNodeId])
 
   const selectedAliases = useMemo(() => {
     if (!selectedNode) {

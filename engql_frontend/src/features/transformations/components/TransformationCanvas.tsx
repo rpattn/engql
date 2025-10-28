@@ -54,11 +54,28 @@ export function TransformationCanvas({
             const next = changes.nodes?.find((node) => node.selected) ?? null
             const nextId = next?.id ?? null
 
-            if (nextId === selectedNodeId) {
+            if (nextId) {
+              if (nextId === selectedNodeId) {
+                return
+              }
+
+              onSelect(next as TransformationCanvasNode | null)
               return
             }
 
-            onSelect(next as TransformationCanvasNode | null)
+            if (
+              selectedNodeId &&
+              changes.nodes?.some((node) => node.id === selectedNodeId)
+            ) {
+              // React Flow emitted a selection reset for the existing node (for example
+              // after the graph re-renders). Keep our explicit selection state so the
+              // inspector stays open.
+              return
+            }
+
+            if (selectedNodeId) {
+              onSelect(null)
+            }
           }}
           minZoom={0.2}
           maxZoom={1.75}
