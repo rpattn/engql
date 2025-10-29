@@ -206,10 +206,11 @@ func TestExecutor_FilterFallbackAlias(t *testing.T) {
 
 func TestExecutor_Materialize(t *testing.T) {
 	orgID := uuid.New()
+	userID := uuid.New()
 	repo := &mockEntityRepository{
 		entities: []domain.Entity{
 			{
-				ID:             uuid.New(),
+				ID:             userID,
 				OrganizationID: orgID,
 				EntityType:     "user",
 				Properties: map[string]any{
@@ -250,6 +251,7 @@ func TestExecutor_Materialize(t *testing.T) {
 							Fields: []domain.EntityTransformationMaterializeFieldMapping{
 								{SourceAlias: "users", SourceField: "firstName", OutputField: "firstName"},
 								{SourceAlias: "users", SourceField: "status", OutputField: "status"},
+								{SourceAlias: "users", SourceField: "id", OutputField: "id"},
 							},
 						},
 					},
@@ -276,11 +278,21 @@ func TestExecutor_Materialize(t *testing.T) {
 	if entity == nil {
 		t.Fatalf("expected entity for alias materialized")
 	}
+	if entity.ID != userID {
+		t.Fatalf("expected materialized entity to retain ID %s, got %s", userID, entity.ID)
+	}
 	if entity.Properties["firstName"] != "Alice" {
 		t.Fatalf("unexpected firstName %v", entity.Properties["firstName"])
 	}
 	if entity.Properties["status"] != "active" {
 		t.Fatalf("unexpected status %v", entity.Properties["status"])
+	}
+	idProp, ok := entity.Properties["id"].(string)
+	if !ok {
+		t.Fatalf("expected id property to be string, got %T", entity.Properties["id"])
+	}
+	if idProp != userID.String() {
+		t.Fatalf("expected id property %s, got %s", userID, idProp)
 	}
 }
 

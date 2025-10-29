@@ -199,23 +199,22 @@ func (e *Executor) executeMaterialize(node domain.EntityTransformationNode, cach
 				return nil, fmt.Errorf("materialize output alias is required")
 			}
 
-			properties := make(map[string]any, len(output.Fields))
+			entity := seedMaterializedEntity(record, output)
 			for _, field := range output.Fields {
 				if field.OutputField == "" {
 					continue
 				}
 				source := record.Entities[field.SourceAlias]
-				if source == nil || source.Properties == nil {
-					continue
-				}
-				value, ok := source.Properties[field.SourceField]
+				value, ok := extractMaterializeValue(source, field.SourceField)
 				if !ok {
 					continue
 				}
-				properties[field.OutputField] = value
+				if entity.Properties == nil {
+					entity.Properties = make(map[string]any)
+				}
+				entity.Properties[field.OutputField] = value
 			}
 
-			entity := &domain.Entity{Properties: properties}
 			materializedEntities[output.Alias] = entity
 		}
 
@@ -224,6 +223,78 @@ func (e *Executor) executeMaterialize(node domain.EntityTransformationNode, cach
 	}
 
 	return results, nil
+}
+
+func seedMaterializedEntity(record domain.EntityTransformationRecord, output domain.EntityTransformationMaterializeOutput) *domain.Entity {
+	for _, field := range output.Fields {
+		if field.SourceAlias == "" {
+			continue
+		}
+		source := record.Entities[field.SourceAlias]
+		if source == nil {
+			continue
+		}
+		copy := *source
+		copy.Properties = make(map[string]any, len(output.Fields))
+		return &copy
+	}
+
+	return &domain.Entity{ID: uuid.New(), Properties: make(map[string]any, len(output.Fields))}
+}
+
+func extractMaterializeValue(source *domain.Entity, field string) (any, bool) {
+	if source == nil {
+		return nil, false
+	}
+
+	switch field {
+	case "id", "ID":
+		if source.ID == uuid.Nil {
+			return nil, false
+		}
+		return source.ID.String(), true
+	case "organizationId", "organization_id":
+		if source.OrganizationID == uuid.Nil {
+			return nil, false
+		}
+		return source.OrganizationID.String(), true
+	case "schemaId", "schema_id":
+		if source.SchemaID == uuid.Nil {
+			return nil, false
+		}
+		return source.SchemaID.String(), true
+	case "entityType", "entity_type":
+		if source.EntityType == "" {
+			return nil, false
+		}
+		return source.EntityType, true
+	case "path":
+		if source.Path == "" {
+			return nil, false
+		}
+		return source.Path, true
+	case "version":
+		if source.Version == 0 {
+			return nil, false
+		}
+		return source.Version, true
+	case "createdAt", "created_at":
+		if source.CreatedAt.IsZero() {
+			return nil, false
+		}
+		return source.CreatedAt, true
+	case "updatedAt", "updated_at":
+		if source.UpdatedAt.IsZero() {
+			return nil, false
+		}
+		return source.UpdatedAt, true
+	default:
+		if source.Properties == nil {
+			return nil, false
+		}
+		value, ok := source.Properties[field]
+		return value, ok
+	}
 }
 
 func (e *Executor) executeJoin(
