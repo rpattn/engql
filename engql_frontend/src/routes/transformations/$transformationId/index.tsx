@@ -614,6 +614,7 @@ function TransformationDetailRoute() {
                 clearSelection()
               }}
               allNodes={graphController.graph.nodes}
+              edges={graphController.graph.edges}
               schemaFieldOptions={schemaFieldOptions}
               entityTypeOptions={entityTypeOptions}
             />
