@@ -3,11 +3,14 @@ package transformations
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	"github.com/rpattn/engql/internal/domain"
 
 	"github.com/google/uuid"
 )
+
+const anyAliasSentinel = "__ANY_ALIAS__"
 
 // EntityRepository defines the subset of entity storage used by the executor.
 type EntityRepository interface {
@@ -193,26 +196,36 @@ func (e *Executor) executeMaterialize(node domain.EntityTransformationNode, cach
 	for _, record := range inputRecords {
 		clone := record.Clone()
 		materializedEntities := make(map[string]*domain.Entity, len(node.Materialize.Outputs))
+		aliasOrder := sortedEntityAliases(record.Entities)
 
 		for _, output := range node.Materialize.Outputs {
 			if output.Alias == "" {
 				return nil, fmt.Errorf("materialize output alias is required")
 			}
 
-			entity := seedMaterializedEntity(record, output)
+			entity, seededFromSource := seedMaterializedEntity(record, output, aliasOrder)
 			for _, field := range output.Fields {
 				if field.OutputField == "" {
 					continue
 				}
-				source := record.Entities[field.SourceAlias]
-				value, ok := extractMaterializeValue(source, field.SourceField)
-				if !ok {
-					continue
+
+				aliases := resolveMaterializeAliases(field.SourceAlias, aliasOrder)
+				for _, alias := range aliases {
+					source := record.Entities[alias]
+					value, ok := extractMaterializeValue(source, field.SourceField)
+					if !ok {
+						continue
+					}
+					if source != nil && !seededFromSource {
+						adoptMaterializeMetadata(entity, source)
+						seededFromSource = true
+					}
+					if entity.Properties == nil {
+						entity.Properties = make(map[string]any)
+					}
+					entity.Properties[field.OutputField] = value
+					break
 				}
-				if entity.Properties == nil {
-					entity.Properties = make(map[string]any)
-				}
-				entity.Properties[field.OutputField] = value
 			}
 
 			materializedEntities[output.Alias] = entity
@@ -225,21 +238,68 @@ func (e *Executor) executeMaterialize(node domain.EntityTransformationNode, cach
 	return results, nil
 }
 
-func seedMaterializedEntity(record domain.EntityTransformationRecord, output domain.EntityTransformationMaterializeOutput) *domain.Entity {
+func seedMaterializedEntity(record domain.EntityTransformationRecord, output domain.EntityTransformationMaterializeOutput, aliasOrder []string) (*domain.Entity, bool) {
 	for _, field := range output.Fields {
-		if field.SourceAlias == "" {
+		switch field.SourceAlias {
+		case "":
 			continue
+		case anyAliasSentinel:
+			for _, alias := range aliasOrder {
+				source := record.Entities[alias]
+				if source == nil {
+					continue
+				}
+				copy := *source
+				copy.Properties = make(map[string]any, len(output.Fields))
+				return &copy, true
+			}
+		default:
+			source := record.Entities[field.SourceAlias]
+			if source == nil {
+				continue
+			}
+			copy := *source
+			copy.Properties = make(map[string]any, len(output.Fields))
+			return &copy, true
 		}
-		source := record.Entities[field.SourceAlias]
-		if source == nil {
-			continue
-		}
-		copy := *source
-		copy.Properties = make(map[string]any, len(output.Fields))
-		return &copy
 	}
 
-	return &domain.Entity{ID: uuid.New(), Properties: make(map[string]any, len(output.Fields))}
+	return &domain.Entity{ID: uuid.New(), Properties: make(map[string]any, len(output.Fields))}, false
+}
+
+func resolveMaterializeAliases(sourceAlias string, aliasOrder []string) []string {
+	switch sourceAlias {
+	case "", anyAliasSentinel:
+		return aliasOrder
+	default:
+		return []string{sourceAlias}
+	}
+}
+
+func sortedEntityAliases(entities map[string]*domain.Entity) []string {
+	if len(entities) == 0 {
+		return nil
+	}
+	aliases := make([]string, 0, len(entities))
+	for alias := range entities {
+		aliases = append(aliases, alias)
+	}
+	sort.Strings(aliases)
+	return aliases
+}
+
+func adoptMaterializeMetadata(target *domain.Entity, source *domain.Entity) {
+	if target == nil || source == nil {
+		return
+	}
+	target.ID = source.ID
+	target.OrganizationID = source.OrganizationID
+	target.SchemaID = source.SchemaID
+	target.EntityType = source.EntityType
+	target.Path = source.Path
+	target.Version = source.Version
+	target.CreatedAt = source.CreatedAt
+	target.UpdatedAt = source.UpdatedAt
 }
 
 func extractMaterializeValue(source *domain.Entity, field string) (any, bool) {

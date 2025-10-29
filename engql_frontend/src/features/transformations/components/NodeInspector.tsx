@@ -12,6 +12,7 @@ import {
   isAliasDerivedFromEntityType,
   sanitizeAlias,
   getNodeAliases,
+  ANY_SOURCE_ALIAS,
 } from '../utils/alias'
 import { formatNodeType } from '../utils/format'
 
@@ -154,22 +155,39 @@ export function NodeInspector({
     return map
   }, [allNodes, schemaFieldOptions])
 
-  const getFieldOptions = (alias?: string | null) => {
-    if (!alias) {
-      return [] as string[]
+  const allFieldOptions = useMemo(() => {
+    const set = new Set<string>()
+    for (const fields of Object.values(combinedFieldOptions)) {
+      for (const field of fields) {
+        set.add(field)
+      }
     }
+    return Array.from(set).sort((a, b) => a.localeCompare(b))
+  }, [combinedFieldOptions])
 
-    const trimmed = alias.trim()
-    if (!trimmed.length) {
-      return [] as string[]
-    }
+  const getFieldOptions = useCallback(
+    (alias?: string | null) => {
+      if (!alias) {
+        return [] as string[]
+      }
 
-    return (
-      combinedFieldOptions[trimmed] ??
-      combinedFieldOptions[sanitizeAlias(trimmed)] ??
-      []
-    )
-  }
+      if (alias === ANY_SOURCE_ALIAS) {
+        return allFieldOptions
+      }
+
+      const trimmed = alias.trim()
+      if (!trimmed.length) {
+        return [] as string[]
+      }
+
+      return (
+        combinedFieldOptions[trimmed] ??
+        combinedFieldOptions[sanitizeAlias(trimmed)] ??
+        []
+      )
+    },
+    [allFieldOptions, combinedFieldOptions],
+  )
 
   const availableSourceAliases = useMemo(() => {
     const set = new Set<string>()
@@ -183,8 +201,18 @@ export function NodeInspector({
       }
     }
 
-    return Array.from(set).sort((a, b) => a.localeCompare(b))
+    const sorted = Array.from(set).sort((a, b) => a.localeCompare(b))
+    if (!sorted.length) {
+      return sorted
+    }
+
+    return [ANY_SOURCE_ALIAS, ...sorted]
   }, [allNodes])
+
+  const concreteSourceAliases = useMemo(
+    () => availableSourceAliases.filter((alias) => alias !== ANY_SOURCE_ALIAS),
+    [availableSourceAliases],
+  )
 
   const upstreamAliases = useMemo(() => {
     if (!node) {
@@ -212,28 +240,8 @@ export function NodeInspector({
   }, [allNodes, edges, node])
 
   const inferFieldsForAlias = useCallback(
-    (alias: string | undefined | null) => {
-      const trimmed = alias?.trim()
-      if (!trimmed) {
-        return [] as string[]
-      }
-
-      const candidates = [trimmed]
-      const sanitized = sanitizeAlias(trimmed)
-      if (sanitized && sanitized !== trimmed) {
-        candidates.push(sanitized)
-      }
-
-      for (const key of candidates) {
-        const options = combinedFieldOptions[key]
-        if (options?.length) {
-          return options
-        }
-      }
-
-      return [] as string[]
-    },
-    [combinedFieldOptions],
+    (alias: string | undefined | null) => getFieldOptions(alias),
+    [getFieldOptions],
   )
 
   useEffect(() => {
@@ -265,7 +273,7 @@ export function NodeInspector({
           ?.map((field) => field.sourceAlias)
           .filter((value): value is string => Boolean(value && value.trim())) ?? []),
         ...upstreamAliases,
-        ...availableSourceAliases,
+        ...concreteSourceAliases,
       ]
 
       let chosenAlias: string | null = null
@@ -323,7 +331,7 @@ export function NodeInspector({
       }
     })
   }, [
-    availableSourceAliases,
+    concreteSourceAliases,
     inferFieldsForAlias,
     node,
     onUpdate,
@@ -816,7 +824,7 @@ export function NodeInspector({
                                 .map((field) => field.sourceAlias)
                                 .filter((value): value is string => Boolean(value && value.trim())),
                               ...upstreamAliases,
-                              ...availableSourceAliases,
+                              ...concreteSourceAliases,
                             ]
 
                             for (const candidate of candidates) {
@@ -878,7 +886,7 @@ export function NodeInspector({
                                 <label className="block text-xs font-medium text-slate-600">
                                   Source alias
                                   <select
-                                    value={field.sourceAlias}
+                                    value={field.sourceAlias ?? ''}
                                     onChange={(event) =>
                                       updateConfig((config) => {
                                         if (!config.materialize) {
@@ -910,7 +918,9 @@ export function NodeInspector({
                                     <option value="">Select an alias</option>
                                     {sourceOptions.map((option) => (
                                       <option key={option} value={option}>
-                                        {option}
+                                        {option === ANY_SOURCE_ALIAS
+                                          ? 'Any available alias'
+                                          : option}
                                       </option>
                                     ))}
                                   </select>

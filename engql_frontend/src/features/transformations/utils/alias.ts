@@ -2,6 +2,8 @@ import { EntityTransformationNodeType } from '@/generated/graphql'
 
 import type { TransformationCanvasNode } from '../types'
 
+export const ANY_SOURCE_ALIAS = '__ANY_ALIAS__'
+
 type AliasChange = { oldAlias: string; newAlias: string }
 
 export function sanitizeAlias(input: string | undefined | null): string {
