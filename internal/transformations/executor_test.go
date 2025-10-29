@@ -28,12 +28,45 @@ func (m *mockEntityRepository) List(ctx context.Context, organizationID uuid.UUI
 				matched := true
 				for _, pf := range filter.PropertyFilters {
 					value := entity.Properties[pf.Key]
-					if pf.Value != "" && value != pf.Value {
-						matched = false
-						break
-					}
 					if pf.Exists != nil {
-						if *pf.Exists && value == nil {
+						if *pf.Exists {
+							if value == nil {
+								matched = false
+								break
+							}
+						} else {
+							if value != nil {
+								if pf.Value == "" && len(pf.InArray) == 0 {
+									if !mockPropertyValueIsEmpty(value) {
+										matched = false
+										break
+									}
+								} else {
+									matched = false
+									break
+								}
+							}
+						}
+					}
+					if pf.Value != "" {
+						if value == nil || fmt.Sprintf("%v", value) != pf.Value {
+							matched = false
+							break
+						}
+					}
+					if len(pf.InArray) > 0 {
+						if value == nil {
+							matched = false
+							break
+						}
+						found := false
+						for _, candidate := range pf.InArray {
+							if fmt.Sprintf("%v", value) == candidate {
+								found = true
+								break
+							}
+						}
+						if !found {
 							matched = false
 							break
 						}
@@ -47,6 +80,24 @@ func (m *mockEntityRepository) List(ctx context.Context, organizationID uuid.UUI
 		result = append(result, entity)
 	}
 	return result, len(result), nil
+}
+
+func mockPropertyValueIsEmpty(value any) bool {
+	if value == nil {
+		return true
+	}
+	switch v := value.(type) {
+	case string:
+		return v == ""
+	case *string:
+		return v == nil || *v == ""
+	case fmt.Stringer:
+		return v.String() == ""
+	case []byte:
+		return len(v) == 0
+	default:
+		return false
+	}
 }
 
 type mockSchemaProvider struct {
@@ -1395,8 +1446,8 @@ func TestExecutor_JoinRespectsExecutionWindow(t *testing.T) {
 	if len(result.Records) != opts.Limit {
 		t.Fatalf("expected %d records, got %d", opts.Limit, len(result.Records))
 	}
-	if result.TotalCount != opts.Limit {
-		t.Fatalf("expected total count %d, got %d", opts.Limit, result.TotalCount)
+	if result.TotalCount != totalCombos {
+		t.Fatalf("expected total count %d, got %d", totalCombos, result.TotalCount)
 	}
 
 	expectedFirstLeft := opts.Offset / rightCount

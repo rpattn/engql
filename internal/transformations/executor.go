@@ -36,7 +36,8 @@ type pageRequest struct {
 type pageLimiter struct {
 	limit  int
 	offset int
-	seen   int
+	total  int
+	max    int
 }
 
 func newPageLimiter(req pageRequest) pageLimiter {
@@ -47,25 +48,27 @@ func newPageLimiter(req pageRequest) pageLimiter {
 	if limiter.offset < 0 {
 		limiter.offset = 0
 	}
+	if limiter.limit > 0 {
+		limiter.max = limiter.offset + limiter.limit
+	}
 	return limiter
 }
 
-func (p *pageLimiter) ShouldContinue() bool {
+func (p *pageLimiter) Include() bool {
+	p.total++
 	if p.limit == 0 {
 		return true
 	}
-	return p.seen < p.offset+p.limit
+	return p.total <= p.max
 }
 
-func (p *pageLimiter) Consider() bool {
-	p.seen++
-	if p.seen <= p.offset {
-		return false
-	}
-	if p.limit == 0 {
-		return true
-	}
-	return p.seen <= p.offset+p.limit
+func (p *pageLimiter) Total() int {
+	return p.total
+}
+
+type nodeResult struct {
+	records []domain.EntityTransformationRecord
+	total   int
 }
 
 func appendPageRequest(existing pageRequest, count int, incoming pageRequest) (pageRequest, int) {
@@ -102,7 +105,7 @@ func (e *Executor) Execute(ctx context.Context, transformation domain.EntityTran
 		return domain.EntityTransformationExecutionResult{}, err
 	}
 
-	results := make(map[uuid.UUID][]domain.EntityTransformationRecord)
+	results := make(map[uuid.UUID]nodeResult)
 	schemaCache := make(map[string]schemaCacheEntry)
 
 	nodeRequests := make(map[uuid.UUID]pageRequest)
@@ -177,10 +180,14 @@ func (e *Executor) Execute(ctx context.Context, transformation domain.EntityTran
 	}
 
 	finalNode := sorted[len(sorted)-1]
-	finalRecords := append([]domain.EntityTransformationRecord(nil), results[finalNode.ID]...)
-	totalCount := len(finalRecords)
+	finalResult := results[finalNode.ID]
+	finalRecords := finalResult.records
+	if (opts.Limit > 0 || opts.Offset > 0) && finalNode.Type != domain.TransformationNodePaginate {
+		finalRecords = domain.PaginateRecords(finalRecords, opts.Limit, opts.Offset)
+	}
+	finalRecords = append([]domain.EntityTransformationRecord(nil), finalRecords...)
 
-	return domain.EntityTransformationExecutionResult{Records: finalRecords, TotalCount: totalCount}, nil
+	return domain.EntityTransformationExecutionResult{Records: finalRecords, TotalCount: finalResult.total}, nil
 }
 
 func (e *Executor) executeNode(
@@ -188,9 +195,9 @@ func (e *Executor) executeNode(
 	transformation domain.EntityTransformation,
 	node domain.EntityTransformationNode,
 	req pageRequest,
-	cache map[uuid.UUID][]domain.EntityTransformationRecord,
+	cache map[uuid.UUID]nodeResult,
 	schemaCache map[string]schemaCacheEntry,
-) ([]domain.EntityTransformationRecord, error) {
+) (nodeResult, error) {
 	switch node.Type {
 	case domain.TransformationNodeLoad:
 		return e.executeLoad(ctx, transformation, node, req)
@@ -209,151 +216,157 @@ func (e *Executor) executeNode(
 	case domain.TransformationNodePaginate:
 		return e.executePaginate(node, cache, req)
 	default:
-		return nil, fmt.Errorf("unsupported node type %s", node.Type)
+		return nodeResult{}, fmt.Errorf("unsupported node type %s", node.Type)
 	}
 }
 
-func (e *Executor) executeLoad(ctx context.Context, transformation domain.EntityTransformation, node domain.EntityTransformationNode, req pageRequest) ([]domain.EntityTransformationRecord, error) {
+func (e *Executor) executeLoad(ctx context.Context, transformation domain.EntityTransformation, node domain.EntityTransformationNode, req pageRequest) (nodeResult, error) {
 	if node.Load == nil {
-		return nil, fmt.Errorf("load node missing configuration")
+		return nodeResult{}, fmt.Errorf("load node missing configuration")
 	}
 	limit := 1000
 	if req.limit > 0 {
 		desired := req.limit + req.offset
-		if desired > 0 && desired < limit {
+		if desired > 0 {
 			limit = desired
 		}
 	}
 	filter := &domain.EntityFilter{EntityType: node.Load.EntityType, PropertyFilters: node.Load.Filters}
-	entities, _, err := e.entityRepo.List(ctx, transformation.OrganizationID, filter, nil, limit, 0)
+	entities, totalCount, err := e.entityRepo.List(ctx, transformation.OrganizationID, filter, nil, limit, 0)
 	if err != nil {
-		return nil, fmt.Errorf("load entities: %w", err)
+		return nodeResult{}, fmt.Errorf("load entities: %w", err)
 	}
 	capacity := len(entities)
-	if req.limit > 0 && req.limit < capacity {
-		capacity = req.limit
+	limiter := newPageLimiter(req)
+	if limiter.limit > 0 && limiter.max > 0 && limiter.max < capacity {
+		capacity = limiter.max
 	}
 	records := make([]domain.EntityTransformationRecord, 0, capacity)
-	limiter := newPageLimiter(req)
 	for i := range entities {
-		if !limiter.ShouldContinue() {
-			break
-		}
 		entity := entities[i]
 		if !domain.ApplyPropertyFilters(&entity, node.Load.Filters) {
 			continue
 		}
-		if !limiter.Consider() {
-			continue
+		if limiter.Include() {
+			entityCopy := entity
+			record := domain.EntityTransformationRecord{Entities: map[string]*domain.Entity{node.Load.Alias: &entityCopy}}
+			records = append(records, record)
 		}
-		entityCopy := entity
-		record := domain.EntityTransformationRecord{Entities: map[string]*domain.Entity{node.Load.Alias: &entityCopy}}
-		records = append(records, record)
 	}
-	return records, nil
+	if totalCount == 0 {
+		totalCount = limiter.Total()
+	}
+	return nodeResult{records: records, total: totalCount}, nil
 }
 
-func (e *Executor) executeFilter(node domain.EntityTransformationNode, cache map[uuid.UUID][]domain.EntityTransformationRecord, req pageRequest) ([]domain.EntityTransformationRecord, error) {
+func (e *Executor) executeFilter(node domain.EntityTransformationNode, cache map[uuid.UUID]nodeResult, req pageRequest) (nodeResult, error) {
 	if len(node.Inputs) != 1 {
-		return nil, fmt.Errorf("filter node requires exactly one input")
+		return nodeResult{}, fmt.Errorf("filter node requires exactly one input")
 	}
 	if node.Filter == nil {
-		return nil, fmt.Errorf("filter node missing configuration")
+		return nodeResult{}, fmt.Errorf("filter node missing configuration")
 	}
-	inputRecords, ok := cache[node.Inputs[0]]
+	inputResult, ok := cache[node.Inputs[0]]
 	if !ok {
-		return nil, fmt.Errorf("filter input not found")
+		return nodeResult{}, fmt.Errorf("filter input not found")
 	}
+	inputRecords := inputResult.records
 	filterAlias, err := resolveFilterAlias(inputRecords, node.Filter.Alias)
 	if err != nil {
-		return nil, err
+		return nodeResult{}, err
 	}
 	limiter := newPageLimiter(req)
-	filtered := make([]domain.EntityTransformationRecord, 0, len(inputRecords))
+	capacity := len(inputRecords)
+	if limiter.limit > 0 && limiter.max > 0 && limiter.max < capacity {
+		capacity = limiter.max
+	}
+	filtered := make([]domain.EntityTransformationRecord, 0, capacity)
 	for _, record := range inputRecords {
-		if !limiter.ShouldContinue() {
-			break
-		}
 		entity := record.Entities[filterAlias]
 		if domain.ApplyPropertyFilters(entity, node.Filter.Filters) {
-			if limiter.Consider() {
+			if limiter.Include() {
 				filtered = append(filtered, record.Clone())
 			}
 		}
 	}
-	return filtered, nil
+	return nodeResult{records: filtered, total: limiter.Total()}, nil
 }
 
-func (e *Executor) executeProject(node domain.EntityTransformationNode, cache map[uuid.UUID][]domain.EntityTransformationRecord, req pageRequest) ([]domain.EntityTransformationRecord, error) {
+func (e *Executor) executeProject(node domain.EntityTransformationNode, cache map[uuid.UUID]nodeResult, req pageRequest) (nodeResult, error) {
 	if len(node.Inputs) != 1 {
-		return nil, fmt.Errorf("project node requires exactly one input")
+		return nodeResult{}, fmt.Errorf("project node requires exactly one input")
 	}
 	if node.Project == nil {
-		return nil, fmt.Errorf("project node missing configuration")
+		return nodeResult{}, fmt.Errorf("project node missing configuration")
 	}
-	inputRecords, ok := cache[node.Inputs[0]]
+	inputResult, ok := cache[node.Inputs[0]]
 	if !ok {
-		return nil, fmt.Errorf("project input not found")
+		return nodeResult{}, fmt.Errorf("project input not found")
 	}
+	inputRecords := inputResult.records
 	limiter := newPageLimiter(req)
-	projected := make([]domain.EntityTransformationRecord, 0, len(inputRecords))
+	capacity := len(inputRecords)
+	if limiter.limit > 0 && limiter.max > 0 && limiter.max < capacity {
+		capacity = limiter.max
+	}
+	projected := make([]domain.EntityTransformationRecord, 0, capacity)
 	for _, record := range inputRecords {
-		if !limiter.ShouldContinue() {
-			break
-		}
 		clone := record.Clone()
-		if len(clone.Entities) == 0 {
-			if limiter.Consider() {
-				projected = append(projected, clone)
+		if len(clone.Entities) != 0 {
+			targetAlias, sourceAlias, err := resolveProjectAliases(clone.Entities, node.Project.Alias)
+			if err != nil {
+				return nodeResult{}, err
 			}
-			continue
+
+			projectedEntity := domain.ProjectEntity(clone.Entities[sourceAlias], node.Project.Fields)
+			if sourceAlias != targetAlias {
+				delete(clone.Entities, sourceAlias)
+			}
+			clone.Entities[targetAlias] = projectedEntity
 		}
 
-		targetAlias, sourceAlias, err := resolveProjectAliases(clone.Entities, node.Project.Alias)
-		if err != nil {
-			return nil, err
-		}
-
-		projectedEntity := domain.ProjectEntity(clone.Entities[sourceAlias], node.Project.Fields)
-		if sourceAlias != targetAlias {
-			delete(clone.Entities, sourceAlias)
-		}
-		clone.Entities[targetAlias] = projectedEntity
-		if limiter.Consider() {
+		if limiter.Include() {
 			projected = append(projected, clone)
 		}
 	}
-	return projected, nil
+
+	total := inputResult.total
+	if total == 0 {
+		total = limiter.Total()
+	}
+	return nodeResult{records: projected, total: total}, nil
 }
 
-func (e *Executor) executeMaterialize(node domain.EntityTransformationNode, cache map[uuid.UUID][]domain.EntityTransformationRecord, req pageRequest) ([]domain.EntityTransformationRecord, error) {
+func (e *Executor) executeMaterialize(node domain.EntityTransformationNode, cache map[uuid.UUID]nodeResult, req pageRequest) (nodeResult, error) {
 	if len(node.Inputs) != 1 {
-		return nil, fmt.Errorf("materialize node requires exactly one input")
+		return nodeResult{}, fmt.Errorf("materialize node requires exactly one input")
 	}
 	if node.Materialize == nil {
-		return nil, fmt.Errorf("materialize node missing configuration")
+		return nodeResult{}, fmt.Errorf("materialize node missing configuration")
 	}
 	if len(node.Materialize.Outputs) == 0 {
-		return nil, fmt.Errorf("materialize node requires at least one output")
+		return nodeResult{}, fmt.Errorf("materialize node requires at least one output")
 	}
-	inputRecords, ok := cache[node.Inputs[0]]
+	inputResult, ok := cache[node.Inputs[0]]
 	if !ok {
-		return nil, fmt.Errorf("materialize input not found")
+		return nodeResult{}, fmt.Errorf("materialize input not found")
 	}
+	inputRecords := inputResult.records
 
 	limiter := newPageLimiter(req)
-	results := make([]domain.EntityTransformationRecord, 0, len(inputRecords))
+	capacity := len(inputRecords)
+	if limiter.limit > 0 && limiter.max > 0 && limiter.max < capacity {
+		capacity = limiter.max
+	}
+	results := make([]domain.EntityTransformationRecord, 0, capacity)
 	for _, record := range inputRecords {
-		if !limiter.ShouldContinue() {
-			break
-		}
 		clone := record.Clone()
 		materializedEntities := make(map[string]*domain.Entity, len(node.Materialize.Outputs))
 		aliasOrder := sortedEntityAliases(record.Entities)
 
 		for _, output := range node.Materialize.Outputs {
 			if output.Alias == "" {
-				return nil, fmt.Errorf("materialize output alias is required")
+				return nodeResult{}, fmt.Errorf("materialize output alias is required")
 			}
 
 			entity, seededFromSource := seedMaterializedEntity(record, output, aliasOrder)
@@ -385,12 +398,16 @@ func (e *Executor) executeMaterialize(node domain.EntityTransformationNode, cach
 		}
 
 		clone.Entities = materializedEntities
-		if limiter.Consider() {
+		if limiter.Include() {
 			results = append(results, clone)
 		}
 	}
 
-	return results, nil
+	total := inputResult.total
+	if total == 0 {
+		total = limiter.Total()
+	}
+	return nodeResult{records: results, total: total}, nil
 }
 
 func seedMaterializedEntity(record domain.EntityTransformationRecord, output domain.EntityTransformationMaterializeOutput, aliasOrder []string) (*domain.Entity, bool) {
@@ -516,24 +533,26 @@ func (e *Executor) executeJoin(
 	ctx context.Context,
 	organizationID uuid.UUID,
 	node domain.EntityTransformationNode,
-	cache map[uuid.UUID][]domain.EntityTransformationRecord,
+	cache map[uuid.UUID]nodeResult,
 	schemaCache map[string]schemaCacheEntry,
 	req pageRequest,
-) ([]domain.EntityTransformationRecord, error) {
+) (nodeResult, error) {
 	if len(node.Inputs) != 2 {
-		return nil, fmt.Errorf("join node requires two inputs")
+		return nodeResult{}, fmt.Errorf("join node requires two inputs")
 	}
 	if node.Join == nil {
-		return nil, fmt.Errorf("join node missing configuration")
+		return nodeResult{}, fmt.Errorf("join node missing configuration")
 	}
-	leftRecords, ok := cache[node.Inputs[0]]
+	leftResult, ok := cache[node.Inputs[0]]
 	if !ok {
-		return nil, fmt.Errorf("join left input missing")
+		return nodeResult{}, fmt.Errorf("join left input missing")
 	}
-	rightRecords, ok := cache[node.Inputs[1]]
+	rightResult, ok := cache[node.Inputs[1]]
 	if !ok {
-		return nil, fmt.Errorf("join right input missing")
+		return nodeResult{}, fmt.Errorf("join right input missing")
 	}
+	leftRecords := leftResult.records
+	rightRecords := rightResult.records
 
 	literalRightIndex := make(map[string][]int)
 	idRightIndex := make(map[string][]int)
@@ -553,11 +572,12 @@ func (e *Executor) executeJoin(
 	leftFieldCache := make(map[string]*domain.FieldDefinition)
 
 	limiter := newPageLimiter(req)
-	var results []domain.EntityTransformationRecord
+	capacity := len(leftRecords)
+	if limiter.limit > 0 && limiter.max > 0 && limiter.max < capacity {
+		capacity = limiter.max
+	}
+	results := make([]domain.EntityTransformationRecord, 0, capacity)
 	for _, leftRecord := range leftRecords {
-		if !limiter.ShouldContinue() {
-			break
-		}
 		leftEntity := leftRecord.Entities[node.Join.LeftAlias]
 		if leftEntity == nil {
 			continue
@@ -635,47 +655,35 @@ func (e *Executor) executeJoin(
 		switch node.Type {
 		case domain.TransformationNodeJoin:
 			for _, idx := range deduped {
-				if !limiter.ShouldContinue() {
-					break
-				}
 				combined := mergeRecords(leftRecord, rightRecords[idx])
-				if limiter.Consider() {
+				if limiter.Include() {
 					results = append(results, combined)
 				}
 			}
 		case domain.TransformationNodeLeftJoin:
 			if len(deduped) == 0 {
-				if !limiter.ShouldContinue() {
-					break
-				}
 				combined := leftRecord.Clone()
 				combined.Entities[node.Join.RightAlias] = nil
-				if limiter.Consider() {
+				if limiter.Include() {
 					results = append(results, combined)
 				}
 				continue
 			}
 			for _, idx := range deduped {
-				if !limiter.ShouldContinue() {
-					break
-				}
 				combined := mergeRecords(leftRecord, rightRecords[idx])
-				if limiter.Consider() {
+				if limiter.Include() {
 					results = append(results, combined)
 				}
 			}
 		case domain.TransformationNodeAntiJoin:
 			if len(deduped) == 0 {
-				if !limiter.ShouldContinue() {
-					break
-				}
-				if limiter.Consider() {
+				if limiter.Include() {
 					results = append(results, leftRecord.Clone())
 				}
 			}
 		}
 	}
-	return results, nil
+	return nodeResult{records: results, total: limiter.Total()}, nil
 }
 
 type schemaCacheEntry struct {
@@ -771,68 +779,92 @@ func (e *Executor) buildReferenceIndex(
 	return index, true
 }
 
-func (e *Executor) executeUnion(node domain.EntityTransformationNode, cache map[uuid.UUID][]domain.EntityTransformationRecord, req pageRequest) ([]domain.EntityTransformationRecord, error) {
+func (e *Executor) executeUnion(node domain.EntityTransformationNode, cache map[uuid.UUID]nodeResult, req pageRequest) (nodeResult, error) {
 	if len(node.Inputs) == 0 {
-		return nil, fmt.Errorf("union node requires at least one input")
+		return nodeResult{}, fmt.Errorf("union node requires at least one input")
 	}
 	limiter := newPageLimiter(req)
-	var results []domain.EntityTransformationRecord
-	for _, input := range node.Inputs {
-		if !limiter.ShouldContinue() {
-			break
-		}
-		inputRecords, ok := cache[input]
-		if !ok {
-			return nil, fmt.Errorf("union input missing")
-		}
-		for _, record := range inputRecords {
-			if !limiter.ShouldContinue() {
-				break
+	capacity := 0
+	if limiter.limit > 0 && limiter.max > 0 {
+		capacity = limiter.max
+	} else {
+		for _, input := range node.Inputs {
+			if inputResult, ok := cache[input]; ok {
+				capacity += len(inputResult.records)
 			}
-			if limiter.Consider() {
+		}
+	}
+	results := make([]domain.EntityTransformationRecord, 0, capacity)
+	total := 0
+	knownTotal := true
+	for _, input := range node.Inputs {
+		inputResult, ok := cache[input]
+		if !ok {
+			return nodeResult{}, fmt.Errorf("union input missing")
+		}
+		if inputResult.total == 0 {
+			knownTotal = false
+		} else if knownTotal {
+			total += inputResult.total
+		}
+		for _, record := range inputResult.records {
+			if limiter.Include() {
 				results = append(results, record.Clone())
 			}
 		}
 	}
-	return results, nil
+	if !knownTotal {
+		total = limiter.Total()
+	}
+	return nodeResult{records: results, total: total}, nil
 }
 
-func (e *Executor) executeSort(node domain.EntityTransformationNode, cache map[uuid.UUID][]domain.EntityTransformationRecord, _ pageRequest) ([]domain.EntityTransformationRecord, error) {
+func (e *Executor) executeSort(node domain.EntityTransformationNode, cache map[uuid.UUID]nodeResult, req pageRequest) (nodeResult, error) {
 	if len(node.Inputs) != 1 {
-		return nil, fmt.Errorf("sort node requires one input")
+		return nodeResult{}, fmt.Errorf("sort node requires one input")
 	}
 	if node.Sort == nil {
-		return nil, fmt.Errorf("sort node missing configuration")
+		return nodeResult{}, fmt.Errorf("sort node missing configuration")
 	}
-	inputRecords, ok := cache[node.Inputs[0]]
+	inputResult, ok := cache[node.Inputs[0]]
 	if !ok {
-		return nil, fmt.Errorf("sort input missing")
+		return nodeResult{}, fmt.Errorf("sort input missing")
 	}
-	cloned := cloneRecords(inputRecords)
+	cloned := cloneRecords(inputResult.records)
 	if len(cloned) == 0 {
-		return cloned, nil
+		return nodeResult{records: cloned, total: inputResult.total}, nil
 	}
 	sortAlias, err := resolveSortAlias(cloned, node.Sort.Alias)
 	if err != nil {
-		return nil, err
+		return nodeResult{}, err
 	}
 	if sortAlias == "" {
-		return cloned, nil
+		total := inputResult.total
+		if total == 0 {
+			total = len(inputResult.records)
+		}
+		trimmed := trimToWindow(cloned, req)
+		return nodeResult{records: trimmed, total: total}, nil
 	}
 	domain.SortRecords(cloned, sortAlias, node.Sort.Field, node.Sort.Direction)
-	return cloned, nil
+	trimmed := trimToWindow(cloned, req)
+	total := inputResult.total
+	if total == 0 {
+		total = len(inputResult.records)
+	}
+	return nodeResult{records: trimmed, total: total}, nil
 }
 
-func (e *Executor) executePaginate(node domain.EntityTransformationNode, cache map[uuid.UUID][]domain.EntityTransformationRecord, _ pageRequest) ([]domain.EntityTransformationRecord, error) {
+func (e *Executor) executePaginate(node domain.EntityTransformationNode, cache map[uuid.UUID]nodeResult, req pageRequest) (nodeResult, error) {
 	if len(node.Inputs) != 1 {
-		return nil, fmt.Errorf("paginate node requires one input")
+		return nodeResult{}, fmt.Errorf("paginate node requires one input")
 	}
 	if node.Paginate == nil {
-		return nil, fmt.Errorf("paginate node missing configuration")
+		return nodeResult{}, fmt.Errorf("paginate node missing configuration")
 	}
-	inputRecords, ok := cache[node.Inputs[0]]
+	inputResult, ok := cache[node.Inputs[0]]
 	if !ok {
-		return nil, fmt.Errorf("paginate input missing")
+		return nodeResult{}, fmt.Errorf("paginate input missing")
 	}
 	limit := 0
 	offset := 0
@@ -842,8 +874,15 @@ func (e *Executor) executePaginate(node domain.EntityTransformationNode, cache m
 	if node.Paginate.Offset != nil {
 		offset = *node.Paginate.Offset
 	}
-	cloned := cloneRecords(inputRecords)
-	return domain.PaginateRecords(cloned, limit, offset), nil
+	cloned := cloneRecords(inputResult.records)
+	paginated := domain.PaginateRecords(cloned, limit, offset)
+	paginated = trimToWindow(paginated, req)
+
+	total := inputResult.total
+	if total == 0 {
+		total = len(inputResult.records)
+	}
+	return nodeResult{records: paginated, total: total}, nil
 }
 
 func mergeRecords(left domain.EntityTransformationRecord, right domain.EntityTransformationRecord) domain.EntityTransformationRecord {
@@ -868,6 +907,20 @@ func cloneRecords(records []domain.EntityTransformationRecord) []domain.EntityTr
 		cloned = append(cloned, record.Clone())
 	}
 	return cloned
+}
+
+func trimToWindow(records []domain.EntityTransformationRecord, req pageRequest) []domain.EntityTransformationRecord {
+	if req.limit <= 0 {
+		return records
+	}
+	needed := req.offset + req.limit
+	if needed <= 0 {
+		return records
+	}
+	if needed < len(records) {
+		return records[:needed]
+	}
+	return records
 }
 
 func resolveProjectAliases(entities map[string]*domain.Entity, desiredAlias string) (targetAlias string, sourceAlias string, err error) {
