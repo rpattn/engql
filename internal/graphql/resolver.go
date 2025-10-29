@@ -556,14 +556,23 @@ func (r *Resolver) TransformationExecution(
 
 	columns := buildExecutionColumns(materializeConfig)
 
-	options := domain.EntityTransformationExecutionOptions{}
+	limit := 0
+	offset := 0
 	if pagination != nil {
 		if pagination.Limit != nil {
-			options.Limit = *pagination.Limit
+			limit = *pagination.Limit
 		}
 		if pagination.Offset != nil {
-			options.Offset = *pagination.Offset
+			offset = *pagination.Offset
 		}
+	}
+
+	aliasFilters := filtersByAlias(filters)
+
+	options := domain.EntityTransformationExecutionOptions{}
+	if len(aliasFilters) == 0 {
+		options.Limit = limit
+		options.Offset = offset
 	}
 
 	execResult, err := r.transformationExecutor.Execute(ctx, transformation, options)
@@ -571,7 +580,6 @@ func (r *Resolver) TransformationExecution(
 		return nil, fmt.Errorf("failed to execute transformation: %w", err)
 	}
 
-	aliasFilters := filtersByAlias(filters)
 	filteredRecords := applyTransformationFilters(execResult.Records, aliasFilters)
 
 	if sortInput != nil && strings.TrimSpace(sortInput.Alias) != "" && strings.TrimSpace(sortInput.Field) != "" {
@@ -582,22 +590,17 @@ func (r *Resolver) TransformationExecution(
 		domain.SortRecords(filteredRecords, sortInput.Alias, sortInput.Field, direction)
 	}
 
-	rows := buildExecutionRows(filteredRecords, columns)
-
-	totalCount := len(filteredRecords)
-	if len(aliasFilters) == 0 {
-		totalCount = execResult.TotalCount
+	rowsRecords := filteredRecords
+	totalCount := execResult.TotalCount
+	if len(aliasFilters) > 0 {
+		totalCount = len(filteredRecords)
+		rowsRecords = domain.PaginateRecords(filteredRecords, limit, offset)
 	}
 
-	hasPrev := options.Offset > 0 && totalCount > 0
-	hasNext := false
-	if options.Limit > 0 {
-		comparisonTotal := totalCount
-		if len(aliasFilters) == 0 {
-			comparisonTotal = execResult.TotalCount
-		}
-		hasNext = options.Offset+options.Limit < comparisonTotal
-	}
+	rows := buildExecutionRows(rowsRecords, columns)
+
+	hasPrev := offset > 0 && totalCount > 0
+	hasNext := limit > 0 && offset+limit < totalCount
 
 	pageInfo := &graph.PageInfo{
 		TotalCount:      totalCount,

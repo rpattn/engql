@@ -152,3 +152,106 @@ func TestTransformationExecutionUsesExecutorPagination(t *testing.T) {
 		t.Fatalf("expected row value Bob, got %v", value)
 	}
 }
+
+func TestTransformationExecutionAppliesFiltersBeforePagination(t *testing.T) {
+	orgID := uuid.New()
+	loadID := uuid.New()
+	materializeID := uuid.New()
+
+	transformation := domain.EntityTransformation{
+		ID:             uuid.New(),
+		OrganizationID: orgID,
+		Nodes: []domain.EntityTransformationNode{
+			{
+				ID:   loadID,
+				Name: "load",
+				Type: domain.TransformationNodeLoad,
+				Load: &domain.EntityTransformationLoadConfig{
+					Alias:      "users",
+					EntityType: "User",
+				},
+			},
+			{
+				ID:     materializeID,
+				Name:   "materialize",
+				Type:   domain.TransformationNodeMaterialize,
+				Inputs: []uuid.UUID{loadID},
+				Materialize: &domain.EntityTransformationMaterializeConfig{
+					Outputs: []domain.EntityTransformationMaterializeOutput{
+						{
+							Alias: "table",
+							Fields: []domain.EntityTransformationMaterializeFieldMapping{
+								{SourceAlias: "users", SourceField: "name", OutputField: "name"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	repo := &trackingTransformationRepository{transformation: transformation}
+
+	entityRecords := []domain.Entity{
+		{ID: uuid.New(), OrganizationID: orgID, EntityType: "User", Properties: map[string]any{"name": "Alice"}},
+		{ID: uuid.New(), OrganizationID: orgID, EntityType: "User", Properties: map[string]any{"name": "Bob"}},
+		{ID: uuid.New(), OrganizationID: orgID, EntityType: "User", Properties: map[string]any{"name": "Charlie"}},
+	}
+	entityRepo := &trackingEntityRepo{records: entityRecords}
+	executor := transformations.NewExecutor(entityRepo, stubSchemaProvider{})
+
+	resolver := &Resolver{
+		entityTransformationRepo: repo,
+		transformationExecutor:   executor,
+	}
+
+	limit := 1
+	offset := 0
+	charlie := "Charlie"
+	filters := []*graph.TransformationExecutionFilterInput{
+		{
+			Alias: "table",
+			Field: "name",
+			Value: &charlie,
+		},
+	}
+
+	conn, err := resolver.TransformationExecution(
+		context.Background(),
+		transformation.ID.String(),
+		filters,
+		nil,
+		&graph.PaginationInput{Limit: &limit, Offset: &offset},
+	)
+	if err != nil {
+		t.Fatalf("resolver error: %v", err)
+	}
+
+	if entityRepo.lastLimit < len(entityRecords) {
+		t.Fatalf("expected repository limit to cover all records, got %d", entityRepo.lastLimit)
+	}
+
+	if conn == nil {
+		t.Fatalf("expected non-nil connection result")
+	}
+	if len(conn.Rows) != 1 {
+		t.Fatalf("expected 1 row from resolver, got %d", len(conn.Rows))
+	}
+	value := conn.Rows[0].Values[0].Value
+	if value == nil || *value != "Charlie" {
+		t.Fatalf("expected row value Charlie, got %v", value)
+	}
+
+	if conn.PageInfo == nil {
+		t.Fatalf("expected page info")
+	}
+	if conn.PageInfo.TotalCount != 1 {
+		t.Fatalf("expected total count 1, got %d", conn.PageInfo.TotalCount)
+	}
+	if conn.PageInfo.HasNextPage {
+		t.Fatalf("expected no next page")
+	}
+	if conn.PageInfo.HasPreviousPage {
+		t.Fatalf("expected no previous page")
+	}
+}
