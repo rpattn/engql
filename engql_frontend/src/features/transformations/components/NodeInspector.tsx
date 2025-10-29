@@ -60,6 +60,8 @@ export function NodeInspector({
 
   const autoConfiguredSignatureRef = useRef<string | null>(null)
 
+  const nodeId = node?.id ?? null
+
   const typeLabel = useMemo(
     () => (node ? formatNodeType(node.data.type) : ''),
     [node?.data.type],
@@ -69,24 +71,18 @@ export function NodeInspector({
     setProjectFieldDraft('')
   }, [node?.id])
 
-  if (!node) {
-    return (
-      <aside className="rounded-md border border-dashed border-slate-300 p-4 text-sm text-slate-500">
-        Select a node on the canvas to configure it.
-      </aside>
-    )
-  }
-
-  const { data } = node
-
   const updateData = useCallback(
     (updater: (data: TransformationNodeData) => TransformationNodeData) => {
+      if (!node) {
+        return
+      }
+
       onUpdate(node.id, (current) => ({
         ...current,
         data: updater(current.data),
       }))
     },
-    [node.id, onUpdate],
+    [node, onUpdate],
   )
 
   const updateConfig = useCallback(
@@ -95,12 +91,16 @@ export function NodeInspector({
         config: TransformationNodeData['config'],
       ) => TransformationNodeData['config'],
     ) => {
+      if (!node) {
+        return
+      }
+
       updateData((current) => ({
         ...current,
         config: updater(current.config),
       }))
     },
-    [updateData],
+    [node, updateData],
   )
 
   const combinedFieldOptions = useMemo(() => {
@@ -337,6 +337,7 @@ export function NodeInspector({
     contextKey = 'filters',
   ) => {
     const rows = filters ?? []
+    const activeNodeId = nodeId ?? 'detached'
 
     const setRow = (index: number, row: FilterRow) => {
       const copy = [...rows]
@@ -351,14 +352,14 @@ export function NodeInspector({
     const propertyOptions = getFieldOptions(alias)
     const datalistId =
       alias && propertyOptions.length
-        ? `${contextKey}-properties-${node.id}-${sanitizeAlias(alias) || 'default'}`
+        ? `${contextKey}-properties-${activeNodeId}-${sanitizeAlias(alias) || 'default'}`
         : undefined
 
     return (
       <div className="space-y-2">
         {rows.map((row, index) => (
           <div
-            key={`${contextKey}-${node.id}-${index}`}
+            key={`${contextKey}-${activeNodeId}-${index}`}
             className="rounded border border-slate-200 p-2"
           >
             <label className="block text-xs font-medium text-slate-600">
@@ -443,6 +444,17 @@ export function NodeInspector({
       </div>
     )
   }
+
+  if (!node) {
+    return (
+      <aside className="rounded-md border border-dashed border-slate-300 p-4 text-sm text-slate-500">
+        Select a node on the canvas to configure it.
+      </aside>
+    )
+  }
+
+  const { data } = node
+
 
   return (
     <aside className="flex h-full flex-col rounded-md border border-slate-200 bg-white p-4">
