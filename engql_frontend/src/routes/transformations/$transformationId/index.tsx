@@ -195,22 +195,17 @@ function TransformationDetailRoute() {
       return
     }
 
+    const shouldPreserveSelection = preserveSelectionRef.current
     const otherSelected = nodes.filter(
       (node) => node.selected && node.id !== selectedNodeId,
     )
 
-    if (!existing.selected) {
-      if (otherSelected.length > 0) {
-        return
-      }
-
-      graphController.onNodesChange([
-        { id: selectedNodeId, type: 'select', selected: true },
-      ])
-      return
-    }
-
     if (otherSelected.length === 0) {
+      if (!existing.selected && shouldPreserveSelection) {
+        graphController.onNodesChange([
+          { id: selectedNodeId, type: 'select', selected: true },
+        ])
+      }
       return
     }
 
@@ -221,6 +216,12 @@ function TransformationDetailRoute() {
         selected: false,
       })),
     )
+
+    if (!existing.selected && shouldPreserveSelection) {
+      graphController.onNodesChange([
+        { id: selectedNodeId, type: 'select', selected: true },
+      ])
+    }
   }, [
     clearSelection,
     graphController.graph.nodes,
