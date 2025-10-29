@@ -57,7 +57,17 @@ export function TransformationCanvas({
           onPaneClick={onDeselect}
           onSelectionChange={(changes) => {
             const shouldPreserveSelection = preserveSelectionRef.current
-            const next = changes.nodes?.find((node) => node.selected) ?? null
+            const candidates = changes.nodes ?? []
+            let next: typeof candidates[number] | null = null
+
+            for (let index = candidates.length - 1; index >= 0; index -= 1) {
+              const candidate = candidates[index]
+              if (candidate.selected) {
+                next = candidate
+                break
+              }
+            }
+
             const nextId = next?.id ?? null
 
             if (nextId) {
