@@ -218,6 +218,12 @@ func graphNodeToDomain(input *graph.EntityTransformationNodeInput) (domain.Entit
 			Alias:  input.Project.Alias,
 			Fields: append([]string(nil), input.Project.Fields...),
 		}
+	case domain.TransformationNodeMaterialize:
+		if input.Materialize == nil {
+			return domain.EntityTransformationNode{}, fmt.Errorf("materialize node requires configuration")
+		}
+		config := graphMaterializeToDomain(input.Materialize)
+		node.Materialize = &config
 	case domain.TransformationNodeJoin, domain.TransformationNodeLeftJoin, domain.TransformationNodeAntiJoin:
 		if input.Join == nil {
 			return domain.EntityTransformationNode{}, fmt.Errorf("join node requires configuration")
@@ -332,6 +338,9 @@ func mapNodeToGraph(node domain.EntityTransformationNode) *graph.EntityTransform
 			OnField:    node.Join.OnField,
 		}
 	}
+	if node.Materialize != nil {
+		gqlNode.Materialize = domainMaterializeToGraph(node.Materialize)
+	}
 	if node.Sort != nil {
 		gqlNode.Sort = &graph.EntityTransformationSortConfig{
 			Alias:     node.Sort.Alias,
@@ -368,4 +377,45 @@ func domainFiltersToGraph(filters []domain.PropertyFilter) []*graph.PropertyFilt
 		result = append(result, f)
 	}
 	return result
+}
+
+func graphMaterializeToDomain(input *graph.EntityTransformationMaterializeConfigInput) domain.EntityTransformationMaterializeConfig {
+	config := domain.EntityTransformationMaterializeConfig{Outputs: make([]domain.EntityTransformationMaterializeOutput, 0, len(input.Outputs))}
+	for _, output := range input.Outputs {
+		mapped := domain.EntityTransformationMaterializeOutput{
+			Alias:  output.Alias,
+			Fields: make([]domain.EntityTransformationMaterializeFieldMapping, 0, len(output.Fields)),
+		}
+		for _, field := range output.Fields {
+			mapped.Fields = append(mapped.Fields, domain.EntityTransformationMaterializeFieldMapping{
+				SourceAlias: field.SourceAlias,
+				SourceField: field.SourceField,
+				OutputField: field.OutputField,
+			})
+		}
+		config.Outputs = append(config.Outputs, mapped)
+	}
+	return config
+}
+
+func domainMaterializeToGraph(config *domain.EntityTransformationMaterializeConfig) *graph.EntityTransformationMaterializeConfig {
+	if config == nil {
+		return nil
+	}
+	outputs := make([]*graph.EntityTransformationMaterializeOutput, 0, len(config.Outputs))
+	for _, output := range config.Outputs {
+		fields := make([]*graph.EntityTransformationMaterializeFieldMapping, 0, len(output.Fields))
+		for _, field := range output.Fields {
+			fields = append(fields, &graph.EntityTransformationMaterializeFieldMapping{
+				SourceAlias: field.SourceAlias,
+				SourceField: field.SourceField,
+				OutputField: field.OutputField,
+			})
+		}
+		outputs = append(outputs, &graph.EntityTransformationMaterializeOutput{
+			Alias:  output.Alias,
+			Fields: fields,
+		})
+	}
+	return &graph.EntityTransformationMaterializeConfig{Outputs: outputs}
 }

@@ -2,6 +2,8 @@ import { EntityTransformationNodeType } from '@/generated/graphql'
 
 import type { TransformationCanvasNode } from '../types'
 
+export const ANY_SOURCE_ALIAS = '__ANY_ALIAS__'
+
 type AliasChange = { oldAlias: string; newAlias: string }
 
 export function sanitizeAlias(input: string | undefined | null): string {
@@ -187,6 +189,38 @@ export function replaceAliasInNode(
   if (config.sort?.alias === oldAlias) {
     nextConfig.sort = { ...config.sort, alias: newAlias }
     changed = true
+  }
+
+  if (config.materialize?.outputs?.length) {
+    const nextOutputs = config.materialize.outputs.map((output) => {
+      if (!output.fields?.length) {
+        return output
+      }
+
+      let outputChanged = false
+      const nextFields = output.fields.map((field) => {
+        if (field.sourceAlias !== oldAlias) {
+          return field
+        }
+
+        outputChanged = true
+        return { ...field, sourceAlias: newAlias }
+      })
+
+      if (!outputChanged) {
+        return output
+      }
+
+      return { ...output, fields: nextFields }
+    })
+
+    if (nextOutputs.some((output, index) => output !== config.materialize!.outputs[index])) {
+      nextConfig.materialize = {
+        ...config.materialize,
+        outputs: nextOutputs,
+      }
+      changed = true
+    }
   }
 
   if (!changed) {

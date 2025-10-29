@@ -194,30 +194,62 @@ type EntityTransformationLoadConfigInput struct {
 	Filters    []*PropertyFilter `json:"filters,omitempty"`
 }
 
+type EntityTransformationMaterializeConfig struct {
+	Outputs []*EntityTransformationMaterializeOutput `json:"outputs"`
+}
+
+type EntityTransformationMaterializeConfigInput struct {
+	Outputs []*EntityTransformationMaterializeOutputInput `json:"outputs"`
+}
+
+type EntityTransformationMaterializeFieldMapping struct {
+	SourceAlias string `json:"sourceAlias"`
+	SourceField string `json:"sourceField"`
+	OutputField string `json:"outputField"`
+}
+
+type EntityTransformationMaterializeFieldMappingInput struct {
+	SourceAlias string `json:"sourceAlias"`
+	SourceField string `json:"sourceField"`
+	OutputField string `json:"outputField"`
+}
+
+type EntityTransformationMaterializeOutput struct {
+	Alias  string                                         `json:"alias"`
+	Fields []*EntityTransformationMaterializeFieldMapping `json:"fields"`
+}
+
+type EntityTransformationMaterializeOutputInput struct {
+	Alias  string                                              `json:"alias"`
+	Fields []*EntityTransformationMaterializeFieldMappingInput `json:"fields"`
+}
+
 type EntityTransformationNode struct {
-	ID       string                              `json:"id"`
-	Name     string                              `json:"name"`
-	Type     EntityTransformationNodeType        `json:"type"`
-	Inputs   []string                            `json:"inputs"`
-	Load     *EntityTransformationLoadConfig     `json:"load,omitempty"`
-	Filter   *EntityTransformationFilterConfig   `json:"filter,omitempty"`
-	Project  *EntityTransformationProjectConfig  `json:"project,omitempty"`
-	Join     *EntityTransformationJoinConfig     `json:"join,omitempty"`
-	Sort     *EntityTransformationSortConfig     `json:"sort,omitempty"`
-	Paginate *EntityTransformationPaginateConfig `json:"paginate,omitempty"`
+	ID          string                                 `json:"id"`
+	Name        string                                 `json:"name"`
+	Type        EntityTransformationNodeType           `json:"type"`
+	Inputs      []string                               `json:"inputs"`
+	Load        *EntityTransformationLoadConfig        `json:"load,omitempty"`
+	Filter      *EntityTransformationFilterConfig      `json:"filter,omitempty"`
+	Project     *EntityTransformationProjectConfig     `json:"project,omitempty"`
+	Join        *EntityTransformationJoinConfig        `json:"join,omitempty"`
+	Materialize *EntityTransformationMaterializeConfig `json:"materialize,omitempty"`
+	Sort        *EntityTransformationSortConfig        `json:"sort,omitempty"`
+	Paginate    *EntityTransformationPaginateConfig    `json:"paginate,omitempty"`
 }
 
 type EntityTransformationNodeInput struct {
-	ID       *string                                  `json:"id,omitempty"`
-	Name     string                                   `json:"name"`
-	Type     EntityTransformationNodeType             `json:"type"`
-	Inputs   []string                                 `json:"inputs,omitempty"`
-	Load     *EntityTransformationLoadConfigInput     `json:"load,omitempty"`
-	Filter   *EntityTransformationFilterConfigInput   `json:"filter,omitempty"`
-	Project  *EntityTransformationProjectConfigInput  `json:"project,omitempty"`
-	Join     *EntityTransformationJoinConfigInput     `json:"join,omitempty"`
-	Sort     *EntityTransformationSortConfigInput     `json:"sort,omitempty"`
-	Paginate *EntityTransformationPaginateConfigInput `json:"paginate,omitempty"`
+	ID          *string                                     `json:"id,omitempty"`
+	Name        string                                      `json:"name"`
+	Type        EntityTransformationNodeType                `json:"type"`
+	Inputs      []string                                    `json:"inputs,omitempty"`
+	Load        *EntityTransformationLoadConfigInput        `json:"load,omitempty"`
+	Filter      *EntityTransformationFilterConfigInput      `json:"filter,omitempty"`
+	Project     *EntityTransformationProjectConfigInput     `json:"project,omitempty"`
+	Join        *EntityTransformationJoinConfigInput        `json:"join,omitempty"`
+	Materialize *EntityTransformationMaterializeConfigInput `json:"materialize,omitempty"`
+	Sort        *EntityTransformationSortConfigInput        `json:"sort,omitempty"`
+	Paginate    *EntityTransformationPaginateConfigInput    `json:"paginate,omitempty"`
 }
 
 type EntityTransformationPaginateConfig struct {
@@ -352,6 +384,44 @@ type PropertyFilterConfig struct {
 type Query struct {
 }
 
+type TransformationExecutionColumn struct {
+	Key         string `json:"key"`
+	Alias       string `json:"alias"`
+	Field       string `json:"field"`
+	Label       string `json:"label"`
+	SourceAlias string `json:"sourceAlias"`
+	SourceField string `json:"sourceField"`
+}
+
+type TransformationExecutionConnection struct {
+	Columns  []*TransformationExecutionColumn `json:"columns"`
+	Rows     []*TransformationExecutionRow    `json:"rows"`
+	PageInfo *PageInfo                        `json:"pageInfo"`
+}
+
+type TransformationExecutionFilterInput struct {
+	Alias   string   `json:"alias"`
+	Field   string   `json:"field"`
+	Value   *string  `json:"value,omitempty"`
+	Exists  *bool    `json:"exists,omitempty"`
+	InArray []string `json:"inArray,omitempty"`
+}
+
+type TransformationExecutionRow struct {
+	Values []*TransformationExecutionValue `json:"values"`
+}
+
+type TransformationExecutionSortInput struct {
+	Alias     string         `json:"alias"`
+	Field     string         `json:"field"`
+	Direction *SortDirection `json:"direction,omitempty"`
+}
+
+type TransformationExecutionValue struct {
+	ColumnKey string  `json:"columnKey"`
+	Value     *string `json:"value,omitempty"`
+}
+
 type UpdateEntityInput struct {
 	ID         string  `json:"id"`
 	EntityType *string `json:"entityType,omitempty"`
@@ -464,15 +534,16 @@ func (e EntitySortField) MarshalJSON() ([]byte, error) {
 type EntityTransformationNodeType string
 
 const (
-	EntityTransformationNodeTypeLoad     EntityTransformationNodeType = "LOAD"
-	EntityTransformationNodeTypeFilter   EntityTransformationNodeType = "FILTER"
-	EntityTransformationNodeTypeProject  EntityTransformationNodeType = "PROJECT"
-	EntityTransformationNodeTypeJoin     EntityTransformationNodeType = "JOIN"
-	EntityTransformationNodeTypeLeftJoin EntityTransformationNodeType = "LEFT_JOIN"
-	EntityTransformationNodeTypeAntiJoin EntityTransformationNodeType = "ANTI_JOIN"
-	EntityTransformationNodeTypeUnion    EntityTransformationNodeType = "UNION"
-	EntityTransformationNodeTypeSort     EntityTransformationNodeType = "SORT"
-	EntityTransformationNodeTypePaginate EntityTransformationNodeType = "PAGINATE"
+	EntityTransformationNodeTypeLoad        EntityTransformationNodeType = "LOAD"
+	EntityTransformationNodeTypeFilter      EntityTransformationNodeType = "FILTER"
+	EntityTransformationNodeTypeProject     EntityTransformationNodeType = "PROJECT"
+	EntityTransformationNodeTypeJoin        EntityTransformationNodeType = "JOIN"
+	EntityTransformationNodeTypeLeftJoin    EntityTransformationNodeType = "LEFT_JOIN"
+	EntityTransformationNodeTypeAntiJoin    EntityTransformationNodeType = "ANTI_JOIN"
+	EntityTransformationNodeTypeUnion       EntityTransformationNodeType = "UNION"
+	EntityTransformationNodeTypeMaterialize EntityTransformationNodeType = "MATERIALIZE"
+	EntityTransformationNodeTypeSort        EntityTransformationNodeType = "SORT"
+	EntityTransformationNodeTypePaginate    EntityTransformationNodeType = "PAGINATE"
 )
 
 var AllEntityTransformationNodeType = []EntityTransformationNodeType{
@@ -483,13 +554,14 @@ var AllEntityTransformationNodeType = []EntityTransformationNodeType{
 	EntityTransformationNodeTypeLeftJoin,
 	EntityTransformationNodeTypeAntiJoin,
 	EntityTransformationNodeTypeUnion,
+	EntityTransformationNodeTypeMaterialize,
 	EntityTransformationNodeTypeSort,
 	EntityTransformationNodeTypePaginate,
 }
 
 func (e EntityTransformationNodeType) IsValid() bool {
 	switch e {
-	case EntityTransformationNodeTypeLoad, EntityTransformationNodeTypeFilter, EntityTransformationNodeTypeProject, EntityTransformationNodeTypeJoin, EntityTransformationNodeTypeLeftJoin, EntityTransformationNodeTypeAntiJoin, EntityTransformationNodeTypeUnion, EntityTransformationNodeTypeSort, EntityTransformationNodeTypePaginate:
+	case EntityTransformationNodeTypeLoad, EntityTransformationNodeTypeFilter, EntityTransformationNodeTypeProject, EntityTransformationNodeTypeJoin, EntityTransformationNodeTypeLeftJoin, EntityTransformationNodeTypeAntiJoin, EntityTransformationNodeTypeUnion, EntityTransformationNodeTypeMaterialize, EntityTransformationNodeTypeSort, EntityTransformationNodeTypePaginate:
 		return true
 	}
 	return false

@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
@@ -516,6 +516,13 @@ function TransformationDetailRoute() {
         isDirty={isDirty}
         extra={
           <div className="flex items-center gap-3">
+            <Link
+              to="/transformations/$transformationId/results"
+              params={{ transformationId }}
+              className="rounded border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100"
+            >
+              View results
+            </Link>
             <label className="flex items-center gap-2 text-xs font-medium text-slate-600">
               <input
                 type="checkbox"
@@ -607,6 +614,7 @@ function TransformationDetailRoute() {
                 clearSelection()
               }}
               allNodes={graphController.graph.nodes}
+              edges={graphController.graph.edges}
               schemaFieldOptions={schemaFieldOptions}
               entityTypeOptions={entityTypeOptions}
             />

@@ -13,6 +13,7 @@ export type TransformationNodeConfig = {
   join?: EntityTransformationNodeInput['join']
   sort?: EntityTransformationNodeInput['sort']
   paginate?: EntityTransformationNodeInput['paginate']
+  materialize?: EntityTransformationNodeInput['materialize']
 }
 
 export type TransformationNodeData = {

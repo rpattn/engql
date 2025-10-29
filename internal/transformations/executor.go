@@ -3,11 +3,14 @@ package transformations
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	"github.com/rpattn/engql/internal/domain"
 
 	"github.com/google/uuid"
 )
+
+const anyAliasSentinel = "__ANY_ALIAS__"
 
 // EntityRepository defines the subset of entity storage used by the executor.
 type EntityRepository interface {
@@ -81,6 +84,8 @@ func (e *Executor) executeNode(
 		return e.executeJoin(ctx, transformation.OrganizationID, node, cache, schemaCache)
 	case domain.TransformationNodeUnion:
 		return e.executeUnion(node, cache)
+	case domain.TransformationNodeMaterialize:
+		return e.executeMaterialize(node, cache)
 	case domain.TransformationNodeSort:
 		return e.executeSort(node, cache)
 	case domain.TransformationNodePaginate:
@@ -170,6 +175,186 @@ func (e *Executor) executeProject(node domain.EntityTransformationNode, cache ma
 		projected = append(projected, clone)
 	}
 	return projected, nil
+}
+
+func (e *Executor) executeMaterialize(node domain.EntityTransformationNode, cache map[uuid.UUID][]domain.EntityTransformationRecord) ([]domain.EntityTransformationRecord, error) {
+	if len(node.Inputs) != 1 {
+		return nil, fmt.Errorf("materialize node requires exactly one input")
+	}
+	if node.Materialize == nil {
+		return nil, fmt.Errorf("materialize node missing configuration")
+	}
+	if len(node.Materialize.Outputs) == 0 {
+		return nil, fmt.Errorf("materialize node requires at least one output")
+	}
+	inputRecords, ok := cache[node.Inputs[0]]
+	if !ok {
+		return nil, fmt.Errorf("materialize input not found")
+	}
+
+	results := make([]domain.EntityTransformationRecord, 0, len(inputRecords))
+	for _, record := range inputRecords {
+		clone := record.Clone()
+		materializedEntities := make(map[string]*domain.Entity, len(node.Materialize.Outputs))
+		aliasOrder := sortedEntityAliases(record.Entities)
+
+		for _, output := range node.Materialize.Outputs {
+			if output.Alias == "" {
+				return nil, fmt.Errorf("materialize output alias is required")
+			}
+
+			entity, seededFromSource := seedMaterializedEntity(record, output, aliasOrder)
+			for _, field := range output.Fields {
+				if field.OutputField == "" {
+					continue
+				}
+
+				aliases := resolveMaterializeAliases(field.SourceAlias, aliasOrder)
+				for _, alias := range aliases {
+					source := record.Entities[alias]
+					value, ok := extractMaterializeValue(source, field.SourceField)
+					if !ok {
+						continue
+					}
+					if source != nil && !seededFromSource {
+						adoptMaterializeMetadata(entity, source)
+						seededFromSource = true
+					}
+					if entity.Properties == nil {
+						entity.Properties = make(map[string]any)
+					}
+					entity.Properties[field.OutputField] = value
+					break
+				}
+			}
+
+			materializedEntities[output.Alias] = entity
+		}
+
+		clone.Entities = materializedEntities
+		results = append(results, clone)
+	}
+
+	return results, nil
+}
+
+func seedMaterializedEntity(record domain.EntityTransformationRecord, output domain.EntityTransformationMaterializeOutput, aliasOrder []string) (*domain.Entity, bool) {
+	for _, field := range output.Fields {
+		switch field.SourceAlias {
+		case "":
+			continue
+		case anyAliasSentinel:
+			for _, alias := range aliasOrder {
+				source := record.Entities[alias]
+				if source == nil {
+					continue
+				}
+				copy := *source
+				copy.Properties = make(map[string]any, len(output.Fields))
+				return &copy, true
+			}
+		default:
+			source := record.Entities[field.SourceAlias]
+			if source == nil {
+				continue
+			}
+			copy := *source
+			copy.Properties = make(map[string]any, len(output.Fields))
+			return &copy, true
+		}
+	}
+
+	return &domain.Entity{ID: uuid.New(), Properties: make(map[string]any, len(output.Fields))}, false
+}
+
+func resolveMaterializeAliases(sourceAlias string, aliasOrder []string) []string {
+	switch sourceAlias {
+	case "", anyAliasSentinel:
+		return aliasOrder
+	default:
+		return []string{sourceAlias}
+	}
+}
+
+func sortedEntityAliases(entities map[string]*domain.Entity) []string {
+	if len(entities) == 0 {
+		return nil
+	}
+	aliases := make([]string, 0, len(entities))
+	for alias := range entities {
+		aliases = append(aliases, alias)
+	}
+	sort.Strings(aliases)
+	return aliases
+}
+
+func adoptMaterializeMetadata(target *domain.Entity, source *domain.Entity) {
+	if target == nil || source == nil {
+		return
+	}
+	target.ID = source.ID
+	target.OrganizationID = source.OrganizationID
+	target.SchemaID = source.SchemaID
+	target.EntityType = source.EntityType
+	target.Path = source.Path
+	target.Version = source.Version
+	target.CreatedAt = source.CreatedAt
+	target.UpdatedAt = source.UpdatedAt
+}
+
+func extractMaterializeValue(source *domain.Entity, field string) (any, bool) {
+	if source == nil {
+		return nil, false
+	}
+
+	switch field {
+	case "id", "ID":
+		if source.ID == uuid.Nil {
+			return nil, false
+		}
+		return source.ID.String(), true
+	case "organizationId", "organization_id":
+		if source.OrganizationID == uuid.Nil {
+			return nil, false
+		}
+		return source.OrganizationID.String(), true
+	case "schemaId", "schema_id":
+		if source.SchemaID == uuid.Nil {
+			return nil, false
+		}
+		return source.SchemaID.String(), true
+	case "entityType", "entity_type":
+		if source.EntityType == "" {
+			return nil, false
+		}
+		return source.EntityType, true
+	case "path":
+		if source.Path == "" {
+			return nil, false
+		}
+		return source.Path, true
+	case "version":
+		if source.Version == 0 {
+			return nil, false
+		}
+		return source.Version, true
+	case "createdAt", "created_at":
+		if source.CreatedAt.IsZero() {
+			return nil, false
+		}
+		return source.CreatedAt, true
+	case "updatedAt", "updated_at":
+		if source.UpdatedAt.IsZero() {
+			return nil, false
+		}
+		return source.UpdatedAt, true
+	default:
+		if source.Properties == nil {
+			return nil, false
+		}
+		value, ok := source.Properties[field]
+		return value, ok
+	}
 }
 
 func (e *Executor) executeJoin(

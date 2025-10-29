@@ -1,12 +1,18 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { EntityTransformationNodeType } from '@/generated/graphql'
 
-import type { TransformationCanvasNode, TransformationNodeData } from '../types'
+import type {
+  TransformationCanvasEdge,
+  TransformationCanvasNode,
+  TransformationNodeData,
+} from '../types'
 import {
   generateUniqueAlias,
   isAliasDerivedFromEntityType,
   sanitizeAlias,
+  getNodeAliases,
+  ANY_SOURCE_ALIAS,
 } from '../utils/alias'
 import { formatNodeType } from '../utils/format'
 
@@ -20,6 +26,7 @@ type NodeInspectorProps = {
   ) => void
   onDelete: (nodeId: string) => void
   allNodes: TransformationCanvasNode[]
+  edges: TransformationCanvasEdge[]
   schemaFieldOptions: SchemaFieldOptions
   entityTypeOptions: string[]
 }
@@ -46,10 +53,15 @@ export function NodeInspector({
   onUpdate,
   onDelete,
   allNodes,
+  edges,
   schemaFieldOptions,
   entityTypeOptions,
 }: NodeInspectorProps) {
   const [projectFieldDraft, setProjectFieldDraft] = useState('')
+
+  const autoConfiguredSignatureRef = useRef<string | null>(null)
+
+  const nodeId = node?.id ?? null
 
   const typeLabel = useMemo(
     () => (node ? formatNodeType(node.data.type) : ''),
@@ -60,48 +72,271 @@ export function NodeInspector({
     setProjectFieldDraft('')
   }, [node?.id])
 
-  if (!node) {
-    return (
-      <aside className="rounded-md border border-dashed border-slate-300 p-4 text-sm text-slate-500">
-        Select a node on the canvas to configure it.
-      </aside>
-    )
-  }
+  const updateData = useCallback(
+    (updater: (data: TransformationNodeData) => TransformationNodeData) => {
+      if (!node) {
+        return
+      }
 
-  const { data } = node
+      onUpdate(node.id, (current) => ({
+        ...current,
+        data: updater(current.data),
+      }))
+    },
+    [node, onUpdate],
+  )
 
-  const updateData = (updater: (data: TransformationNodeData) => TransformationNodeData) => {
-    onUpdate(node.id, (current) => ({
-      ...current,
-      data: updater(current.data),
-    }))
-  }
+  const updateConfig = useCallback(
+    (
+      updater: (
+        config: TransformationNodeData['config'],
+      ) => TransformationNodeData['config'],
+    ) => {
+      if (!node) {
+        return
+      }
 
-  const updateConfig = (
-    updater: (config: TransformationNodeData['config']) => TransformationNodeData['config'],
-  ) => {
-    updateData((current) => ({
-      ...current,
-      config: updater(current.config),
-    }))
-  }
+      updateData((current) => ({
+        ...current,
+        config: updater(current.config),
+      }))
+    },
+    [node, updateData],
+  )
 
-  const getFieldOptions = (alias?: string | null) => {
-    if (!alias) {
+  const combinedFieldOptions = useMemo(() => {
+    const map: Record<string, string[]> = {}
+
+    const addFields = (alias: string | undefined | null, fields: string[]) => {
+      const trimmed = alias?.trim()
+      if (!trimmed || !fields.length) {
+        return
+      }
+
+      const normalizedFields = Array.from(
+        new Set(fields.map((field) => field.trim()).filter(Boolean)),
+      )
+
+      if (!normalizedFields.length) {
+        return
+      }
+
+      const pushFields = (key: string) => {
+        const existing = map[key] ?? []
+        map[key] = Array.from(
+          new Set([...existing, ...normalizedFields]),
+        ).sort((a, b) => a.localeCompare(b))
+      }
+
+      pushFields(trimmed)
+
+      const sanitized = sanitizeAlias(trimmed)
+      if (sanitized && sanitized !== trimmed) {
+        pushFields(sanitized)
+      }
+    }
+
+    for (const [alias, fields] of Object.entries(schemaFieldOptions)) {
+      addFields(alias, fields)
+    }
+
+    for (const existingNode of allNodes) {
+      const { config } = existingNode.data
+
+      if (config.project?.alias && config.project.fields?.length) {
+        addFields(config.project.alias, config.project.fields)
+      }
+
+      if (config.load?.alias) {
+        addFields(config.load.alias, ['id'])
+      }
+    }
+
+    return map
+  }, [allNodes, schemaFieldOptions])
+
+  const allFieldOptions = useMemo(() => {
+    const set = new Set<string>()
+    for (const fields of Object.values(combinedFieldOptions)) {
+      for (const field of fields) {
+        set.add(field)
+      }
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b))
+  }, [combinedFieldOptions])
+
+  const getFieldOptions = useCallback(
+    (alias?: string | null) => {
+      if (!alias) {
+        return [] as string[]
+      }
+
+      if (alias === ANY_SOURCE_ALIAS) {
+        return allFieldOptions
+      }
+
+      const trimmed = alias.trim()
+      if (!trimmed.length) {
+        return [] as string[]
+      }
+
+      return (
+        combinedFieldOptions[trimmed] ??
+        combinedFieldOptions[sanitizeAlias(trimmed)] ??
+        []
+      )
+    },
+    [allFieldOptions, combinedFieldOptions],
+  )
+
+  const availableSourceAliases = useMemo(() => {
+    const set = new Set<string>()
+
+    for (const existingNode of allNodes) {
+      for (const alias of getNodeAliases(existingNode)) {
+        const trimmed = alias.trim()
+        if (trimmed) {
+          set.add(trimmed)
+        }
+      }
+    }
+
+    const sorted = Array.from(set).sort((a, b) => a.localeCompare(b))
+    if (!sorted.length) {
+      return sorted
+    }
+
+    return [ANY_SOURCE_ALIAS, ...sorted]
+  }, [allNodes])
+
+  const concreteSourceAliases = useMemo(
+    () => availableSourceAliases.filter((alias) => alias !== ANY_SOURCE_ALIAS),
+    [availableSourceAliases],
+  )
+
+  const upstreamAliases = useMemo(() => {
+    if (!node) {
       return [] as string[]
     }
 
-    const trimmed = alias.trim()
-    if (!trimmed.length) {
-      return [] as string[]
+    const incoming = edges.filter((edge) => edge.target === node.id)
+    const set = new Set<string>()
+
+    for (const edge of incoming) {
+      const source = allNodes.find((candidate) => candidate.id === edge.source)
+      if (!source) {
+        continue
+      }
+
+      for (const alias of getNodeAliases(source)) {
+        const trimmed = alias.trim()
+        if (trimmed) {
+          set.add(trimmed)
+        }
+      }
     }
 
-    return (
-      schemaFieldOptions[trimmed] ??
-      schemaFieldOptions[sanitizeAlias(trimmed)] ??
-      []
-    )
-  }
+    return Array.from(set)
+  }, [allNodes, edges, node])
+
+  const inferFieldsForAlias = useCallback(
+    (alias: string | undefined | null) => getFieldOptions(alias),
+    [getFieldOptions],
+  )
+
+  useEffect(() => {
+    if (!node) {
+      autoConfiguredSignatureRef.current = null
+      return
+    }
+
+    const materialize = node.data.config.materialize
+    if (!materialize) {
+      autoConfiguredSignatureRef.current = null
+      return
+    }
+
+    const outputs = materialize.outputs ?? []
+    const signature = JSON.stringify(outputs)
+
+    if (autoConfiguredSignatureRef.current === signature) {
+      return
+    }
+
+    const nextOutputs = outputs.map((output) => {
+      if (output.fields?.length) {
+        return output
+      }
+
+      const aliasCandidates: string[] = [
+        ...(output.fields
+          ?.map((field) => field.sourceAlias)
+          .filter((value): value is string => Boolean(value && value.trim())) ?? []),
+        ...upstreamAliases,
+        ...concreteSourceAliases,
+      ]
+
+      let chosenAlias: string | null = null
+      let inferredFields: string[] = []
+
+      for (const candidate of aliasCandidates) {
+        const trimmedCandidate = candidate.trim()
+        const fields = inferFieldsForAlias(trimmedCandidate)
+        if (fields.length) {
+          chosenAlias = trimmedCandidate
+          inferredFields = fields
+          break
+        }
+      }
+
+      if (!chosenAlias || !inferredFields.length) {
+        return output
+      }
+
+        return {
+          ...output,
+          fields: inferredFields.map((field) => ({
+            sourceAlias: chosenAlias,
+            sourceField: field,
+            outputField: field,
+          })),
+        }
+    })
+
+    const nextSignature = JSON.stringify(nextOutputs)
+    autoConfiguredSignatureRef.current = nextSignature
+
+    if (nextSignature === signature) {
+      return
+    }
+
+    onUpdate(node.id, (current) => {
+      const currentMaterialize = current.data.config.materialize
+      if (!currentMaterialize) {
+        return current
+      }
+
+      return {
+        ...current,
+        data: {
+          ...current.data,
+          config: {
+            ...current.data.config,
+            materialize: {
+              ...currentMaterialize,
+              outputs: nextOutputs,
+            },
+          },
+        },
+      }
+    })
+  }, [
+    concreteSourceAliases,
+    inferFieldsForAlias,
+    node,
+    onUpdate,
+    upstreamAliases,
+  ])
 
   const renderFilters = (
     filters: FilterRow[] | undefined,
@@ -110,6 +345,7 @@ export function NodeInspector({
     contextKey = 'filters',
   ) => {
     const rows = filters ?? []
+    const activeNodeId = nodeId ?? 'detached'
 
     const setRow = (index: number, row: FilterRow) => {
       const copy = [...rows]
@@ -124,14 +360,14 @@ export function NodeInspector({
     const propertyOptions = getFieldOptions(alias)
     const datalistId =
       alias && propertyOptions.length
-        ? `${contextKey}-properties-${node.id}-${sanitizeAlias(alias) || 'default'}`
+        ? `${contextKey}-properties-${activeNodeId}-${sanitizeAlias(alias) || 'default'}`
         : undefined
 
     return (
       <div className="space-y-2">
         {rows.map((row, index) => (
           <div
-            key={`${contextKey}-${node.id}-${index}`}
+            key={`${contextKey}-${activeNodeId}-${index}`}
             className="rounded border border-slate-200 p-2"
           >
             <label className="block text-xs font-medium text-slate-600">
@@ -216,6 +452,17 @@ export function NodeInspector({
       </div>
     )
   }
+
+  if (!node) {
+    return (
+      <aside className="rounded-md border border-dashed border-slate-300 p-4 text-sm text-slate-500">
+        Select a node on the canvas to configure it.
+      </aside>
+    )
+  }
+
+  const { data } = node
+
 
   return (
     <aside className="flex h-full flex-col rounded-md border border-slate-200 bg-white p-4">
@@ -493,6 +740,366 @@ export function NodeInspector({
           </div>
         )}
 
+        {data.config.materialize && (
+          <div className="space-y-3">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Materialize configuration
+            </h4>
+            <p className="text-xs text-slate-500">
+              Define output aliases and the source fields that should be flattened.
+            </p>
+            <div className="space-y-3">
+              {(data.config.materialize.outputs ?? []).map((output, outputIndex) => {
+                const fields = output.fields ?? []
+
+                return (
+                  <div
+                    key={`${node.id}-materialize-output-${outputIndex}`}
+                    className="rounded border border-slate-200 p-3"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <label className="flex-1 text-xs font-medium text-slate-600">
+                        Output alias
+                        <input
+                          value={output.alias}
+                          onChange={(event) =>
+                            updateConfig((config) => {
+                              if (!config.materialize) {
+                                return config
+                              }
+
+                              const nextOutputs = [...(config.materialize.outputs ?? [])]
+                              nextOutputs[outputIndex] = {
+                                ...nextOutputs[outputIndex],
+                                alias: event.target.value,
+                              }
+
+                              return {
+                                ...config,
+                                materialize: {
+                                  ...config.materialize,
+                                  outputs: nextOutputs,
+                                },
+                              }
+                            })
+                          }
+                          className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
+                        />
+                      </label>
+                      {(data.config.materialize.outputs?.length ?? 0) > 1 && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateConfig((config) => {
+                              if (!config.materialize) {
+                                return config
+                              }
+
+                              return {
+                                ...config,
+                                materialize: {
+                                  ...config.materialize,
+                                  outputs: (config.materialize.outputs ?? []).filter(
+                                    (_, index) => index !== outputIndex,
+                                  ),
+                                },
+                              }
+                            })
+                          }
+                          className="mt-5 text-xs font-semibold text-rose-500"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="mt-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-slate-600">Field mappings</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const candidates: string[] = [
+                              ...fields
+                                .map((field) => field.sourceAlias)
+                                .filter((value): value is string => Boolean(value && value.trim())),
+                              ...upstreamAliases,
+                              ...concreteSourceAliases,
+                            ]
+
+                            for (const candidate of candidates) {
+                                const trimmedCandidate = candidate.trim()
+                                const inferred = inferFieldsForAlias(trimmedCandidate)
+                                if (!inferred.length) {
+                                  continue
+                                }
+
+                                updateConfig((config) => {
+                                if (!config.materialize) {
+                                  return config
+                                }
+
+                                  const nextOutputs = [...(config.materialize.outputs ?? [])]
+                                  nextOutputs[outputIndex] = {
+                                    ...nextOutputs[outputIndex],
+                                    fields: inferred.map((field) => ({
+                                      sourceAlias: trimmedCandidate,
+                                      sourceField: field,
+                                      outputField: field,
+                                    })),
+                                  }
+
+                                return {
+                                  ...config,
+                                  materialize: {
+                                    ...config.materialize,
+                                    outputs: nextOutputs,
+                                  },
+                                }
+                              })
+                              return
+                            }
+                          }}
+                          className="text-xs font-semibold text-blue-600"
+                        >
+                          Auto-fill fields
+                        </button>
+                      </div>
+                      {fields.length === 0 ? (
+                        <p className="text-xs text-slate-500">
+                          No fields selected. Use auto-fill or add mappings manually.
+                        </p>
+                      ) : (
+                        <div className="space-y-2">
+                          {fields.map((field, fieldIndex) => {
+                            const sourceOptions = availableSourceAliases
+                            const fieldOptions = getFieldOptions(field.sourceAlias)
+                            const fieldListId = fieldOptions.length
+                              ? `materialize-field-${node.id}-${outputIndex}-${fieldIndex}`
+                              : undefined
+
+                            return (
+                              <div
+                                key={`${node.id}-materialize-field-${outputIndex}-${fieldIndex}`}
+                                className="rounded border border-slate-200 p-2"
+                              >
+                                <label className="block text-xs font-medium text-slate-600">
+                                  Source alias
+                                  <select
+                                    value={field.sourceAlias ?? ''}
+                                    onChange={(event) =>
+                                      updateConfig((config) => {
+                                        if (!config.materialize) {
+                                          return config
+                                        }
+
+                                        const nextOutputs = [...(config.materialize.outputs ?? [])]
+                                        const nextFields = [...(nextOutputs[outputIndex].fields ?? [])]
+                                        nextFields[fieldIndex] = {
+                                          ...nextFields[fieldIndex],
+                                          sourceAlias: event.target.value,
+                                        }
+                                        nextOutputs[outputIndex] = {
+                                          ...nextOutputs[outputIndex],
+                                          fields: nextFields,
+                                        }
+
+                                        return {
+                                          ...config,
+                                          materialize: {
+                                            ...config.materialize,
+                                            outputs: nextOutputs,
+                                          },
+                                        }
+                                      })
+                                    }
+                                    className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
+                                  >
+                                    <option value="">Select an alias</option>
+                                    {sourceOptions.map((option) => (
+                                      <option key={option} value={option}>
+                                        {option === ANY_SOURCE_ALIAS
+                                          ? 'Any available alias'
+                                          : option}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+                                <label className="mt-2 block text-xs font-medium text-slate-600">
+                                  Source field
+                                  <input
+                                    value={field.sourceField}
+                                    onChange={(event) =>
+                                      updateConfig((config) => {
+                                        if (!config.materialize) {
+                                          return config
+                                        }
+
+                                        const nextOutputs = [...(config.materialize.outputs ?? [])]
+                                        const nextFields = [...(nextOutputs[outputIndex].fields ?? [])]
+                                        nextFields[fieldIndex] = {
+                                          ...nextFields[fieldIndex],
+                                          sourceField: event.target.value,
+                                        }
+                                        nextOutputs[outputIndex] = {
+                                          ...nextOutputs[outputIndex],
+                                          fields: nextFields,
+                                        }
+
+                                        return {
+                                          ...config,
+                                          materialize: {
+                                            ...config.materialize,
+                                            outputs: nextOutputs,
+                                          },
+                                        }
+                                      })
+                                    }
+                                    list={fieldListId}
+                                    className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
+                                  />
+                                  {fieldListId && (
+                                    <datalist id={fieldListId}>
+                                      {fieldOptions.map((option) => (
+                                        <option key={option} value={option} />
+                                      ))}
+                                    </datalist>
+                                  )}
+                                </label>
+                                <label className="mt-2 block text-xs font-medium text-slate-600">
+                                  Output field name
+                                  <input
+                                    value={field.outputField}
+                                    onChange={(event) =>
+                                      updateConfig((config) => {
+                                        if (!config.materialize) {
+                                          return config
+                                        }
+
+                                        const nextOutputs = [...(config.materialize.outputs ?? [])]
+                                        const nextFields = [...(nextOutputs[outputIndex].fields ?? [])]
+                                        nextFields[fieldIndex] = {
+                                          ...nextFields[fieldIndex],
+                                          outputField: event.target.value,
+                                        }
+                                        nextOutputs[outputIndex] = {
+                                          ...nextOutputs[outputIndex],
+                                          fields: nextFields,
+                                        }
+
+                                        return {
+                                          ...config,
+                                          materialize: {
+                                            ...config.materialize,
+                                            outputs: nextOutputs,
+                                          },
+                                        }
+                                      })
+                                    }
+                                    className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
+                                  />
+                                </label>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    updateConfig((config) => {
+                                      if (!config.materialize) {
+                                        return config
+                                      }
+
+                                      const nextOutputs = [...(config.materialize.outputs ?? [])]
+                                      const nextFields = [...(nextOutputs[outputIndex].fields ?? [])]
+                                      nextOutputs[outputIndex] = {
+                                        ...nextOutputs[outputIndex],
+                                        fields: nextFields.filter((_, index) => index !== fieldIndex),
+                                      }
+
+                                      return {
+                                        ...config,
+                                        materialize: {
+                                          ...config.materialize,
+                                          outputs: nextOutputs,
+                                        },
+                                      }
+                                    })
+                                  }
+                                  className="mt-3 text-xs font-semibold text-rose-500"
+                                >
+                                  Remove field
+                                </button>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateConfig((config) => {
+                            if (!config.materialize) {
+                              return config
+                            }
+
+                            const nextOutputs = [...(config.materialize.outputs ?? [])]
+                            const nextFields = [
+                              ...(nextOutputs[outputIndex].fields ?? []),
+                              {
+                                sourceAlias: '',
+                                sourceField: '',
+                                outputField: '',
+                              },
+                            ]
+                            nextOutputs[outputIndex] = {
+                              ...nextOutputs[outputIndex],
+                              fields: nextFields,
+                            }
+
+                            return {
+                              ...config,
+                              materialize: {
+                                ...config.materialize,
+                                outputs: nextOutputs,
+                              },
+                            }
+                          })
+                        }
+                        className="text-xs font-semibold text-blue-600"
+                      >
+                        Add field mapping
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            <button
+              type="button"
+              onClick={() =>
+                updateConfig((config) => {
+                  const existingOutputs = config.materialize?.outputs ?? []
+
+                  return {
+                    ...config,
+                    materialize: {
+                      ...(config.materialize ?? { outputs: [] }),
+                      outputs: [
+                        ...existingOutputs,
+                        {
+                          alias: `result_${existingOutputs.length + 1}`,
+                          fields: [],
+                        },
+                      ],
+                    },
+                  }
+                })
+              }
+              className="text-xs font-semibold text-blue-600"
+            >
+              Add output
+            </button>
+          </div>
+        )}
+
         {data.config.join && (
           <div className="space-y-3">
             <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -701,6 +1308,7 @@ export function NodeInspector({
           EntityTransformationNodeType.LeftJoin,
           EntityTransformationNodeType.AntiJoin,
           EntityTransformationNodeType.Sort,
+          EntityTransformationNodeType.Materialize,
           EntityTransformationNodeType.Paginate,
         ].includes(data.type) && (
           <p className="text-xs text-slate-500">

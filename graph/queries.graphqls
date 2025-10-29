@@ -408,6 +408,16 @@ fragment EntityTransformationNodeFields on EntityTransformationNode {
     rightAlias
     onField
   }
+  materialize {
+    outputs {
+      alias
+      fields {
+        sourceAlias
+        sourceField
+        outputField
+      }
+    }
+  }
   sort {
     alias
     field
@@ -491,6 +501,40 @@ query ExecuteEntityTransformation($input: ExecuteEntityTransformationInput!) {
           referenceValue
           properties
         }
+      }
+    }
+    pageInfo {
+      totalCount
+      hasNextPage
+      hasPreviousPage
+    }
+  }
+}
+
+query TransformationExecution(
+  $transformationId: String!
+  $filters: [TransformationExecutionFilterInput!]
+  $sort: TransformationExecutionSortInput
+  $pagination: PaginationInput
+) {
+  transformationExecution(
+    transformationId: $transformationId
+    filters: $filters
+    sort: $sort
+    pagination: $pagination
+  ) {
+    columns {
+      key
+      alias
+      field
+      label
+      sourceAlias
+      sourceField
+    }
+    rows {
+      values {
+        columnKey
+        value
       }
     }
     pageInfo {

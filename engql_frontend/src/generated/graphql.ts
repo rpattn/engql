@@ -224,6 +224,39 @@ export type EntityTransformationLoadConfigInput = {
   filters?: InputMaybe<Array<PropertyFilter>>;
 };
 
+export type EntityTransformationMaterializeConfig = {
+  __typename?: 'EntityTransformationMaterializeConfig';
+  outputs: Array<EntityTransformationMaterializeOutput>;
+};
+
+export type EntityTransformationMaterializeConfigInput = {
+  outputs: Array<EntityTransformationMaterializeOutputInput>;
+};
+
+export type EntityTransformationMaterializeFieldMapping = {
+  __typename?: 'EntityTransformationMaterializeFieldMapping';
+  outputField: Scalars['String']['output'];
+  sourceAlias: Scalars['String']['output'];
+  sourceField: Scalars['String']['output'];
+};
+
+export type EntityTransformationMaterializeFieldMappingInput = {
+  outputField: Scalars['String']['input'];
+  sourceAlias: Scalars['String']['input'];
+  sourceField: Scalars['String']['input'];
+};
+
+export type EntityTransformationMaterializeOutput = {
+  __typename?: 'EntityTransformationMaterializeOutput';
+  alias: Scalars['String']['output'];
+  fields: Array<EntityTransformationMaterializeFieldMapping>;
+};
+
+export type EntityTransformationMaterializeOutputInput = {
+  alias: Scalars['String']['input'];
+  fields: Array<EntityTransformationMaterializeFieldMappingInput>;
+};
+
 export type EntityTransformationNode = {
   __typename?: 'EntityTransformationNode';
   filter?: Maybe<EntityTransformationFilterConfig>;
@@ -231,6 +264,7 @@ export type EntityTransformationNode = {
   inputs: Array<Scalars['String']['output']>;
   join?: Maybe<EntityTransformationJoinConfig>;
   load?: Maybe<EntityTransformationLoadConfig>;
+  materialize?: Maybe<EntityTransformationMaterializeConfig>;
   name: Scalars['String']['output'];
   paginate?: Maybe<EntityTransformationPaginateConfig>;
   project?: Maybe<EntityTransformationProjectConfig>;
@@ -244,6 +278,7 @@ export type EntityTransformationNodeInput = {
   inputs?: InputMaybe<Array<Scalars['String']['input']>>;
   join?: InputMaybe<EntityTransformationJoinConfigInput>;
   load?: InputMaybe<EntityTransformationLoadConfigInput>;
+  materialize?: InputMaybe<EntityTransformationMaterializeConfigInput>;
   name: Scalars['String']['input'];
   paginate?: InputMaybe<EntityTransformationPaginateConfigInput>;
   project?: InputMaybe<EntityTransformationProjectConfigInput>;
@@ -257,6 +292,7 @@ export enum EntityTransformationNodeType {
   Join = 'JOIN',
   LeftJoin = 'LEFT_JOIN',
   Load = 'LOAD',
+  Materialize = 'MATERIALIZE',
   Paginate = 'PAGINATE',
   Project = 'PROJECT',
   Sort = 'SORT',
@@ -576,6 +612,7 @@ export type Query = {
   searchEntitiesByPropertyContains: Array<Entity>;
   searchEntitiesByPropertyExists: Array<Entity>;
   searchEntitiesByPropertyRange: Array<Entity>;
+  transformationExecution: TransformationExecutionConnection;
   validateEntityAgainstSchema: ValidationResult;
 };
 
@@ -737,6 +774,14 @@ export type QuerySearchEntitiesByPropertyRangeArgs = {
 };
 
 
+export type QueryTransformationExecutionArgs = {
+  filters?: InputMaybe<Array<TransformationExecutionFilterInput>>;
+  pagination?: InputMaybe<PaginationInput>;
+  sort?: InputMaybe<TransformationExecutionSortInput>;
+  transformationId: Scalars['String']['input'];
+};
+
+
 export type QueryValidateEntityAgainstSchemaArgs = {
   entityId: Scalars['String']['input'];
 };
@@ -752,6 +797,48 @@ export enum SortDirection {
   Asc = 'ASC',
   Desc = 'DESC'
 }
+
+export type TransformationExecutionColumn = {
+  __typename?: 'TransformationExecutionColumn';
+  alias: Scalars['String']['output'];
+  field: Scalars['String']['output'];
+  key: Scalars['String']['output'];
+  label: Scalars['String']['output'];
+  sourceAlias: Scalars['String']['output'];
+  sourceField: Scalars['String']['output'];
+};
+
+export type TransformationExecutionConnection = {
+  __typename?: 'TransformationExecutionConnection';
+  columns: Array<TransformationExecutionColumn>;
+  pageInfo: PageInfo;
+  rows: Array<TransformationExecutionRow>;
+};
+
+export type TransformationExecutionFilterInput = {
+  alias: Scalars['String']['input'];
+  exists?: InputMaybe<Scalars['Boolean']['input']>;
+  field: Scalars['String']['input'];
+  inArray?: InputMaybe<Array<Scalars['String']['input']>>;
+  value?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type TransformationExecutionRow = {
+  __typename?: 'TransformationExecutionRow';
+  values: Array<TransformationExecutionValue>;
+};
+
+export type TransformationExecutionSortInput = {
+  alias: Scalars['String']['input'];
+  direction?: InputMaybe<SortDirection>;
+  field: Scalars['String']['input'];
+};
+
+export type TransformationExecutionValue = {
+  __typename?: 'TransformationExecutionValue';
+  columnKey: Scalars['String']['output'];
+  value?: Maybe<Scalars['String']['output']>;
+};
 
 export type UpdateEntityInput = {
   entityType?: InputMaybe<Scalars['String']['input']>;
@@ -966,7 +1053,7 @@ export type ExecuteJoinQueryVariables = Exact<{
 
 export type ExecuteJoinQuery = { __typename?: 'Query', executeEntityJoin: { __typename?: 'EntityJoinConnection', edges: Array<{ __typename?: 'EntityJoinEdge', left: { __typename?: 'Entity', id: string, entityType: string, properties: string }, right: { __typename?: 'Entity', id: string, entityType: string, properties: string } }>, pageInfo: { __typename?: 'PageInfo', totalCount: number, hasNextPage: boolean, hasPreviousPage: boolean } } };
 
-export type EntityTransformationNodeFieldsFragment = { __typename?: 'EntityTransformationNode', id: string, name: string, type: EntityTransformationNodeType, inputs: Array<string>, load?: { __typename?: 'EntityTransformationLoadConfig', alias: string, entityType: string, filters: Array<{ __typename?: 'PropertyFilterConfig', key: string, value?: string | null, exists?: boolean | null, inArray?: Array<string> | null }> } | null, filter?: { __typename?: 'EntityTransformationFilterConfig', alias: string, filters: Array<{ __typename?: 'PropertyFilterConfig', key: string, value?: string | null, exists?: boolean | null, inArray?: Array<string> | null }> } | null, project?: { __typename?: 'EntityTransformationProjectConfig', alias: string, fields: Array<string> } | null, join?: { __typename?: 'EntityTransformationJoinConfig', leftAlias: string, rightAlias: string, onField: string } | null, sort?: { __typename?: 'EntityTransformationSortConfig', alias: string, field: string, direction: JoinSortDirection } | null, paginate?: { __typename?: 'EntityTransformationPaginateConfig', limit?: number | null, offset?: number | null } | null };
+export type EntityTransformationNodeFieldsFragment = { __typename?: 'EntityTransformationNode', id: string, name: string, type: EntityTransformationNodeType, inputs: Array<string>, load?: { __typename?: 'EntityTransformationLoadConfig', alias: string, entityType: string, filters: Array<{ __typename?: 'PropertyFilterConfig', key: string, value?: string | null, exists?: boolean | null, inArray?: Array<string> | null }> } | null, filter?: { __typename?: 'EntityTransformationFilterConfig', alias: string, filters: Array<{ __typename?: 'PropertyFilterConfig', key: string, value?: string | null, exists?: boolean | null, inArray?: Array<string> | null }> } | null, project?: { __typename?: 'EntityTransformationProjectConfig', alias: string, fields: Array<string> } | null, join?: { __typename?: 'EntityTransformationJoinConfig', leftAlias: string, rightAlias: string, onField: string } | null, materialize?: { __typename?: 'EntityTransformationMaterializeConfig', outputs: Array<{ __typename?: 'EntityTransformationMaterializeOutput', alias: string, fields: Array<{ __typename?: 'EntityTransformationMaterializeFieldMapping', sourceAlias: string, sourceField: string, outputField: string }> }> } | null, sort?: { __typename?: 'EntityTransformationSortConfig', alias: string, field: string, direction: JoinSortDirection } | null, paginate?: { __typename?: 'EntityTransformationPaginateConfig', limit?: number | null, offset?: number | null } | null };
 
 export type EntityTransformationsQueryVariables = Exact<{
   organizationId: Scalars['String']['input'];
@@ -980,21 +1067,21 @@ export type EntityTransformationQueryVariables = Exact<{
 }>;
 
 
-export type EntityTransformationQuery = { __typename?: 'Query', entityTransformation?: { __typename?: 'EntityTransformation', id: string, organizationId: string, name: string, description?: string | null, createdAt: string, updatedAt: string, nodes: Array<{ __typename?: 'EntityTransformationNode', id: string, name: string, type: EntityTransformationNodeType, inputs: Array<string>, load?: { __typename?: 'EntityTransformationLoadConfig', alias: string, entityType: string, filters: Array<{ __typename?: 'PropertyFilterConfig', key: string, value?: string | null, exists?: boolean | null, inArray?: Array<string> | null }> } | null, filter?: { __typename?: 'EntityTransformationFilterConfig', alias: string, filters: Array<{ __typename?: 'PropertyFilterConfig', key: string, value?: string | null, exists?: boolean | null, inArray?: Array<string> | null }> } | null, project?: { __typename?: 'EntityTransformationProjectConfig', alias: string, fields: Array<string> } | null, join?: { __typename?: 'EntityTransformationJoinConfig', leftAlias: string, rightAlias: string, onField: string } | null, sort?: { __typename?: 'EntityTransformationSortConfig', alias: string, field: string, direction: JoinSortDirection } | null, paginate?: { __typename?: 'EntityTransformationPaginateConfig', limit?: number | null, offset?: number | null } | null }> } | null };
+export type EntityTransformationQuery = { __typename?: 'Query', entityTransformation?: { __typename?: 'EntityTransformation', id: string, organizationId: string, name: string, description?: string | null, createdAt: string, updatedAt: string, nodes: Array<{ __typename?: 'EntityTransformationNode', id: string, name: string, type: EntityTransformationNodeType, inputs: Array<string>, load?: { __typename?: 'EntityTransformationLoadConfig', alias: string, entityType: string, filters: Array<{ __typename?: 'PropertyFilterConfig', key: string, value?: string | null, exists?: boolean | null, inArray?: Array<string> | null }> } | null, filter?: { __typename?: 'EntityTransformationFilterConfig', alias: string, filters: Array<{ __typename?: 'PropertyFilterConfig', key: string, value?: string | null, exists?: boolean | null, inArray?: Array<string> | null }> } | null, project?: { __typename?: 'EntityTransformationProjectConfig', alias: string, fields: Array<string> } | null, join?: { __typename?: 'EntityTransformationJoinConfig', leftAlias: string, rightAlias: string, onField: string } | null, materialize?: { __typename?: 'EntityTransformationMaterializeConfig', outputs: Array<{ __typename?: 'EntityTransformationMaterializeOutput', alias: string, fields: Array<{ __typename?: 'EntityTransformationMaterializeFieldMapping', sourceAlias: string, sourceField: string, outputField: string }> }> } | null, sort?: { __typename?: 'EntityTransformationSortConfig', alias: string, field: string, direction: JoinSortDirection } | null, paginate?: { __typename?: 'EntityTransformationPaginateConfig', limit?: number | null, offset?: number | null } | null }> } | null };
 
 export type CreateEntityTransformationMutationVariables = Exact<{
   input: CreateEntityTransformationInput;
 }>;
 
 
-export type CreateEntityTransformationMutation = { __typename?: 'Mutation', createEntityTransformation: { __typename?: 'EntityTransformation', id: string, organizationId: string, name: string, description?: string | null, createdAt: string, updatedAt: string, nodes: Array<{ __typename?: 'EntityTransformationNode', id: string, name: string, type: EntityTransformationNodeType, inputs: Array<string>, load?: { __typename?: 'EntityTransformationLoadConfig', alias: string, entityType: string, filters: Array<{ __typename?: 'PropertyFilterConfig', key: string, value?: string | null, exists?: boolean | null, inArray?: Array<string> | null }> } | null, filter?: { __typename?: 'EntityTransformationFilterConfig', alias: string, filters: Array<{ __typename?: 'PropertyFilterConfig', key: string, value?: string | null, exists?: boolean | null, inArray?: Array<string> | null }> } | null, project?: { __typename?: 'EntityTransformationProjectConfig', alias: string, fields: Array<string> } | null, join?: { __typename?: 'EntityTransformationJoinConfig', leftAlias: string, rightAlias: string, onField: string } | null, sort?: { __typename?: 'EntityTransformationSortConfig', alias: string, field: string, direction: JoinSortDirection } | null, paginate?: { __typename?: 'EntityTransformationPaginateConfig', limit?: number | null, offset?: number | null } | null }> } };
+export type CreateEntityTransformationMutation = { __typename?: 'Mutation', createEntityTransformation: { __typename?: 'EntityTransformation', id: string, organizationId: string, name: string, description?: string | null, createdAt: string, updatedAt: string, nodes: Array<{ __typename?: 'EntityTransformationNode', id: string, name: string, type: EntityTransformationNodeType, inputs: Array<string>, load?: { __typename?: 'EntityTransformationLoadConfig', alias: string, entityType: string, filters: Array<{ __typename?: 'PropertyFilterConfig', key: string, value?: string | null, exists?: boolean | null, inArray?: Array<string> | null }> } | null, filter?: { __typename?: 'EntityTransformationFilterConfig', alias: string, filters: Array<{ __typename?: 'PropertyFilterConfig', key: string, value?: string | null, exists?: boolean | null, inArray?: Array<string> | null }> } | null, project?: { __typename?: 'EntityTransformationProjectConfig', alias: string, fields: Array<string> } | null, join?: { __typename?: 'EntityTransformationJoinConfig', leftAlias: string, rightAlias: string, onField: string } | null, materialize?: { __typename?: 'EntityTransformationMaterializeConfig', outputs: Array<{ __typename?: 'EntityTransformationMaterializeOutput', alias: string, fields: Array<{ __typename?: 'EntityTransformationMaterializeFieldMapping', sourceAlias: string, sourceField: string, outputField: string }> }> } | null, sort?: { __typename?: 'EntityTransformationSortConfig', alias: string, field: string, direction: JoinSortDirection } | null, paginate?: { __typename?: 'EntityTransformationPaginateConfig', limit?: number | null, offset?: number | null } | null }> } };
 
 export type UpdateEntityTransformationMutationVariables = Exact<{
   input: UpdateEntityTransformationInput;
 }>;
 
 
-export type UpdateEntityTransformationMutation = { __typename?: 'Mutation', updateEntityTransformation: { __typename?: 'EntityTransformation', id: string, organizationId: string, name: string, description?: string | null, createdAt: string, updatedAt: string, nodes: Array<{ __typename?: 'EntityTransformationNode', id: string, name: string, type: EntityTransformationNodeType, inputs: Array<string>, load?: { __typename?: 'EntityTransformationLoadConfig', alias: string, entityType: string, filters: Array<{ __typename?: 'PropertyFilterConfig', key: string, value?: string | null, exists?: boolean | null, inArray?: Array<string> | null }> } | null, filter?: { __typename?: 'EntityTransformationFilterConfig', alias: string, filters: Array<{ __typename?: 'PropertyFilterConfig', key: string, value?: string | null, exists?: boolean | null, inArray?: Array<string> | null }> } | null, project?: { __typename?: 'EntityTransformationProjectConfig', alias: string, fields: Array<string> } | null, join?: { __typename?: 'EntityTransformationJoinConfig', leftAlias: string, rightAlias: string, onField: string } | null, sort?: { __typename?: 'EntityTransformationSortConfig', alias: string, field: string, direction: JoinSortDirection } | null, paginate?: { __typename?: 'EntityTransformationPaginateConfig', limit?: number | null, offset?: number | null } | null }> } };
+export type UpdateEntityTransformationMutation = { __typename?: 'Mutation', updateEntityTransformation: { __typename?: 'EntityTransformation', id: string, organizationId: string, name: string, description?: string | null, createdAt: string, updatedAt: string, nodes: Array<{ __typename?: 'EntityTransformationNode', id: string, name: string, type: EntityTransformationNodeType, inputs: Array<string>, load?: { __typename?: 'EntityTransformationLoadConfig', alias: string, entityType: string, filters: Array<{ __typename?: 'PropertyFilterConfig', key: string, value?: string | null, exists?: boolean | null, inArray?: Array<string> | null }> } | null, filter?: { __typename?: 'EntityTransformationFilterConfig', alias: string, filters: Array<{ __typename?: 'PropertyFilterConfig', key: string, value?: string | null, exists?: boolean | null, inArray?: Array<string> | null }> } | null, project?: { __typename?: 'EntityTransformationProjectConfig', alias: string, fields: Array<string> } | null, join?: { __typename?: 'EntityTransformationJoinConfig', leftAlias: string, rightAlias: string, onField: string } | null, materialize?: { __typename?: 'EntityTransformationMaterializeConfig', outputs: Array<{ __typename?: 'EntityTransformationMaterializeOutput', alias: string, fields: Array<{ __typename?: 'EntityTransformationMaterializeFieldMapping', sourceAlias: string, sourceField: string, outputField: string }> }> } | null, sort?: { __typename?: 'EntityTransformationSortConfig', alias: string, field: string, direction: JoinSortDirection } | null, paginate?: { __typename?: 'EntityTransformationPaginateConfig', limit?: number | null, offset?: number | null } | null }> } };
 
 export type DeleteEntityTransformationMutationVariables = Exact<{
   id: Scalars['String']['input'];
@@ -1009,6 +1096,16 @@ export type ExecuteEntityTransformationQueryVariables = Exact<{
 
 
 export type ExecuteEntityTransformationQuery = { __typename?: 'Query', executeEntityTransformation: { __typename?: 'EntityTransformationConnection', edges: Array<{ __typename?: 'EntityTransformationRecordEdge', entities: Array<{ __typename?: 'EntityTransformationRecordEntity', alias: string, entity?: { __typename?: 'Entity', id: string, entityType: string, path: string, referenceValue?: string | null, properties: string } | null }> }>, pageInfo: { __typename?: 'PageInfo', totalCount: number, hasNextPage: boolean, hasPreviousPage: boolean } } };
+
+export type TransformationExecutionQueryVariables = Exact<{
+  transformationId: Scalars['String']['input'];
+  filters?: InputMaybe<Array<TransformationExecutionFilterInput> | TransformationExecutionFilterInput>;
+  sort?: InputMaybe<TransformationExecutionSortInput>;
+  pagination?: InputMaybe<PaginationInput>;
+}>;
+
+
+export type TransformationExecutionQuery = { __typename?: 'Query', transformationExecution: { __typename?: 'TransformationExecutionConnection', columns: Array<{ __typename?: 'TransformationExecutionColumn', key: string, alias: string, field: string, label: string, sourceAlias: string, sourceField: string }>, rows: Array<{ __typename?: 'TransformationExecutionRow', values: Array<{ __typename?: 'TransformationExecutionValue', columnKey: string, value?: string | null }> }>, pageInfo: { __typename?: 'PageInfo', totalCount: number, hasNextPage: boolean, hasPreviousPage: boolean } } };
 
 
 export const EntityTransformationNodeFieldsFragmentDoc = `
@@ -1044,6 +1141,16 @@ export const EntityTransformationNodeFieldsFragmentDoc = `
     leftAlias
     rightAlias
     onField
+  }
+  materialize {
+    outputs {
+      alias
+      fields {
+        sourceAlias
+        sourceField
+        outputField
+      }
+    }
   }
   sort {
     alias
@@ -2101,3 +2208,55 @@ useExecuteEntityTransformationQuery.getKey = (variables: ExecuteEntityTransforma
 
 
 useExecuteEntityTransformationQuery.fetcher = (variables: ExecuteEntityTransformationQueryVariables, options?: RequestInit['headers']) => graphqlRequest<ExecuteEntityTransformationQuery, ExecuteEntityTransformationQueryVariables>(ExecuteEntityTransformationDocument, variables, options);
+
+export const TransformationExecutionDocument = `
+    query TransformationExecution($transformationId: String!, $filters: [TransformationExecutionFilterInput!], $sort: TransformationExecutionSortInput, $pagination: PaginationInput) {
+  transformationExecution(
+    transformationId: $transformationId
+    filters: $filters
+    sort: $sort
+    pagination: $pagination
+  ) {
+    columns {
+      key
+      alias
+      field
+      label
+      sourceAlias
+      sourceField
+    }
+    rows {
+      values {
+        columnKey
+        value
+      }
+    }
+    pageInfo {
+      totalCount
+      hasNextPage
+      hasPreviousPage
+    }
+  }
+}
+    `;
+
+export const useTransformationExecutionQuery = <
+      TData = TransformationExecutionQuery,
+      TError = unknown
+    >(
+      variables: TransformationExecutionQueryVariables,
+      options?: Omit<UseQueryOptions<TransformationExecutionQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<TransformationExecutionQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<TransformationExecutionQuery, TError, TData>(
+      {
+    queryKey: ['TransformationExecution', variables],
+    queryFn: () => graphqlRequest<TransformationExecutionQuery, TransformationExecutionQueryVariables>(TransformationExecutionDocument, variables),
+    ...options
+  }
+    )};
+
+useTransformationExecutionQuery.getKey = (variables: TransformationExecutionQueryVariables) => ['TransformationExecution', variables];
+
+
+useTransformationExecutionQuery.fetcher = (variables: TransformationExecutionQueryVariables, options?: RequestInit['headers']) => graphqlRequest<TransformationExecutionQuery, TransformationExecutionQueryVariables>(TransformationExecutionDocument, variables, options);
