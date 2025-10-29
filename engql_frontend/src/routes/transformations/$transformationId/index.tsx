@@ -97,6 +97,10 @@ function TransformationDetailRoute() {
   const inspectorRef = useRef<HTMLDivElement | null>(null)
   const preserveSelectionRef = useRef(false)
 
+  const enableSelectionPreservation = useCallback(() => {
+    preserveSelectionRef.current = true
+  }, [])
+
   const disableSelectionPreservation = useCallback(() => {
     preserveSelectionRef.current = false
   }, [])
@@ -106,15 +110,18 @@ function TransformationDetailRoute() {
     setSelectedNodeId(null)
   }, [disableSelectionPreservation])
 
-  const selectNodeById = useCallback((nodeId: string) => {
-    preserveSelectionRef.current = true
-    setSelectedNodeId(nodeId)
-  }, [])
+  const selectNodeById = useCallback(
+    (nodeId: string, { preserve = false }: { preserve?: boolean } = {}) => {
+      preserveSelectionRef.current = preserve
+      setSelectedNodeId(nodeId)
+    },
+    [],
+  )
 
   const handleCanvasSelect = useCallback(
     (node: TransformationCanvasNode | null) => {
       if (node) {
-        selectNodeById(node.id)
+        selectNodeById(node.id, { preserve: false })
         return
       }
 
@@ -126,6 +133,10 @@ function TransformationDetailRoute() {
   const { onNodesChange } = graphController
 
   const handleCanvasBackgroundPointerDown = useCallback(() => {
+    disableSelectionPreservation()
+  }, [disableSelectionPreservation])
+
+  const handleNodePointerDown = useCallback(() => {
     disableSelectionPreservation()
   }, [disableSelectionPreservation])
 
@@ -205,6 +216,7 @@ function TransformationDetailRoute() {
         graphController.onNodesChange([
           { id: selectedNodeId, type: 'select', selected: true },
         ])
+        disableSelectionPreservation()
       }
       return
     }
@@ -221,11 +233,13 @@ function TransformationDetailRoute() {
       graphController.onNodesChange([
         { id: selectedNodeId, type: 'select', selected: true },
       ])
+      disableSelectionPreservation()
     }
   }, [
     clearSelection,
     graphController.graph.nodes,
     graphController.onNodesChange,
+    disableSelectionPreservation,
     selectedNodeId,
   ])
 
@@ -362,6 +376,8 @@ function TransformationDetailRoute() {
       graphSignature: currentGraphSignature,
     }
 
+    enableSelectionPreservation()
+
     updateMutation.mutate({
       input: {
         id: transformationId,
@@ -378,6 +394,7 @@ function TransformationDetailRoute() {
     transformationId,
     isDirty,
     currentGraphSignature,
+    enableSelectionPreservation,
   ])
 
   useEffect(() => {
@@ -563,7 +580,7 @@ function TransformationDetailRoute() {
         <NodePalette
           onAdd={(type) => {
             const node = graphController.addNode(type)
-            selectNodeById(node.id)
+            selectNodeById(node.id, { preserve: true })
           }}
         />
         <div
@@ -577,6 +594,7 @@ function TransformationDetailRoute() {
             onDeselect={handleCanvasDeselect}
             onBackgroundPointerDown={handleCanvasBackgroundPointerDown}
             preserveSelectionRef={preserveSelectionRef}
+            onNodePointerDown={handleNodePointerDown}
           />
         </div>
         <div className="flex flex-col gap-3">

@@ -15,6 +15,7 @@ export function TransformationCanvas({
   selectedNodeId,
   preserveSelectionRef,
   onBackgroundPointerDown,
+  onNodePointerDown,
 }: {
   controller: TransformationGraphController
   onSelect: (node: TransformationCanvasNode | null) => void
@@ -22,6 +23,7 @@ export function TransformationCanvas({
   selectedNodeId: string | null
   preserveSelectionRef: MutableRefObject<boolean>
   onBackgroundPointerDown: () => void
+  onNodePointerDown: () => void
 }) {
   const nodeTypes = useMemo(
     () => ({
@@ -55,6 +57,7 @@ export function TransformationCanvas({
           onConnect={controller.onConnect}
           onPaneMouseDown={onBackgroundPointerDown}
           onPaneClick={onDeselect}
+          onNodeMouseDown={onNodePointerDown}
           onSelectionChange={(changes) => {
             const shouldPreserveSelection = preserveSelectionRef.current
             const candidates = changes.nodes ?? []
