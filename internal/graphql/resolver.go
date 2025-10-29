@@ -556,7 +556,17 @@ func (r *Resolver) TransformationExecution(
 
 	columns := buildExecutionColumns(materializeConfig)
 
-	execResult, err := r.transformationExecutor.Execute(ctx, transformation, domain.EntityTransformationExecutionOptions{})
+	options := domain.EntityTransformationExecutionOptions{}
+	if pagination != nil {
+		if pagination.Limit != nil {
+			options.Limit = *pagination.Limit
+		}
+		if pagination.Offset != nil {
+			options.Offset = *pagination.Offset
+		}
+	}
+
+	execResult, err := r.transformationExecutor.Execute(ctx, transformation, options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute transformation: %w", err)
 	}
@@ -564,36 +574,35 @@ func (r *Resolver) TransformationExecution(
 	aliasFilters := filtersByAlias(filters)
 	filteredRecords := applyTransformationFilters(execResult.Records, aliasFilters)
 
-	working := append([]domain.EntityTransformationRecord(nil), filteredRecords...)
-
 	if sortInput != nil && strings.TrimSpace(sortInput.Alias) != "" && strings.TrimSpace(sortInput.Field) != "" {
 		direction := domain.JoinSortAsc
 		if sortInput.Direction != nil && *sortInput.Direction == graph.SortDirectionDesc {
 			direction = domain.JoinSortDesc
 		}
-		domain.SortRecords(working, sortInput.Alias, sortInput.Field, direction)
+		domain.SortRecords(filteredRecords, sortInput.Alias, sortInput.Field, direction)
 	}
 
-	limit := 0
-	offset := 0
-	if pagination != nil {
-		if pagination.Limit != nil {
-			limit = *pagination.Limit
-		}
-		if pagination.Offset != nil {
-			offset = *pagination.Offset
-		}
+	rows := buildExecutionRows(filteredRecords, columns)
+
+	totalCount := len(filteredRecords)
+	if len(aliasFilters) == 0 {
+		totalCount = execResult.TotalCount
 	}
 
-	totalCount := len(working)
-	pagedRecords := domain.PaginateRecords(working, limit, offset)
-
-	rows := buildExecutionRows(pagedRecords, columns)
+	hasPrev := options.Offset > 0 && totalCount > 0
+	hasNext := false
+	if options.Limit > 0 {
+		comparisonTotal := totalCount
+		if len(aliasFilters) == 0 {
+			comparisonTotal = execResult.TotalCount
+		}
+		hasNext = options.Offset+options.Limit < comparisonTotal
+	}
 
 	pageInfo := &graph.PageInfo{
 		TotalCount:      totalCount,
-		HasPreviousPage: offset > 0 && totalCount > 0,
-		HasNextPage:     limit > 0 && offset+limit < totalCount,
+		HasPreviousPage: hasPrev,
+		HasNextPage:     hasNext,
 	}
 
 	return &graph.TransformationExecutionConnection{
