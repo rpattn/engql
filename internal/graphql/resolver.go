@@ -556,24 +556,6 @@ func (r *Resolver) TransformationExecution(
 
 	columns := buildExecutionColumns(materializeConfig)
 
-	execResult, err := r.transformationExecutor.Execute(ctx, transformation, domain.EntityTransformationExecutionOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("failed to execute transformation: %w", err)
-	}
-
-	aliasFilters := filtersByAlias(filters)
-	filteredRecords := applyTransformationFilters(execResult.Records, aliasFilters)
-
-	working := append([]domain.EntityTransformationRecord(nil), filteredRecords...)
-
-	if sortInput != nil && strings.TrimSpace(sortInput.Alias) != "" && strings.TrimSpace(sortInput.Field) != "" {
-		direction := domain.JoinSortAsc
-		if sortInput.Direction != nil && *sortInput.Direction == graph.SortDirectionDesc {
-			direction = domain.JoinSortDesc
-		}
-		domain.SortRecords(working, sortInput.Alias, sortInput.Field, direction)
-	}
-
 	limit := 0
 	offset := 0
 	if pagination != nil {
@@ -585,15 +567,37 @@ func (r *Resolver) TransformationExecution(
 		}
 	}
 
-	totalCount := len(working)
-	pagedRecords := domain.PaginateRecords(working, limit, offset)
+	aliasFilters := filtersByAlias(filters)
 
-	rows := buildExecutionRows(pagedRecords, columns)
+	options := domain.EntityTransformationExecutionOptions{}
+
+	execResult, err := r.transformationExecutor.Execute(ctx, transformation, options)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute transformation: %w", err)
+	}
+
+	filteredRecords := applyTransformationFilters(execResult.Records, aliasFilters)
+
+	if sortInput != nil && strings.TrimSpace(sortInput.Alias) != "" && strings.TrimSpace(sortInput.Field) != "" {
+		direction := domain.JoinSortAsc
+		if sortInput.Direction != nil && *sortInput.Direction == graph.SortDirectionDesc {
+			direction = domain.JoinSortDesc
+		}
+		domain.SortRecords(filteredRecords, sortInput.Alias, sortInput.Field, direction)
+	}
+
+	totalCount := len(filteredRecords)
+	rowsRecords := domain.PaginateRecords(filteredRecords, limit, offset)
+
+	rows := buildExecutionRows(rowsRecords, columns)
+
+	hasPrev := offset > 0 && totalCount > 0
+	hasNext := limit > 0 && offset+limit < totalCount
 
 	pageInfo := &graph.PageInfo{
 		TotalCount:      totalCount,
-		HasPreviousPage: offset > 0 && totalCount > 0,
-		HasNextPage:     limit > 0 && offset+limit < totalCount,
+		HasPreviousPage: hasPrev,
+		HasNextPage:     hasNext,
 	}
 
 	return &graph.TransformationExecutionConnection{
