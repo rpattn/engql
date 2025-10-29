@@ -62,7 +62,7 @@ func (stubSchemaProvider) GetByName(ctx context.Context, organizationID uuid.UUI
 	return domain.EntitySchema{}, nil
 }
 
-func TestTransformationExecutionUsesExecutorPagination(t *testing.T) {
+func TestTransformationExecutionSortsBeforePaginating(t *testing.T) {
 	orgID := uuid.New()
 	loadID := uuid.New()
 	materializeID := uuid.New()
@@ -115,27 +115,27 @@ func TestTransformationExecutionUsesExecutorPagination(t *testing.T) {
 	}
 
 	limit := 1
-	offset := 1
+	offset := 0
+	direction := graph.SortDirectionDesc
 	conn, err := resolver.TransformationExecution(
 		context.Background(),
 		transformation.ID.String(),
 		nil,
-		nil,
+		&graph.TransformationExecutionSortInput{Alias: "table", Field: "name", Direction: &direction},
 		&graph.PaginationInput{Limit: &limit, Offset: &offset},
 	)
 	if err != nil {
 		t.Fatalf("resolver error: %v", err)
 	}
 
-	expectedRepoLimit := limit + offset
-	if entityRepo.lastLimit != expectedRepoLimit {
-		t.Fatalf("expected repo limit %d, got %d", expectedRepoLimit, entityRepo.lastLimit)
+	if entityRepo.calls != 1 {
+		t.Fatalf("expected single repo call, got %d", entityRepo.calls)
 	}
 	if entityRepo.lastOffset != 0 {
 		t.Fatalf("expected repo offset 0, got %d", entityRepo.lastOffset)
 	}
-	if entityRepo.calls != 1 {
-		t.Fatalf("expected single repo call, got %d", entityRepo.calls)
+	if entityRepo.lastLimit < len(entityRecords) {
+		t.Fatalf("expected repo limit to cover all records, got %d", entityRepo.lastLimit)
 	}
 
 	if conn == nil {
@@ -148,8 +148,18 @@ func TestTransformationExecutionUsesExecutorPagination(t *testing.T) {
 		t.Fatalf("expected row values")
 	}
 	value := conn.Rows[0].Values[0].Value
-	if value == nil || *value != "Bob" {
-		t.Fatalf("expected row value Bob, got %v", value)
+	if value == nil || *value != "Charlie" {
+		t.Fatalf("expected row value Charlie, got %v", value)
+	}
+
+	if conn.PageInfo == nil {
+		t.Fatalf("expected page info")
+	}
+	if conn.PageInfo.TotalCount != len(entityRecords) {
+		t.Fatalf("expected total count %d, got %d", len(entityRecords), conn.PageInfo.TotalCount)
+	}
+	if !conn.PageInfo.HasNextPage {
+		t.Fatalf("expected next page to be available")
 	}
 }
 

@@ -570,10 +570,6 @@ func (r *Resolver) TransformationExecution(
 	aliasFilters := filtersByAlias(filters)
 
 	options := domain.EntityTransformationExecutionOptions{}
-	if len(aliasFilters) == 0 {
-		options.Limit = limit
-		options.Offset = offset
-	}
 
 	execResult, err := r.transformationExecutor.Execute(ctx, transformation, options)
 	if err != nil {
@@ -590,12 +586,8 @@ func (r *Resolver) TransformationExecution(
 		domain.SortRecords(filteredRecords, sortInput.Alias, sortInput.Field, direction)
 	}
 
-	rowsRecords := filteredRecords
-	totalCount := execResult.TotalCount
-	if len(aliasFilters) > 0 {
-		totalCount = len(filteredRecords)
-		rowsRecords = domain.PaginateRecords(filteredRecords, limit, offset)
-	}
+	totalCount := len(filteredRecords)
+	rowsRecords := domain.PaginateRecords(filteredRecords, limit, offset)
 
 	rows := buildExecutionRows(rowsRecords, columns)
 
