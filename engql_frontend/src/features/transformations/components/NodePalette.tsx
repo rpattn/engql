@@ -46,6 +46,11 @@ const paletteItems: Array<{
     description: 'Order entities using alias, field, and direction.',
   },
   {
+    type: EntityTransformationNodeType.Materialize,
+    title: 'Materialize',
+    description: 'Flatten entities into a table for downstream consumers.',
+  },
+  {
     type: EntityTransformationNodeType.Paginate,
     title: 'Paginate',
     description: 'Control page size and offset.',

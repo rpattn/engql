@@ -61,6 +61,13 @@ export function TransformationListTable({
                   >
                     Execute
                   </Link>
+                  <Link
+                    to="/transformations/$transformationId/results"
+                    params={{ transformationId: transformation.id }}
+                    className="rounded border border-emerald-200 px-2 py-1 text-emerald-600 hover:bg-emerald-50"
+                  >
+                    Results
+                  </Link>
                   <button
                     type="button"
                     onClick={() => onOpen(transformation.id)}
