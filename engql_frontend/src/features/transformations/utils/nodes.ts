@@ -76,6 +76,17 @@ export function buildDefaultConfig(
       return {
         sort: { alias: 'sorted', field: '', direction: 'ASC' },
       }
+    case NodeType.Materialize:
+      return {
+        materialize: {
+          outputs: [
+            {
+              alias: 'result',
+              fields: [],
+            },
+          ],
+        },
+      }
     case NodeType.Paginate:
       return {
         paginate: { limit: 25, offset: 0 },
@@ -99,6 +110,18 @@ export function createGraphStateFromDefinition(
       join: node.join ? { ...node.join } : undefined,
       sort: node.sort ? { ...node.sort } : undefined,
       paginate: node.paginate ? { ...node.paginate } : undefined,
+      materialize: node.materialize
+        ? {
+            outputs: node.materialize.outputs.map((output) => ({
+              alias: output.alias,
+              fields: output.fields.map((field) => ({
+                sourceAlias: field.sourceAlias,
+                sourceField: field.sourceField,
+                outputField: field.outputField,
+              })),
+            })),
+          }
+        : undefined,
     }
 
     const data: TransformationNodeData = {
@@ -162,6 +185,18 @@ export function serializeGraph(
       join: node.data.config.join ? { ...node.data.config.join } : undefined,
       sort: node.data.config.sort ? { ...node.data.config.sort } : undefined,
       paginate: node.data.config.paginate ? { ...node.data.config.paginate } : undefined,
+      materialize: node.data.config.materialize
+        ? {
+            outputs: (node.data.config.materialize.outputs ?? []).map((output) => ({
+              alias: output.alias,
+              fields: (output.fields ?? []).map((field) => ({
+                sourceAlias: field.sourceAlias,
+                sourceField: field.sourceField,
+                outputField: field.outputField,
+              })),
+            })),
+          }
+        : undefined,
     }
 
     return payload

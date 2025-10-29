@@ -408,6 +408,16 @@ fragment EntityTransformationNodeFields on EntityTransformationNode {
     rightAlias
     onField
   }
+  materialize {
+    outputs {
+      alias
+      fields {
+        sourceAlias
+        sourceField
+        outputField
+      }
+    }
+  }
   sort {
     alias
     field
