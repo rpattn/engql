@@ -1309,6 +1309,128 @@ func TestExecutor_SortAliasMissingError(t *testing.T) {
 	}
 }
 
+func TestExecutor_JoinRespectsExecutionWindow(t *testing.T) {
+	orgID := uuid.New()
+	leftCount := 30
+	rightCount := 25
+	repo := &mockEntityRepository{}
+	for i := 0; i < leftCount; i++ {
+		repo.entities = append(repo.entities, domain.Entity{
+			ID:             uuid.New(),
+			OrganizationID: orgID,
+			EntityType:     "left",
+			Properties: map[string]any{
+				"join": "shared",
+				"idx":  i,
+			},
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		})
+	}
+	for j := 0; j < rightCount; j++ {
+		repo.entities = append(repo.entities, domain.Entity{
+			ID:             uuid.New(),
+			OrganizationID: orgID,
+			EntityType:     "right",
+			Properties: map[string]any{
+				"join": "shared",
+				"idx":  j,
+			},
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		})
+	}
+	executor := NewExecutor(repo, nil)
+
+	loadLeftID := uuid.New()
+	loadRightID := uuid.New()
+	joinNodeID := uuid.New()
+	transformation := domain.EntityTransformation{
+		ID:             uuid.New(),
+		OrganizationID: orgID,
+		Name:           "paged-join",
+		Nodes: []domain.EntityTransformationNode{
+			{
+				ID:   loadLeftID,
+				Name: "load-left",
+				Type: domain.TransformationNodeLoad,
+				Load: &domain.EntityTransformationLoadConfig{
+					Alias:      "left",
+					EntityType: "left",
+				},
+			},
+			{
+				ID:   loadRightID,
+				Name: "load-right",
+				Type: domain.TransformationNodeLoad,
+				Load: &domain.EntityTransformationLoadConfig{
+					Alias:      "right",
+					EntityType: "right",
+				},
+			},
+			{
+				ID:     joinNodeID,
+				Name:   "join",
+				Type:   domain.TransformationNodeJoin,
+				Inputs: []uuid.UUID{loadLeftID, loadRightID},
+				Join: &domain.EntityTransformationJoinConfig{
+					LeftAlias:  "left",
+					RightAlias: "right",
+					OnField:    "join",
+				},
+			},
+		},
+	}
+
+	opts := domain.EntityTransformationExecutionOptions{Limit: 10, Offset: 50}
+	totalCombos := leftCount * rightCount
+	if totalCombos <= opts.Offset+opts.Limit {
+		t.Fatalf("expected more combinations than requested page window")
+	}
+
+	result, err := executor.Execute(context.Background(), transformation, opts)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if len(result.Records) != opts.Limit {
+		t.Fatalf("expected %d records, got %d", opts.Limit, len(result.Records))
+	}
+	if result.TotalCount != opts.Limit {
+		t.Fatalf("expected total count %d, got %d", opts.Limit, result.TotalCount)
+	}
+
+	expectedFirstLeft := opts.Offset / rightCount
+	expectedFirstRight := opts.Offset % rightCount
+	first := result.Records[0]
+	leftEntity := first.Entities["left"]
+	rightEntity := first.Entities["right"]
+	if leftEntity == nil || rightEntity == nil {
+		t.Fatalf("expected joined entities in first record")
+	}
+	if got, ok := leftEntity.Properties["idx"].(int); !ok || got != expectedFirstLeft {
+		t.Fatalf("expected first left idx %d, got %v", expectedFirstLeft, leftEntity.Properties["idx"])
+	}
+	if got, ok := rightEntity.Properties["idx"].(int); !ok || got != expectedFirstRight {
+		t.Fatalf("expected first right idx %d, got %v", expectedFirstRight, rightEntity.Properties["idx"])
+	}
+
+	lastIndex := opts.Offset + opts.Limit - 1
+	expectedLastLeft := lastIndex / rightCount
+	expectedLastRight := lastIndex % rightCount
+	last := result.Records[len(result.Records)-1]
+	leftEntity = last.Entities["left"]
+	rightEntity = last.Entities["right"]
+	if leftEntity == nil || rightEntity == nil {
+		t.Fatalf("expected joined entities in last record")
+	}
+	if got, ok := leftEntity.Properties["idx"].(int); !ok || got != expectedLastLeft {
+		t.Fatalf("expected last left idx %d, got %v", expectedLastLeft, leftEntity.Properties["idx"])
+	}
+	if got, ok := rightEntity.Properties["idx"].(int); !ok || got != expectedLastRight {
+		t.Fatalf("expected last right idx %d, got %v", expectedLastRight, rightEntity.Properties["idx"])
+	}
+}
+
 func TestExecutor_JoinEntityReferenceMatchesIDs(t *testing.T) {
 	orgID := uuid.New()
 	userID := uuid.New()
