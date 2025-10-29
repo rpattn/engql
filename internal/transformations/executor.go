@@ -81,6 +81,8 @@ func (e *Executor) executeNode(
 		return e.executeJoin(ctx, transformation.OrganizationID, node, cache, schemaCache)
 	case domain.TransformationNodeUnion:
 		return e.executeUnion(node, cache)
+	case domain.TransformationNodeMaterialize:
+		return e.executeMaterialize(node, cache)
 	case domain.TransformationNodeSort:
 		return e.executeSort(node, cache)
 	case domain.TransformationNodePaginate:
@@ -170,6 +172,58 @@ func (e *Executor) executeProject(node domain.EntityTransformationNode, cache ma
 		projected = append(projected, clone)
 	}
 	return projected, nil
+}
+
+func (e *Executor) executeMaterialize(node domain.EntityTransformationNode, cache map[uuid.UUID][]domain.EntityTransformationRecord) ([]domain.EntityTransformationRecord, error) {
+	if len(node.Inputs) != 1 {
+		return nil, fmt.Errorf("materialize node requires exactly one input")
+	}
+	if node.Materialize == nil {
+		return nil, fmt.Errorf("materialize node missing configuration")
+	}
+	if len(node.Materialize.Outputs) == 0 {
+		return nil, fmt.Errorf("materialize node requires at least one output")
+	}
+	inputRecords, ok := cache[node.Inputs[0]]
+	if !ok {
+		return nil, fmt.Errorf("materialize input not found")
+	}
+
+	results := make([]domain.EntityTransformationRecord, 0, len(inputRecords))
+	for _, record := range inputRecords {
+		clone := record.Clone()
+		materializedEntities := make(map[string]*domain.Entity, len(node.Materialize.Outputs))
+
+		for _, output := range node.Materialize.Outputs {
+			if output.Alias == "" {
+				return nil, fmt.Errorf("materialize output alias is required")
+			}
+
+			properties := make(map[string]any, len(output.Fields))
+			for _, field := range output.Fields {
+				if field.OutputField == "" {
+					continue
+				}
+				source := record.Entities[field.SourceAlias]
+				if source == nil || source.Properties == nil {
+					continue
+				}
+				value, ok := source.Properties[field.SourceField]
+				if !ok {
+					continue
+				}
+				properties[field.OutputField] = value
+			}
+
+			entity := &domain.Entity{Properties: properties}
+			materializedEntities[output.Alias] = entity
+		}
+
+		clone.Entities = materializedEntities
+		results = append(results, clone)
+	}
+
+	return results, nil
 }
 
 func (e *Executor) executeJoin(

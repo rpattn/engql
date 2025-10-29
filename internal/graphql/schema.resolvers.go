@@ -299,6 +299,11 @@ func (r *queryResolver) ExecuteEntityTransformation(ctx context.Context, input g
 	return r.Resolver.ExecuteEntityTransformation(ctx, input)
 }
 
+// TransformationExecution is the resolver for the transformationExecution field.
+func (r *queryResolver) TransformationExecution(ctx context.Context, transformationID string, filters []*graph.TransformationExecutionFilterInput, sort *graph.TransformationExecutionSortInput, pagination *graph.PaginationInput) (*graph.TransformationExecutionConnection, error) {
+return r.Resolver.TransformationExecution(ctx, transformationID, filters, sort, pagination)
+}
+
 // Entity returns graph.EntityResolver implementation.
 func (r *Resolver) Entity() graph.EntityResolver { return &entityResolver{r} }
 

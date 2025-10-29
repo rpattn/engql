@@ -204,6 +204,176 @@ func TestExecutor_FilterFallbackAlias(t *testing.T) {
 	}
 }
 
+func TestExecutor_Materialize(t *testing.T) {
+	orgID := uuid.New()
+	repo := &mockEntityRepository{
+		entities: []domain.Entity{
+			{
+				ID:             uuid.New(),
+				OrganizationID: orgID,
+				EntityType:     "user",
+				Properties: map[string]any{
+					"firstName": "Alice",
+					"status":    "active",
+				},
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			},
+		},
+	}
+	executor := NewExecutor(repo, nil)
+	loadNodeID := uuid.New()
+	materializeNodeID := uuid.New()
+	transformation := domain.EntityTransformation{
+		ID:             uuid.New(),
+		OrganizationID: orgID,
+		Name:           "materialize",
+		Nodes: []domain.EntityTransformationNode{
+			{
+				ID:   loadNodeID,
+				Name: "load-users",
+				Type: domain.TransformationNodeLoad,
+				Load: &domain.EntityTransformationLoadConfig{
+					Alias:      "users",
+					EntityType: "user",
+				},
+			},
+			{
+				ID:     materializeNodeID,
+				Name:   "materialize-users",
+				Type:   domain.TransformationNodeMaterialize,
+				Inputs: []uuid.UUID{loadNodeID},
+				Materialize: &domain.EntityTransformationMaterializeConfig{
+					Outputs: []domain.EntityTransformationMaterializeOutput{
+						{
+							Alias: "materialized",
+							Fields: []domain.EntityTransformationMaterializeFieldMapping{
+								{SourceAlias: "users", SourceField: "firstName", OutputField: "firstName"},
+								{SourceAlias: "users", SourceField: "status", OutputField: "status"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	result, err := executor.Execute(context.Background(), transformation, domain.EntityTransformationExecutionOptions{})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if result.TotalCount != 1 {
+		t.Fatalf("expected total count 1, got %d", result.TotalCount)
+	}
+	if len(result.Records) != 1 {
+		t.Fatalf("expected 1 record, got %d", len(result.Records))
+	}
+	record := result.Records[0]
+	if len(record.Entities) != 1 {
+		t.Fatalf("expected exactly one alias after materialize, got %d", len(record.Entities))
+	}
+	entity := record.Entities["materialized"]
+	if entity == nil {
+		t.Fatalf("expected entity for alias materialized")
+	}
+	if entity.Properties["firstName"] != "Alice" {
+		t.Fatalf("unexpected firstName %v", entity.Properties["firstName"])
+	}
+	if entity.Properties["status"] != "active" {
+		t.Fatalf("unexpected status %v", entity.Properties["status"])
+	}
+}
+
+func TestExecutor_MaterializeThenFilter(t *testing.T) {
+	orgID := uuid.New()
+	repo := &mockEntityRepository{
+		entities: []domain.Entity{
+			{
+				ID:             uuid.New(),
+				OrganizationID: orgID,
+				EntityType:     "user",
+				Properties: map[string]any{
+					"firstName": "Alice",
+					"status":    "active",
+				},
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			},
+			{
+				ID:             uuid.New(),
+				OrganizationID: orgID,
+				EntityType:     "user",
+				Properties: map[string]any{
+					"firstName": "Bob",
+					"status":    "inactive",
+				},
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			},
+		},
+	}
+	executor := NewExecutor(repo, nil)
+	loadNodeID := uuid.New()
+	materializeNodeID := uuid.New()
+	filterNodeID := uuid.New()
+	transformation := domain.EntityTransformation{
+		ID:             uuid.New(),
+		OrganizationID: orgID,
+		Name:           "materialize-filter",
+		Nodes: []domain.EntityTransformationNode{
+			{
+				ID:   loadNodeID,
+				Name: "load-users",
+				Type: domain.TransformationNodeLoad,
+				Load: &domain.EntityTransformationLoadConfig{
+					Alias:      "users",
+					EntityType: "user",
+				},
+			},
+			{
+				ID:     materializeNodeID,
+				Name:   "materialize-users",
+				Type:   domain.TransformationNodeMaterialize,
+				Inputs: []uuid.UUID{loadNodeID},
+				Materialize: &domain.EntityTransformationMaterializeConfig{
+					Outputs: []domain.EntityTransformationMaterializeOutput{
+						{
+							Alias: "flattened",
+							Fields: []domain.EntityTransformationMaterializeFieldMapping{
+								{SourceAlias: "users", SourceField: "status", OutputField: "status"},
+							},
+						},
+					},
+				},
+			},
+			{
+				ID:     filterNodeID,
+				Name:   "filter-active",
+				Type:   domain.TransformationNodeFilter,
+				Inputs: []uuid.UUID{materializeNodeID},
+				Filter: &domain.EntityTransformationFilterConfig{
+					Filters: []domain.PropertyFilter{{Key: "status", Value: "active"}},
+				},
+			},
+		},
+	}
+
+	result, err := executor.Execute(context.Background(), transformation, domain.EntityTransformationExecutionOptions{})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if result.TotalCount != 1 {
+		t.Fatalf("expected 1 result, got %d", result.TotalCount)
+	}
+	record := result.Records[0]
+	if _, ok := record.Entities["flattened"]; !ok {
+		t.Fatalf("expected flattened alias after materialize")
+	}
+	if record.Entities["flattened"].Properties["status"] != "active" {
+		t.Fatalf("unexpected status %v", record.Entities["flattened"].Properties["status"])
+	}
+}
+
 func TestExecutor_FilterAmbiguousAliasError(t *testing.T) {
 	orgID := uuid.New()
 	repo := &mockEntityRepository{

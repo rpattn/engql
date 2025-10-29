@@ -12,15 +12,16 @@ import (
 type EntityTransformationNodeType string
 
 const (
-	TransformationNodeLoad     EntityTransformationNodeType = "LOAD"
-	TransformationNodeFilter   EntityTransformationNodeType = "FILTER"
-	TransformationNodeProject  EntityTransformationNodeType = "PROJECT"
-	TransformationNodeJoin     EntityTransformationNodeType = "JOIN"
-	TransformationNodeLeftJoin EntityTransformationNodeType = "LEFT_JOIN"
-	TransformationNodeAntiJoin EntityTransformationNodeType = "ANTI_JOIN"
-	TransformationNodeUnion    EntityTransformationNodeType = "UNION"
-	TransformationNodeSort     EntityTransformationNodeType = "SORT"
-	TransformationNodePaginate EntityTransformationNodeType = "PAGINATE"
+	TransformationNodeLoad        EntityTransformationNodeType = "LOAD"
+	TransformationNodeFilter      EntityTransformationNodeType = "FILTER"
+	TransformationNodeProject     EntityTransformationNodeType = "PROJECT"
+	TransformationNodeJoin        EntityTransformationNodeType = "JOIN"
+	TransformationNodeLeftJoin    EntityTransformationNodeType = "LEFT_JOIN"
+	TransformationNodeAntiJoin    EntityTransformationNodeType = "ANTI_JOIN"
+	TransformationNodeUnion       EntityTransformationNodeType = "UNION"
+	TransformationNodeSort        EntityTransformationNodeType = "SORT"
+	TransformationNodePaginate    EntityTransformationNodeType = "PAGINATE"
+	TransformationNodeMaterialize EntityTransformationNodeType = "MATERIALIZE"
 )
 
 type EntityTransformation struct {
@@ -39,12 +40,13 @@ type EntityTransformationNode struct {
 	Type   EntityTransformationNodeType `json:"type"`
 	Inputs []uuid.UUID                  `json:"inputs"`
 
-	Load     *EntityTransformationLoadConfig     `json:"load,omitempty"`
-	Filter   *EntityTransformationFilterConfig   `json:"filter,omitempty"`
-	Project  *EntityTransformationProjectConfig  `json:"project,omitempty"`
-	Join     *EntityTransformationJoinConfig     `json:"join,omitempty"`
-	Sort     *EntityTransformationSortConfig     `json:"sort,omitempty"`
-	Paginate *EntityTransformationPaginateConfig `json:"paginate,omitempty"`
+	Load        *EntityTransformationLoadConfig        `json:"load,omitempty"`
+	Filter      *EntityTransformationFilterConfig      `json:"filter,omitempty"`
+	Project     *EntityTransformationProjectConfig     `json:"project,omitempty"`
+	Join        *EntityTransformationJoinConfig        `json:"join,omitempty"`
+	Materialize *EntityTransformationMaterializeConfig `json:"materialize,omitempty"`
+	Sort        *EntityTransformationSortConfig        `json:"sort,omitempty"`
+	Paginate    *EntityTransformationPaginateConfig    `json:"paginate,omitempty"`
 }
 
 type EntityTransformationLoadConfig struct {
@@ -67,6 +69,21 @@ type EntityTransformationJoinConfig struct {
 	LeftAlias  string `json:"leftAlias"`
 	RightAlias string `json:"rightAlias"`
 	OnField    string `json:"onField"`
+}
+
+type EntityTransformationMaterializeConfig struct {
+	Outputs []EntityTransformationMaterializeOutput `json:"outputs"`
+}
+
+type EntityTransformationMaterializeOutput struct {
+	Alias  string                                        `json:"alias"`
+	Fields []EntityTransformationMaterializeFieldMapping `json:"fields"`
+}
+
+type EntityTransformationMaterializeFieldMapping struct {
+	SourceAlias string `json:"sourceAlias"`
+	SourceField string `json:"sourceField"`
+	OutputField string `json:"outputField"`
 }
 
 type EntityTransformationSortConfig struct {
