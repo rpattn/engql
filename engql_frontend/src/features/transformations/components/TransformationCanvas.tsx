@@ -76,9 +76,7 @@ export function TransformationCanvas({
               return
             }
 
-            if (selectedNodeId) {
-              onSelect(null)
-            }
+            onSelect(null)
           }}
           minZoom={0.2}
           maxZoom={1.75}
