@@ -120,6 +120,28 @@ func (r *mutationResolver) DeleteEntityJoinDefinition(ctx context.Context, id st
 	return *res, nil
 }
 
+// CreateEntityTransformation is the resolver for the createEntityTransformation field.
+func (r *mutationResolver) CreateEntityTransformation(ctx context.Context, input graph.CreateEntityTransformationInput) (*graph.EntityTransformation, error) {
+	return r.Resolver.CreateEntityTransformation(ctx, input)
+}
+
+// UpdateEntityTransformation is the resolver for the updateEntityTransformation field.
+func (r *mutationResolver) UpdateEntityTransformation(ctx context.Context, input graph.UpdateEntityTransformationInput) (*graph.EntityTransformation, error) {
+	return r.Resolver.UpdateEntityTransformation(ctx, input)
+}
+
+// DeleteEntityTransformation is the resolver for the deleteEntityTransformation field.
+func (r *mutationResolver) DeleteEntityTransformation(ctx context.Context, id string) (bool, error) {
+	res, err := r.Resolver.DeleteEntityTransformation(ctx, id)
+	if err != nil {
+		return false, err
+	}
+	if res == nil {
+		return false, nil
+	}
+	return *res, nil
+}
+
 // Organizations is the resolver for the organizations field.
 func (r *queryResolver) Organizations(ctx context.Context) ([]*graph.Organization, error) {
 	return r.Resolver.Organizations(ctx)
@@ -260,6 +282,26 @@ func (r *queryResolver) EntityJoinDefinitions(ctx context.Context, organizationI
 // ExecuteEntityJoin is the resolver for the executeEntityJoin field.
 func (r *queryResolver) ExecuteEntityJoin(ctx context.Context, input graph.ExecuteEntityJoinInput) (*graph.EntityJoinConnection, error) {
 	return r.Resolver.ExecuteEntityJoin(ctx, input)
+}
+
+// EntityTransformation is the resolver for the entityTransformation field.
+func (r *queryResolver) EntityTransformation(ctx context.Context, id string) (*graph.EntityTransformation, error) {
+	return r.Resolver.EntityTransformation(ctx, id)
+}
+
+// EntityTransformations is the resolver for the entityTransformations field.
+func (r *queryResolver) EntityTransformations(ctx context.Context, organizationID string) ([]*graph.EntityTransformation, error) {
+	return r.Resolver.EntityTransformations(ctx, organizationID)
+}
+
+// ExecuteEntityTransformation is the resolver for the executeEntityTransformation field.
+func (r *queryResolver) ExecuteEntityTransformation(ctx context.Context, input graph.ExecuteEntityTransformationInput) (*graph.EntityTransformationConnection, error) {
+	return r.Resolver.ExecuteEntityTransformation(ctx, input)
+}
+
+// TransformationExecution is the resolver for the transformationExecution field.
+func (r *queryResolver) TransformationExecution(ctx context.Context, transformationID string, filters []*graph.TransformationExecutionFilterInput, sort *graph.TransformationExecutionSortInput, pagination *graph.PaginationInput) (*graph.TransformationExecutionConnection, error) {
+return r.Resolver.TransformationExecution(ctx, transformationID, filters, sort, pagination)
 }
 
 // Entity returns graph.EntityResolver implementation.

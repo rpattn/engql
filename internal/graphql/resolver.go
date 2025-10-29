@@ -11,6 +11,7 @@ import (
 	"github.com/rpattn/engql/graph"
 	"github.com/rpattn/engql/internal/domain"
 	"github.com/rpattn/engql/internal/repository"
+	"github.com/rpattn/engql/internal/transformations"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -18,11 +19,13 @@ import (
 
 // Resolver handles GraphQL queries and mutations
 type Resolver struct {
-	orgRepo             repository.OrganizationRepository
-	entitySchemaRepo    repository.EntitySchemaRepository
-	entityRepo          repository.EntityRepository
-	entityJoinRepo      repository.EntityJoinRepository
-	referenceFieldCache sync.Map
+	orgRepo                  repository.OrganizationRepository
+	entitySchemaRepo         repository.EntitySchemaRepository
+	entityRepo               repository.EntityRepository
+	entityJoinRepo           repository.EntityJoinRepository
+	entityTransformationRepo repository.EntityTransformationRepository
+	transformationExecutor   *transformations.Executor
+	referenceFieldCache      sync.Map
 }
 
 // NewResolver creates a new GraphQL resolver
@@ -31,12 +34,16 @@ func NewResolver(
 	entitySchemaRepo repository.EntitySchemaRepository,
 	entityRepo repository.EntityRepository,
 	entityJoinRepo repository.EntityJoinRepository,
+	entityTransformationRepo repository.EntityTransformationRepository,
+	transformationExecutor *transformations.Executor,
 ) *Resolver {
 	return &Resolver{
-		orgRepo:          orgRepo,
-		entitySchemaRepo: entitySchemaRepo,
-		entityRepo:       entityRepo,
-		entityJoinRepo:   entityJoinRepo,
+		orgRepo:                  orgRepo,
+		entitySchemaRepo:         entitySchemaRepo,
+		entityRepo:               entityRepo,
+		entityJoinRepo:           entityJoinRepo,
+		entityTransformationRepo: entityTransformationRepo,
+		transformationExecutor:   transformationExecutor,
 	}
 }
 
@@ -270,8 +277,13 @@ func convertEntitySort(sort *graph.EntitySortInput) *domain.EntitySort {
 		return nil
 	}
 
+	direction := graph.SortDirectionAsc
+	if sort.Direction != nil {
+		direction = *sort.Direction
+	}
+
 	result := &domain.EntitySort{
-		Direction: domain.SortDirection(strings.ToLower(string(sort.Direction))),
+		Direction: domain.SortDirection(strings.ToLower(string(direction))),
 	}
 
 	switch sort.Field {
@@ -517,4 +529,191 @@ func snapshotToGraph(snapshot *domain.EntitySnapshot) (*graph.EntitySnapshotView
 		EntityType:    snapshot.EntityType,
 		CanonicalText: canonical,
 	}, nil
+}
+
+// TransformationExecution resolves flattened transformation results.
+func (r *Resolver) TransformationExecution(
+	ctx context.Context,
+	transformationID string,
+	filters []*graph.TransformationExecutionFilterInput,
+	sortInput *graph.TransformationExecutionSortInput,
+	pagination *graph.PaginationInput,
+) (*graph.TransformationExecutionConnection, error) {
+	id, err := uuid.Parse(transformationID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid transformation ID: %w", err)
+	}
+
+	transformation, err := r.entityTransformationRepo.GetByID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load transformation: %w", err)
+	}
+
+	materializeConfig, err := findMaterializeConfig(transformation)
+	if err != nil {
+		return nil, err
+	}
+
+	columns := buildExecutionColumns(materializeConfig)
+
+	execResult, err := r.transformationExecutor.Execute(ctx, transformation, domain.EntityTransformationExecutionOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute transformation: %w", err)
+	}
+
+	aliasFilters := filtersByAlias(filters)
+	filteredRecords := applyTransformationFilters(execResult.Records, aliasFilters)
+
+	working := append([]domain.EntityTransformationRecord(nil), filteredRecords...)
+
+	if sortInput != nil && strings.TrimSpace(sortInput.Alias) != "" && strings.TrimSpace(sortInput.Field) != "" {
+		direction := domain.JoinSortAsc
+		if sortInput.Direction != nil && *sortInput.Direction == graph.SortDirectionDesc {
+			direction = domain.JoinSortDesc
+		}
+		domain.SortRecords(working, sortInput.Alias, sortInput.Field, direction)
+	}
+
+	limit := 0
+	offset := 0
+	if pagination != nil {
+		if pagination.Limit != nil {
+			limit = *pagination.Limit
+		}
+		if pagination.Offset != nil {
+			offset = *pagination.Offset
+		}
+	}
+
+	totalCount := len(working)
+	pagedRecords := domain.PaginateRecords(working, limit, offset)
+
+	rows := buildExecutionRows(pagedRecords, columns)
+
+	pageInfo := &graph.PageInfo{
+		TotalCount:      totalCount,
+		HasPreviousPage: offset > 0 && totalCount > 0,
+		HasNextPage:     limit > 0 && offset+limit < totalCount,
+	}
+
+	return &graph.TransformationExecutionConnection{
+		Columns:  columns,
+		Rows:     rows,
+		PageInfo: pageInfo,
+	}, nil
+}
+
+func findMaterializeConfig(transformation domain.EntityTransformation) (*domain.EntityTransformationMaterializeConfig, error) {
+	var config *domain.EntityTransformationMaterializeConfig
+	for i := range transformation.Nodes {
+		node := transformation.Nodes[i]
+		if node.Type != domain.TransformationNodeMaterialize || node.Materialize == nil {
+			continue
+		}
+		copyConfig := *node.Materialize
+		config = &copyConfig
+	}
+	if config == nil {
+		return nil, fmt.Errorf("transformation %s missing materialize node", transformation.ID)
+	}
+	return config, nil
+}
+
+func buildExecutionColumns(config *domain.EntityTransformationMaterializeConfig) []*graph.TransformationExecutionColumn {
+	if config == nil {
+		return []*graph.TransformationExecutionColumn{}
+	}
+	columns := make([]*graph.TransformationExecutionColumn, 0)
+	for _, output := range config.Outputs {
+		for _, field := range output.Fields {
+			key := columnKey(output.Alias, field.OutputField)
+			columns = append(columns, &graph.TransformationExecutionColumn{
+				Key:         key,
+				Alias:       output.Alias,
+				Field:       field.OutputField,
+				Label:       field.OutputField,
+				SourceAlias: field.SourceAlias,
+				SourceField: field.SourceField,
+			})
+		}
+	}
+	return columns
+}
+
+func filtersByAlias(inputs []*graph.TransformationExecutionFilterInput) map[string][]domain.PropertyFilter {
+	result := make(map[string][]domain.PropertyFilter)
+	for _, input := range inputs {
+		if input == nil {
+			continue
+		}
+		alias := strings.TrimSpace(input.Alias)
+		field := strings.TrimSpace(input.Field)
+		if alias == "" || field == "" {
+			continue
+		}
+		filter := domain.PropertyFilter{Key: field, Exists: input.Exists}
+		if input.Value != nil {
+			filter.Value = *input.Value
+		}
+		if len(input.InArray) > 0 {
+			filter.InArray = append([]string(nil), input.InArray...)
+		}
+		result[alias] = append(result[alias], filter)
+	}
+	return result
+}
+
+func applyTransformationFilters(records []domain.EntityTransformationRecord, filters map[string][]domain.PropertyFilter) []domain.EntityTransformationRecord {
+	if len(filters) == 0 {
+		return append([]domain.EntityTransformationRecord(nil), records...)
+	}
+	filtered := make([]domain.EntityTransformationRecord, 0, len(records))
+	for _, record := range records {
+		include := true
+		for alias, aliasFilters := range filters {
+			if len(aliasFilters) == 0 {
+				continue
+			}
+			if !domain.ApplyPropertyFilters(record.Entities[alias], aliasFilters) {
+				include = false
+				break
+			}
+		}
+		if include {
+			filtered = append(filtered, record)
+		}
+	}
+	return filtered
+}
+
+func buildExecutionRows(records []domain.EntityTransformationRecord, columns []*graph.TransformationExecutionColumn) []*graph.TransformationExecutionRow {
+	rows := make([]*graph.TransformationExecutionRow, 0, len(records))
+	for _, record := range records {
+		values := make([]*graph.TransformationExecutionValue, 0, len(columns))
+		for _, column := range columns {
+			var valuePtr *string
+			if entity := record.Entities[column.Alias]; entity != nil {
+				if raw, ok := entity.Properties[column.Field]; ok {
+					str := fmt.Sprintf("%v", raw)
+					valuePtr = &str
+				}
+			}
+			values = append(values, &graph.TransformationExecutionValue{
+				ColumnKey: column.Key,
+				Value:     valuePtr,
+			})
+		}
+		rows = append(rows, &graph.TransformationExecutionRow{Values: values})
+	}
+	return rows
+}
+
+func columnKey(alias, field string) string {
+	if alias == "" {
+		return field
+	}
+	if field == "" {
+		return alias
+	}
+	return fmt.Sprintf("%s.%s", alias, field)
 }

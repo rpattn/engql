@@ -115,12 +115,21 @@ type IngestBatchStats struct {
 
 // EntityJoinRepository defines operations for persisted join definitions and executions
 type EntityJoinRepository interface {
-	Create(ctx context.Context, join domain.EntityJoinDefinition) (domain.EntityJoinDefinition, error)
-	GetByID(ctx context.Context, id uuid.UUID) (domain.EntityJoinDefinition, error)
-	ListByOrganization(ctx context.Context, organizationID uuid.UUID) ([]domain.EntityJoinDefinition, error)
-	Update(ctx context.Context, join domain.EntityJoinDefinition) (domain.EntityJoinDefinition, error)
-	Delete(ctx context.Context, id uuid.UUID) error
-	ExecuteJoin(ctx context.Context, join domain.EntityJoinDefinition, options domain.JoinExecutionOptions) ([]domain.EntityJoinEdge, int64, error)
+        Create(ctx context.Context, join domain.EntityJoinDefinition) (domain.EntityJoinDefinition, error)
+        GetByID(ctx context.Context, id uuid.UUID) (domain.EntityJoinDefinition, error)
+        ListByOrganization(ctx context.Context, organizationID uuid.UUID) ([]domain.EntityJoinDefinition, error)
+        Update(ctx context.Context, join domain.EntityJoinDefinition) (domain.EntityJoinDefinition, error)
+        Delete(ctx context.Context, id uuid.UUID) error
+        ExecuteJoin(ctx context.Context, join domain.EntityJoinDefinition, options domain.JoinExecutionOptions) ([]domain.EntityJoinEdge, int64, error)
+}
+
+// EntityTransformationRepository manages transformation DAG definitions.
+type EntityTransformationRepository interface {
+        Create(ctx context.Context, transformation domain.EntityTransformation) (domain.EntityTransformation, error)
+        GetByID(ctx context.Context, id uuid.UUID) (domain.EntityTransformation, error)
+        ListByOrganization(ctx context.Context, organizationID uuid.UUID) ([]domain.EntityTransformation, error)
+        Update(ctx context.Context, transformation domain.EntityTransformation) (domain.EntityTransformation, error)
+        Delete(ctx context.Context, id uuid.UUID) error
 }
 
 // IngestionLogRepository stores ingestion errors for observability.

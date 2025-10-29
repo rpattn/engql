@@ -374,3 +374,173 @@ query ExecuteJoin($input: ExecuteEntityJoinInput!) {
   }
 }
 
+# --- Entity Transformations ---
+fragment EntityTransformationNodeFields on EntityTransformationNode {
+  id
+  name
+  type
+  inputs
+  load {
+    alias
+    entityType
+    filters {
+      key
+      value
+      exists
+      inArray
+    }
+  }
+  filter {
+    alias
+    filters {
+      key
+      value
+      exists
+      inArray
+    }
+  }
+  project {
+    alias
+    fields
+  }
+  join {
+    leftAlias
+    rightAlias
+    onField
+  }
+  materialize {
+    outputs {
+      alias
+      fields {
+        sourceAlias
+        sourceField
+        outputField
+      }
+    }
+  }
+  sort {
+    alias
+    field
+    direction
+  }
+  paginate {
+    limit
+    offset
+  }
+}
+
+query EntityTransformations($organizationId: String!) {
+  entityTransformations(organizationId: $organizationId) {
+    id
+    organizationId
+    name
+    description
+    createdAt
+    updatedAt
+    nodes {
+      id
+    }
+  }
+}
+
+query EntityTransformation($id: String!) {
+  entityTransformation(id: $id) {
+    id
+    organizationId
+    name
+    description
+    createdAt
+    updatedAt
+    nodes {
+      ...EntityTransformationNodeFields
+    }
+  }
+}
+
+mutation CreateEntityTransformation($input: CreateEntityTransformationInput!) {
+  createEntityTransformation(input: $input) {
+    id
+    organizationId
+    name
+    description
+    createdAt
+    updatedAt
+    nodes {
+      ...EntityTransformationNodeFields
+    }
+  }
+}
+
+mutation UpdateEntityTransformation($input: UpdateEntityTransformationInput!) {
+  updateEntityTransformation(input: $input) {
+    id
+    organizationId
+    name
+    description
+    createdAt
+    updatedAt
+    nodes {
+      ...EntityTransformationNodeFields
+    }
+  }
+}
+
+mutation DeleteEntityTransformation($id: String!) {
+  deleteEntityTransformation(id: $id)
+}
+
+query ExecuteEntityTransformation($input: ExecuteEntityTransformationInput!) {
+  executeEntityTransformation(input: $input) {
+    edges {
+      entities {
+        alias
+        entity {
+          id
+          entityType
+          path
+          referenceValue
+          properties
+        }
+      }
+    }
+    pageInfo {
+      totalCount
+      hasNextPage
+      hasPreviousPage
+    }
+  }
+}
+
+query TransformationExecution(
+  $transformationId: String!
+  $filters: [TransformationExecutionFilterInput!]
+  $sort: TransformationExecutionSortInput
+  $pagination: PaginationInput
+) {
+  transformationExecution(
+    transformationId: $transformationId
+    filters: $filters
+    sort: $sort
+    pagination: $pagination
+  ) {
+    columns {
+      key
+      alias
+      field
+      label
+      sourceAlias
+      sourceField
+    }
+    rows {
+      values {
+        columnKey
+        value
+      }
+    }
+    pageInfo {
+      totalCount
+      hasNextPage
+      hasPreviousPage
+    }
+  }
+}

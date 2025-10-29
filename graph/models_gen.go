@@ -40,6 +40,13 @@ type CreateEntitySchemaInput struct {
 	Fields         []*FieldDefinitionInput `json:"fields"`
 }
 
+type CreateEntityTransformationInput struct {
+	OrganizationID string                           `json:"organizationId"`
+	Name           string                           `json:"name"`
+	Description    *string                          `json:"description,omitempty"`
+	Nodes          []*EntityTransformationNodeInput `json:"nodes"`
+}
+
 type CreateOrganizationInput struct {
 	Name        string  `json:"name"`
 	Description *string `json:"description,omitempty"`
@@ -59,15 +66,15 @@ type Entity struct {
 	LinkedEntities []*Entity `json:"linkedEntities"`
 }
 
-type EntityDiffResult struct {
-	Base        *EntitySnapshotView `json:"base"`
-	Target      *EntitySnapshotView `json:"target"`
-	UnifiedDiff *string             `json:"unifiedDiff,omitempty"`
-}
-
 type EntityConnection struct {
 	Entities []*Entity `json:"entities"`
 	PageInfo *PageInfo `json:"pageInfo"`
+}
+
+type EntityDiffResult struct {
+	Base        *EntitySnapshotView `json:"base,omitempty"`
+	Target      *EntitySnapshotView `json:"target,omitempty"`
+	UnifiedDiff *string             `json:"unifiedDiff,omitempty"`
 }
 
 type EntityFilter struct {
@@ -75,12 +82,6 @@ type EntityFilter struct {
 	PropertyFilters []*PropertyFilter `json:"propertyFilters,omitempty"`
 	TextSearch      *string           `json:"textSearch,omitempty"`
 	PathFilter      *PathFilter       `json:"pathFilter,omitempty"`
-}
-
-type EntitySortInput struct {
-	Field       EntitySortField `json:"field"`
-	Direction   SortDirection   `json:"direction"`
-	PropertyKey *string         `json:"propertyKey,omitempty"`
 }
 
 type EntityHierarchy struct {
@@ -112,14 +113,6 @@ type EntityJoinDefinition struct {
 	UpdatedAt       string                  `json:"updatedAt"`
 }
 
-type EntitySnapshotView struct {
-	Version       int      `json:"version"`
-	Path          string   `json:"path"`
-	SchemaID      string   `json:"schemaId"`
-	EntityType    string   `json:"entityType"`
-	CanonicalText []string `json:"canonicalText"`
-}
-
 type EntityJoinEdge struct {
 	Left  *Entity `json:"left"`
 	Right *Entity `json:"right"`
@@ -138,12 +131,179 @@ type EntitySchema struct {
 	UpdatedAt         string             `json:"updatedAt"`
 }
 
+type EntitySnapshotView struct {
+	Version       int      `json:"version"`
+	Path          string   `json:"path"`
+	SchemaID      string   `json:"schemaId"`
+	EntityType    string   `json:"entityType"`
+	CanonicalText []string `json:"canonicalText"`
+}
+
+type EntitySortInput struct {
+	Field       EntitySortField `json:"field"`
+	Direction   *SortDirection  `json:"direction,omitempty"`
+	PropertyKey *string         `json:"propertyKey,omitempty"`
+}
+
+type EntityTransformation struct {
+	ID             string                      `json:"id"`
+	OrganizationID string                      `json:"organizationId"`
+	Name           string                      `json:"name"`
+	Description    *string                     `json:"description,omitempty"`
+	Nodes          []*EntityTransformationNode `json:"nodes"`
+	CreatedAt      string                      `json:"createdAt"`
+	UpdatedAt      string                      `json:"updatedAt"`
+}
+
+type EntityTransformationConnection struct {
+	Edges    []*EntityTransformationRecordEdge `json:"edges"`
+	PageInfo *PageInfo                         `json:"pageInfo"`
+}
+
+type EntityTransformationFilterConfig struct {
+	Alias   string                  `json:"alias"`
+	Filters []*PropertyFilterConfig `json:"filters"`
+}
+
+type EntityTransformationFilterConfigInput struct {
+	Alias   string            `json:"alias"`
+	Filters []*PropertyFilter `json:"filters,omitempty"`
+}
+
+type EntityTransformationJoinConfig struct {
+	LeftAlias  string `json:"leftAlias"`
+	RightAlias string `json:"rightAlias"`
+	OnField    string `json:"onField"`
+}
+
+type EntityTransformationJoinConfigInput struct {
+	LeftAlias  string `json:"leftAlias"`
+	RightAlias string `json:"rightAlias"`
+	OnField    string `json:"onField"`
+}
+
+type EntityTransformationLoadConfig struct {
+	Alias      string                  `json:"alias"`
+	EntityType string                  `json:"entityType"`
+	Filters    []*PropertyFilterConfig `json:"filters"`
+}
+
+type EntityTransformationLoadConfigInput struct {
+	Alias      string            `json:"alias"`
+	EntityType string            `json:"entityType"`
+	Filters    []*PropertyFilter `json:"filters,omitempty"`
+}
+
+type EntityTransformationMaterializeConfig struct {
+	Outputs []*EntityTransformationMaterializeOutput `json:"outputs"`
+}
+
+type EntityTransformationMaterializeConfigInput struct {
+	Outputs []*EntityTransformationMaterializeOutputInput `json:"outputs"`
+}
+
+type EntityTransformationMaterializeFieldMapping struct {
+	SourceAlias string `json:"sourceAlias"`
+	SourceField string `json:"sourceField"`
+	OutputField string `json:"outputField"`
+}
+
+type EntityTransformationMaterializeFieldMappingInput struct {
+	SourceAlias string `json:"sourceAlias"`
+	SourceField string `json:"sourceField"`
+	OutputField string `json:"outputField"`
+}
+
+type EntityTransformationMaterializeOutput struct {
+	Alias  string                                         `json:"alias"`
+	Fields []*EntityTransformationMaterializeFieldMapping `json:"fields"`
+}
+
+type EntityTransformationMaterializeOutputInput struct {
+	Alias  string                                              `json:"alias"`
+	Fields []*EntityTransformationMaterializeFieldMappingInput `json:"fields"`
+}
+
+type EntityTransformationNode struct {
+	ID          string                                 `json:"id"`
+	Name        string                                 `json:"name"`
+	Type        EntityTransformationNodeType           `json:"type"`
+	Inputs      []string                               `json:"inputs"`
+	Load        *EntityTransformationLoadConfig        `json:"load,omitempty"`
+	Filter      *EntityTransformationFilterConfig      `json:"filter,omitempty"`
+	Project     *EntityTransformationProjectConfig     `json:"project,omitempty"`
+	Join        *EntityTransformationJoinConfig        `json:"join,omitempty"`
+	Materialize *EntityTransformationMaterializeConfig `json:"materialize,omitempty"`
+	Sort        *EntityTransformationSortConfig        `json:"sort,omitempty"`
+	Paginate    *EntityTransformationPaginateConfig    `json:"paginate,omitempty"`
+}
+
+type EntityTransformationNodeInput struct {
+	ID          *string                                     `json:"id,omitempty"`
+	Name        string                                      `json:"name"`
+	Type        EntityTransformationNodeType                `json:"type"`
+	Inputs      []string                                    `json:"inputs,omitempty"`
+	Load        *EntityTransformationLoadConfigInput        `json:"load,omitempty"`
+	Filter      *EntityTransformationFilterConfigInput      `json:"filter,omitempty"`
+	Project     *EntityTransformationProjectConfigInput     `json:"project,omitempty"`
+	Join        *EntityTransformationJoinConfigInput        `json:"join,omitempty"`
+	Materialize *EntityTransformationMaterializeConfigInput `json:"materialize,omitempty"`
+	Sort        *EntityTransformationSortConfigInput        `json:"sort,omitempty"`
+	Paginate    *EntityTransformationPaginateConfigInput    `json:"paginate,omitempty"`
+}
+
+type EntityTransformationPaginateConfig struct {
+	Limit  *int `json:"limit,omitempty"`
+	Offset *int `json:"offset,omitempty"`
+}
+
+type EntityTransformationPaginateConfigInput struct {
+	Limit  *int `json:"limit,omitempty"`
+	Offset *int `json:"offset,omitempty"`
+}
+
+type EntityTransformationProjectConfig struct {
+	Alias  string   `json:"alias"`
+	Fields []string `json:"fields"`
+}
+
+type EntityTransformationProjectConfigInput struct {
+	Alias  string   `json:"alias"`
+	Fields []string `json:"fields"`
+}
+
+type EntityTransformationRecordEdge struct {
+	Entities []*EntityTransformationRecordEntity `json:"entities"`
+}
+
+type EntityTransformationRecordEntity struct {
+	Alias  string  `json:"alias"`
+	Entity *Entity `json:"entity,omitempty"`
+}
+
+type EntityTransformationSortConfig struct {
+	Alias     string            `json:"alias"`
+	Field     string            `json:"field"`
+	Direction JoinSortDirection `json:"direction"`
+}
+
+type EntityTransformationSortConfigInput struct {
+	Alias     string            `json:"alias"`
+	Field     string            `json:"field"`
+	Direction JoinSortDirection `json:"direction"`
+}
+
 type ExecuteEntityJoinInput struct {
 	JoinID       string            `json:"joinId"`
 	LeftFilters  []*PropertyFilter `json:"leftFilters,omitempty"`
 	RightFilters []*PropertyFilter `json:"rightFilters,omitempty"`
 	SortCriteria []*JoinSortInput  `json:"sortCriteria,omitempty"`
 	Pagination   *PaginationInput  `json:"pagination,omitempty"`
+}
+
+type ExecuteEntityTransformationInput struct {
+	TransformationID string           `json:"transformationId"`
+	Pagination       *PaginationInput `json:"pagination,omitempty"`
 }
 
 type FieldDefinition struct {
@@ -224,6 +384,44 @@ type PropertyFilterConfig struct {
 type Query struct {
 }
 
+type TransformationExecutionColumn struct {
+	Key         string `json:"key"`
+	Alias       string `json:"alias"`
+	Field       string `json:"field"`
+	Label       string `json:"label"`
+	SourceAlias string `json:"sourceAlias"`
+	SourceField string `json:"sourceField"`
+}
+
+type TransformationExecutionConnection struct {
+	Columns  []*TransformationExecutionColumn `json:"columns"`
+	Rows     []*TransformationExecutionRow    `json:"rows"`
+	PageInfo *PageInfo                        `json:"pageInfo"`
+}
+
+type TransformationExecutionFilterInput struct {
+	Alias   string   `json:"alias"`
+	Field   string   `json:"field"`
+	Value   *string  `json:"value,omitempty"`
+	Exists  *bool    `json:"exists,omitempty"`
+	InArray []string `json:"inArray,omitempty"`
+}
+
+type TransformationExecutionRow struct {
+	Values []*TransformationExecutionValue `json:"values"`
+}
+
+type TransformationExecutionSortInput struct {
+	Alias     string         `json:"alias"`
+	Field     string         `json:"field"`
+	Direction *SortDirection `json:"direction,omitempty"`
+}
+
+type TransformationExecutionValue struct {
+	ColumnKey string  `json:"columnKey"`
+	Value     *string `json:"value,omitempty"`
+}
+
 type UpdateEntityInput struct {
 	ID         string  `json:"id"`
 	EntityType *string `json:"entityType,omitempty"`
@@ -251,6 +449,13 @@ type UpdateEntitySchemaInput struct {
 	Fields      []*FieldDefinitionInput `json:"fields,omitempty"`
 }
 
+type UpdateEntityTransformationInput struct {
+	ID          string                           `json:"id"`
+	Name        *string                          `json:"name,omitempty"`
+	Description *string                          `json:"description,omitempty"`
+	Nodes       []*EntityTransformationNodeInput `json:"nodes,omitempty"`
+}
+
 type UpdateOrganizationInput struct {
 	ID          string  `json:"id"`
 	Name        *string `json:"name,omitempty"`
@@ -261,6 +466,140 @@ type ValidationResult struct {
 	IsValid  bool     `json:"isValid"`
 	Errors   []string `json:"errors"`
 	Warnings []string `json:"warnings"`
+}
+
+type EntitySortField string
+
+const (
+	EntitySortFieldCreatedAt  EntitySortField = "CREATED_AT"
+	EntitySortFieldUpdatedAt  EntitySortField = "UPDATED_AT"
+	EntitySortFieldEntityType EntitySortField = "ENTITY_TYPE"
+	EntitySortFieldPath       EntitySortField = "PATH"
+	EntitySortFieldVersion    EntitySortField = "VERSION"
+	EntitySortFieldProperty   EntitySortField = "PROPERTY"
+)
+
+var AllEntitySortField = []EntitySortField{
+	EntitySortFieldCreatedAt,
+	EntitySortFieldUpdatedAt,
+	EntitySortFieldEntityType,
+	EntitySortFieldPath,
+	EntitySortFieldVersion,
+	EntitySortFieldProperty,
+}
+
+func (e EntitySortField) IsValid() bool {
+	switch e {
+	case EntitySortFieldCreatedAt, EntitySortFieldUpdatedAt, EntitySortFieldEntityType, EntitySortFieldPath, EntitySortFieldVersion, EntitySortFieldProperty:
+		return true
+	}
+	return false
+}
+
+func (e EntitySortField) String() string {
+	return string(e)
+}
+
+func (e *EntitySortField) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = EntitySortField(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid EntitySortField", str)
+	}
+	return nil
+}
+
+func (e EntitySortField) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *EntitySortField) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e EntitySortField) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type EntityTransformationNodeType string
+
+const (
+	EntityTransformationNodeTypeLoad        EntityTransformationNodeType = "LOAD"
+	EntityTransformationNodeTypeFilter      EntityTransformationNodeType = "FILTER"
+	EntityTransformationNodeTypeProject     EntityTransformationNodeType = "PROJECT"
+	EntityTransformationNodeTypeJoin        EntityTransformationNodeType = "JOIN"
+	EntityTransformationNodeTypeLeftJoin    EntityTransformationNodeType = "LEFT_JOIN"
+	EntityTransformationNodeTypeAntiJoin    EntityTransformationNodeType = "ANTI_JOIN"
+	EntityTransformationNodeTypeUnion       EntityTransformationNodeType = "UNION"
+	EntityTransformationNodeTypeMaterialize EntityTransformationNodeType = "MATERIALIZE"
+	EntityTransformationNodeTypeSort        EntityTransformationNodeType = "SORT"
+	EntityTransformationNodeTypePaginate    EntityTransformationNodeType = "PAGINATE"
+)
+
+var AllEntityTransformationNodeType = []EntityTransformationNodeType{
+	EntityTransformationNodeTypeLoad,
+	EntityTransformationNodeTypeFilter,
+	EntityTransformationNodeTypeProject,
+	EntityTransformationNodeTypeJoin,
+	EntityTransformationNodeTypeLeftJoin,
+	EntityTransformationNodeTypeAntiJoin,
+	EntityTransformationNodeTypeUnion,
+	EntityTransformationNodeTypeMaterialize,
+	EntityTransformationNodeTypeSort,
+	EntityTransformationNodeTypePaginate,
+}
+
+func (e EntityTransformationNodeType) IsValid() bool {
+	switch e {
+	case EntityTransformationNodeTypeLoad, EntityTransformationNodeTypeFilter, EntityTransformationNodeTypeProject, EntityTransformationNodeTypeJoin, EntityTransformationNodeTypeLeftJoin, EntityTransformationNodeTypeAntiJoin, EntityTransformationNodeTypeUnion, EntityTransformationNodeTypeMaterialize, EntityTransformationNodeTypeSort, EntityTransformationNodeTypePaginate:
+		return true
+	}
+	return false
+}
+
+func (e EntityTransformationNodeType) String() string {
+	return string(e)
+}
+
+func (e *EntityTransformationNodeType) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = EntityTransformationNodeType(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid EntityTransformationNodeType", str)
+	}
+	return nil
+}
+
+func (e EntityTransformationNodeType) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *EntityTransformationNodeType) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e EntityTransformationNodeType) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
 }
 
 type FieldType string
@@ -277,7 +616,7 @@ const (
 	FieldTypeTimeseries           FieldType = "TIMESERIES"
 	FieldTypeReference            FieldType = "REFERENCE"
 	FieldTypeEntityReference      FieldType = "ENTITY_REFERENCE"
-        FieldTypeEntityReferenceArray FieldType = "ENTITY_REFERENCE_ARRAY"
+	FieldTypeEntityReferenceArray FieldType = "ENTITY_REFERENCE_ARRAY"
 )
 
 var AllFieldType = []FieldType{
@@ -292,12 +631,12 @@ var AllFieldType = []FieldType{
 	FieldTypeTimeseries,
 	FieldTypeReference,
 	FieldTypeEntityReference,
-        FieldTypeEntityReferenceArray,
+	FieldTypeEntityReferenceArray,
 }
 
 func (e FieldType) IsValid() bool {
 	switch e {
-        case FieldTypeString, FieldTypeInteger, FieldTypeFloat, FieldTypeBoolean, FieldTypeTimestamp, FieldTypeJSON, FieldTypeFileReference, FieldTypeGeometry, FieldTypeTimeseries, FieldTypeReference, FieldTypeEntityReference, FieldTypeEntityReferenceArray:
+	case FieldTypeString, FieldTypeInteger, FieldTypeFloat, FieldTypeBoolean, FieldTypeTimestamp, FieldTypeJSON, FieldTypeFileReference, FieldTypeGeometry, FieldTypeTimeseries, FieldTypeReference, FieldTypeEntityReference, FieldTypeEntityReferenceArray:
 		return true
 	}
 	return false
@@ -448,124 +787,6 @@ func (e JoinSortDirection) MarshalJSON() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-type SortDirection string
-
-const (
-	SortDirectionAsc  SortDirection = "ASC"
-	SortDirectionDesc SortDirection = "DESC"
-)
-
-var AllSortDirection = []SortDirection{
-	SortDirectionAsc,
-	SortDirectionDesc,
-}
-
-func (e SortDirection) IsValid() bool {
-	switch e {
-	case SortDirectionAsc, SortDirectionDesc:
-		return true
-	}
-	return false
-}
-
-func (e SortDirection) String() string {
-	return string(e)
-}
-
-func (e *SortDirection) UnmarshalGQL(v any) error {
-	str, ok := v.(string)
-	if !ok {
-		return fmt.Errorf("enums must be strings")
-	}
-
-	*e = SortDirection(str)
-	if !e.IsValid() {
-		return fmt.Errorf("%s is not a valid SortDirection", str)
-	}
-	return nil
-}
-
-func (e SortDirection) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
-}
-
-func (e *SortDirection) UnmarshalJSON(b []byte) error {
-	s, err := strconv.Unquote(string(b))
-	if err != nil {
-		return err
-	}
-	return e.UnmarshalGQL(s)
-}
-
-func (e SortDirection) MarshalJSON() ([]byte, error) {
-	var buf bytes.Buffer
-	e.MarshalGQL(&buf)
-	return buf.Bytes(), nil
-}
-
-type EntitySortField string
-
-const (
-	EntitySortFieldCreatedAt  EntitySortField = "CREATED_AT"
-	EntitySortFieldUpdatedAt  EntitySortField = "UPDATED_AT"
-	EntitySortFieldEntityType EntitySortField = "ENTITY_TYPE"
-	EntitySortFieldPath       EntitySortField = "PATH"
-	EntitySortFieldVersion    EntitySortField = "VERSION"
-	EntitySortFieldProperty   EntitySortField = "PROPERTY"
-)
-
-var AllEntitySortField = []EntitySortField{
-	EntitySortFieldCreatedAt,
-	EntitySortFieldUpdatedAt,
-	EntitySortFieldEntityType,
-	EntitySortFieldPath,
-	EntitySortFieldVersion,
-	EntitySortFieldProperty,
-}
-
-func (e EntitySortField) IsValid() bool {
-	switch e {
-	case EntitySortFieldCreatedAt, EntitySortFieldUpdatedAt, EntitySortFieldEntityType, EntitySortFieldPath, EntitySortFieldVersion, EntitySortFieldProperty:
-		return true
-	}
-	return false
-}
-
-func (e EntitySortField) String() string {
-	return string(e)
-}
-
-func (e *EntitySortField) UnmarshalGQL(v any) error {
-	str, ok := v.(string)
-	if !ok {
-		return fmt.Errorf("enums must be strings")
-	}
-
-	*e = EntitySortField(str)
-	if !e.IsValid() {
-		return fmt.Errorf("%s is not a valid EntitySortField", str)
-	}
-	return nil
-}
-
-func (e EntitySortField) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
-}
-
-func (e *EntitySortField) UnmarshalJSON(b []byte) error {
-	s, err := strconv.Unquote(string(b))
-	if err != nil {
-		return err
-	}
-	return e.UnmarshalGQL(s)
-}
-
-func (e EntitySortField) MarshalJSON() ([]byte, error) {
-	var buf bytes.Buffer
-	e.MarshalGQL(&buf)
-	return buf.Bytes(), nil
-}
-
 type JoinType string
 
 const (
@@ -675,6 +896,61 @@ func (e *SchemaStatus) UnmarshalJSON(b []byte) error {
 }
 
 func (e SchemaStatus) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type SortDirection string
+
+const (
+	SortDirectionAsc  SortDirection = "ASC"
+	SortDirectionDesc SortDirection = "DESC"
+)
+
+var AllSortDirection = []SortDirection{
+	SortDirectionAsc,
+	SortDirectionDesc,
+}
+
+func (e SortDirection) IsValid() bool {
+	switch e {
+	case SortDirectionAsc, SortDirectionDesc:
+		return true
+	}
+	return false
+}
+
+func (e SortDirection) String() string {
+	return string(e)
+}
+
+func (e *SortDirection) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = SortDirection(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid SortDirection", str)
+	}
+	return nil
+}
+
+func (e SortDirection) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *SortDirection) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e SortDirection) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil

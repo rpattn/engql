@@ -55,20 +55,21 @@ type ComplexityRoot struct {
 		OrganizationID func(childComplexity int) int
 		Path           func(childComplexity int) int
 		Properties     func(childComplexity int) int
+		ReferenceValue func(childComplexity int) int
 		SchemaID       func(childComplexity int) int
 		UpdatedAt      func(childComplexity int) int
 		Version        func(childComplexity int) int
+	}
+
+	EntityConnection struct {
+		Entities func(childComplexity int) int
+		PageInfo func(childComplexity int) int
 	}
 
 	EntityDiffResult struct {
 		Base        func(childComplexity int) int
 		Target      func(childComplexity int) int
 		UnifiedDiff func(childComplexity int) int
-	}
-
-	EntityConnection struct {
-		Entities func(childComplexity int) int
-		PageInfo func(childComplexity int) int
 	}
 
 	EntityHierarchy struct {
@@ -105,14 +106,6 @@ type ComplexityRoot struct {
 		Right func(childComplexity int) int
 	}
 
-	EntitySnapshotView struct {
-		CanonicalText func(childComplexity int) int
-		EntityType    func(childComplexity int) int
-		Path          func(childComplexity int) int
-		SchemaID      func(childComplexity int) int
-		Version       func(childComplexity int) int
-	}
-
 	EntitySchema struct {
 		CreatedAt         func(childComplexity int) int
 		Description       func(childComplexity int) int
@@ -124,6 +117,100 @@ type ComplexityRoot struct {
 		Status            func(childComplexity int) int
 		UpdatedAt         func(childComplexity int) int
 		Version           func(childComplexity int) int
+	}
+
+	EntitySnapshotView struct {
+		CanonicalText func(childComplexity int) int
+		EntityType    func(childComplexity int) int
+		Path          func(childComplexity int) int
+		SchemaID      func(childComplexity int) int
+		Version       func(childComplexity int) int
+	}
+
+	EntityTransformation struct {
+		CreatedAt      func(childComplexity int) int
+		Description    func(childComplexity int) int
+		ID             func(childComplexity int) int
+		Name           func(childComplexity int) int
+		Nodes          func(childComplexity int) int
+		OrganizationID func(childComplexity int) int
+		UpdatedAt      func(childComplexity int) int
+	}
+
+	EntityTransformationConnection struct {
+		Edges    func(childComplexity int) int
+		PageInfo func(childComplexity int) int
+	}
+
+	EntityTransformationFilterConfig struct {
+		Alias   func(childComplexity int) int
+		Filters func(childComplexity int) int
+	}
+
+	EntityTransformationJoinConfig struct {
+		LeftAlias  func(childComplexity int) int
+		OnField    func(childComplexity int) int
+		RightAlias func(childComplexity int) int
+	}
+
+	EntityTransformationLoadConfig struct {
+		Alias      func(childComplexity int) int
+		EntityType func(childComplexity int) int
+		Filters    func(childComplexity int) int
+	}
+
+	EntityTransformationMaterializeConfig struct {
+		Outputs func(childComplexity int) int
+	}
+
+	EntityTransformationMaterializeFieldMapping struct {
+		OutputField func(childComplexity int) int
+		SourceAlias func(childComplexity int) int
+		SourceField func(childComplexity int) int
+	}
+
+	EntityTransformationMaterializeOutput struct {
+		Alias  func(childComplexity int) int
+		Fields func(childComplexity int) int
+	}
+
+	EntityTransformationNode struct {
+		Filter      func(childComplexity int) int
+		ID          func(childComplexity int) int
+		Inputs      func(childComplexity int) int
+		Join        func(childComplexity int) int
+		Load        func(childComplexity int) int
+		Materialize func(childComplexity int) int
+		Name        func(childComplexity int) int
+		Paginate    func(childComplexity int) int
+		Project     func(childComplexity int) int
+		Sort        func(childComplexity int) int
+		Type        func(childComplexity int) int
+	}
+
+	EntityTransformationPaginateConfig struct {
+		Limit  func(childComplexity int) int
+		Offset func(childComplexity int) int
+	}
+
+	EntityTransformationProjectConfig struct {
+		Alias  func(childComplexity int) int
+		Fields func(childComplexity int) int
+	}
+
+	EntityTransformationRecordEdge struct {
+		Entities func(childComplexity int) int
+	}
+
+	EntityTransformationRecordEntity struct {
+		Alias  func(childComplexity int) int
+		Entity func(childComplexity int) int
+	}
+
+	EntityTransformationSortConfig struct {
+		Alias     func(childComplexity int) int
+		Direction func(childComplexity int) int
+		Field     func(childComplexity int) int
 	}
 
 	FieldDefinition struct {
@@ -147,16 +234,19 @@ type ComplexityRoot struct {
 		CreateEntity               func(childComplexity int, input CreateEntityInput) int
 		CreateEntityJoinDefinition func(childComplexity int, input CreateEntityJoinDefinitionInput) int
 		CreateEntitySchema         func(childComplexity int, input CreateEntitySchemaInput) int
+		CreateEntityTransformation func(childComplexity int, input CreateEntityTransformationInput) int
 		CreateOrganization         func(childComplexity int, input CreateOrganizationInput) int
 		DeleteEntity               func(childComplexity int, id string) int
 		DeleteEntityJoinDefinition func(childComplexity int, id string) int
 		DeleteEntitySchema         func(childComplexity int, id string) int
+		DeleteEntityTransformation func(childComplexity int, id string) int
 		DeleteOrganization         func(childComplexity int, id string) int
 		RemoveFieldFromSchema      func(childComplexity int, schemaID string, fieldName string) int
 		RollbackEntity             func(childComplexity int, id string, toVersion int, reason *string) int
 		UpdateEntity               func(childComplexity int, input UpdateEntityInput) int
 		UpdateEntityJoinDefinition func(childComplexity int, input UpdateEntityJoinDefinitionInput) int
 		UpdateEntitySchema         func(childComplexity int, input UpdateEntitySchemaInput) int
+		UpdateEntityTransformation func(childComplexity int, input UpdateEntityTransformationInput) int
 		UpdateOrganization         func(childComplexity int, input UpdateOrganizationInput) int
 	}
 
@@ -186,6 +276,7 @@ type ComplexityRoot struct {
 		EntitiesByIDs                      func(childComplexity int, ids []string) int
 		EntitiesByType                     func(childComplexity int, organizationID string, entityType string) int
 		Entity                             func(childComplexity int, id string) int
+		EntityDiff                         func(childComplexity int, id string, baseVersion int, targetVersion int) int
 		EntityHistory                      func(childComplexity int, id string) int
 		EntityJoinDefinition               func(childComplexity int, id string) int
 		EntityJoinDefinitions              func(childComplexity int, organizationID string) int
@@ -193,7 +284,10 @@ type ComplexityRoot struct {
 		EntitySchemaByName                 func(childComplexity int, organizationID string, name string) int
 		EntitySchemaVersions               func(childComplexity int, organizationID string, name string) int
 		EntitySchemas                      func(childComplexity int, organizationID string) int
+		EntityTransformation               func(childComplexity int, id string) int
+		EntityTransformations              func(childComplexity int, organizationID string) int
 		ExecuteEntityJoin                  func(childComplexity int, input ExecuteEntityJoinInput) int
+		ExecuteEntityTransformation        func(childComplexity int, input ExecuteEntityTransformationInput) int
 		GetEntityAncestors                 func(childComplexity int, entityID string) int
 		GetEntityChildren                  func(childComplexity int, entityID string) int
 		GetEntityDescendants               func(childComplexity int, entityID string) int
@@ -207,7 +301,32 @@ type ComplexityRoot struct {
 		SearchEntitiesByPropertyContains   func(childComplexity int, organizationID string, propertyKey string, searchTerm string) int
 		SearchEntitiesByPropertyExists     func(childComplexity int, organizationID string, propertyKey string) int
 		SearchEntitiesByPropertyRange      func(childComplexity int, organizationID string, propertyKey string, minValue *float64, maxValue *float64) int
+		TransformationExecution            func(childComplexity int, transformationID string, filters []*TransformationExecutionFilterInput, sort *TransformationExecutionSortInput, pagination *PaginationInput) int
 		ValidateEntityAgainstSchema        func(childComplexity int, entityID string) int
+	}
+
+	TransformationExecutionColumn struct {
+		Alias       func(childComplexity int) int
+		Field       func(childComplexity int) int
+		Key         func(childComplexity int) int
+		Label       func(childComplexity int) int
+		SourceAlias func(childComplexity int) int
+		SourceField func(childComplexity int) int
+	}
+
+	TransformationExecutionConnection struct {
+		Columns  func(childComplexity int) int
+		PageInfo func(childComplexity int) int
+		Rows     func(childComplexity int) int
+	}
+
+	TransformationExecutionRow struct {
+		Values func(childComplexity int) int
+	}
+
+	TransformationExecutionValue struct {
+		ColumnKey func(childComplexity int) int
+		Value     func(childComplexity int) int
 	}
 
 	ValidationResult struct {
@@ -236,6 +355,9 @@ type MutationResolver interface {
 	CreateEntityJoinDefinition(ctx context.Context, input CreateEntityJoinDefinitionInput) (*EntityJoinDefinition, error)
 	UpdateEntityJoinDefinition(ctx context.Context, input UpdateEntityJoinDefinitionInput) (*EntityJoinDefinition, error)
 	DeleteEntityJoinDefinition(ctx context.Context, id string) (bool, error)
+	CreateEntityTransformation(ctx context.Context, input CreateEntityTransformationInput) (*EntityTransformation, error)
+	UpdateEntityTransformation(ctx context.Context, input UpdateEntityTransformationInput) (*EntityTransformation, error)
+	DeleteEntityTransformation(ctx context.Context, id string) (bool, error)
 }
 type QueryResolver interface {
 	Organizations(ctx context.Context) ([]*Organization, error)
@@ -265,6 +387,10 @@ type QueryResolver interface {
 	EntityJoinDefinition(ctx context.Context, id string) (*EntityJoinDefinition, error)
 	EntityJoinDefinitions(ctx context.Context, organizationID string) ([]*EntityJoinDefinition, error)
 	ExecuteEntityJoin(ctx context.Context, input ExecuteEntityJoinInput) (*EntityJoinConnection, error)
+	EntityTransformation(ctx context.Context, id string) (*EntityTransformation, error)
+	EntityTransformations(ctx context.Context, organizationID string) ([]*EntityTransformation, error)
+	ExecuteEntityTransformation(ctx context.Context, input ExecuteEntityTransformationInput) (*EntityTransformationConnection, error)
+	TransformationExecution(ctx context.Context, transformationID string, filters []*TransformationExecutionFilterInput, sort *TransformationExecutionSortInput, pagination *PaginationInput) (*TransformationExecutionConnection, error)
 }
 
 type executableSchema struct {
@@ -328,6 +454,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Entity.Properties(childComplexity), true
+	case "Entity.referenceValue":
+		if e.complexity.Entity.ReferenceValue == nil {
+			break
+		}
+
+		return e.complexity.Entity.ReferenceValue(childComplexity), true
 	case "Entity.schemaId":
 		if e.complexity.Entity.SchemaID == nil {
 			break
@@ -347,6 +479,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Entity.Version(childComplexity), true
 
+	case "EntityConnection.entities":
+		if e.complexity.EntityConnection.Entities == nil {
+			break
+		}
+
+		return e.complexity.EntityConnection.Entities(childComplexity), true
+	case "EntityConnection.pageInfo":
+		if e.complexity.EntityConnection.PageInfo == nil {
+			break
+		}
+
+		return e.complexity.EntityConnection.PageInfo(childComplexity), true
+
 	case "EntityDiffResult.base":
 		if e.complexity.EntityDiffResult.Base == nil {
 			break
@@ -365,19 +510,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.EntityDiffResult.UnifiedDiff(childComplexity), true
-
-	case "EntityConnection.entities":
-		if e.complexity.EntityConnection.Entities == nil {
-			break
-		}
-
-		return e.complexity.EntityConnection.Entities(childComplexity), true
-	case "EntityConnection.pageInfo":
-		if e.complexity.EntityConnection.PageInfo == nil {
-			break
-		}
-
-		return e.complexity.EntityConnection.PageInfo(childComplexity), true
 
 	case "EntityHierarchy.ancestors":
 		if e.complexity.EntityHierarchy.Ancestors == nil {
@@ -515,37 +647,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.EntityJoinEdge.Right(childComplexity), true
 
-	case "EntitySnapshotView.canonicalText":
-		if e.complexity.EntitySnapshotView.CanonicalText == nil {
-			break
-		}
-
-		return e.complexity.EntitySnapshotView.CanonicalText(childComplexity), true
-	case "EntitySnapshotView.entityType":
-		if e.complexity.EntitySnapshotView.EntityType == nil {
-			break
-		}
-
-		return e.complexity.EntitySnapshotView.EntityType(childComplexity), true
-	case "EntitySnapshotView.path":
-		if e.complexity.EntitySnapshotView.Path == nil {
-			break
-		}
-
-		return e.complexity.EntitySnapshotView.Path(childComplexity), true
-	case "EntitySnapshotView.schemaId":
-		if e.complexity.EntitySnapshotView.SchemaID == nil {
-			break
-		}
-
-		return e.complexity.EntitySnapshotView.SchemaID(childComplexity), true
-	case "EntitySnapshotView.version":
-		if e.complexity.EntitySnapshotView.Version == nil {
-			break
-		}
-
-		return e.complexity.EntitySnapshotView.Version(childComplexity), true
-
 	case "EntitySchema.createdAt":
 		if e.complexity.EntitySchema.CreatedAt == nil {
 			break
@@ -606,6 +707,315 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.EntitySchema.Version(childComplexity), true
+
+	case "EntitySnapshotView.canonicalText":
+		if e.complexity.EntitySnapshotView.CanonicalText == nil {
+			break
+		}
+
+		return e.complexity.EntitySnapshotView.CanonicalText(childComplexity), true
+	case "EntitySnapshotView.entityType":
+		if e.complexity.EntitySnapshotView.EntityType == nil {
+			break
+		}
+
+		return e.complexity.EntitySnapshotView.EntityType(childComplexity), true
+	case "EntitySnapshotView.path":
+		if e.complexity.EntitySnapshotView.Path == nil {
+			break
+		}
+
+		return e.complexity.EntitySnapshotView.Path(childComplexity), true
+	case "EntitySnapshotView.schemaId":
+		if e.complexity.EntitySnapshotView.SchemaID == nil {
+			break
+		}
+
+		return e.complexity.EntitySnapshotView.SchemaID(childComplexity), true
+	case "EntitySnapshotView.version":
+		if e.complexity.EntitySnapshotView.Version == nil {
+			break
+		}
+
+		return e.complexity.EntitySnapshotView.Version(childComplexity), true
+
+	case "EntityTransformation.createdAt":
+		if e.complexity.EntityTransformation.CreatedAt == nil {
+			break
+		}
+
+		return e.complexity.EntityTransformation.CreatedAt(childComplexity), true
+	case "EntityTransformation.description":
+		if e.complexity.EntityTransformation.Description == nil {
+			break
+		}
+
+		return e.complexity.EntityTransformation.Description(childComplexity), true
+	case "EntityTransformation.id":
+		if e.complexity.EntityTransformation.ID == nil {
+			break
+		}
+
+		return e.complexity.EntityTransformation.ID(childComplexity), true
+	case "EntityTransformation.name":
+		if e.complexity.EntityTransformation.Name == nil {
+			break
+		}
+
+		return e.complexity.EntityTransformation.Name(childComplexity), true
+	case "EntityTransformation.nodes":
+		if e.complexity.EntityTransformation.Nodes == nil {
+			break
+		}
+
+		return e.complexity.EntityTransformation.Nodes(childComplexity), true
+	case "EntityTransformation.organizationId":
+		if e.complexity.EntityTransformation.OrganizationID == nil {
+			break
+		}
+
+		return e.complexity.EntityTransformation.OrganizationID(childComplexity), true
+	case "EntityTransformation.updatedAt":
+		if e.complexity.EntityTransformation.UpdatedAt == nil {
+			break
+		}
+
+		return e.complexity.EntityTransformation.UpdatedAt(childComplexity), true
+
+	case "EntityTransformationConnection.edges":
+		if e.complexity.EntityTransformationConnection.Edges == nil {
+			break
+		}
+
+		return e.complexity.EntityTransformationConnection.Edges(childComplexity), true
+	case "EntityTransformationConnection.pageInfo":
+		if e.complexity.EntityTransformationConnection.PageInfo == nil {
+			break
+		}
+
+		return e.complexity.EntityTransformationConnection.PageInfo(childComplexity), true
+
+	case "EntityTransformationFilterConfig.alias":
+		if e.complexity.EntityTransformationFilterConfig.Alias == nil {
+			break
+		}
+
+		return e.complexity.EntityTransformationFilterConfig.Alias(childComplexity), true
+	case "EntityTransformationFilterConfig.filters":
+		if e.complexity.EntityTransformationFilterConfig.Filters == nil {
+			break
+		}
+
+		return e.complexity.EntityTransformationFilterConfig.Filters(childComplexity), true
+
+	case "EntityTransformationJoinConfig.leftAlias":
+		if e.complexity.EntityTransformationJoinConfig.LeftAlias == nil {
+			break
+		}
+
+		return e.complexity.EntityTransformationJoinConfig.LeftAlias(childComplexity), true
+	case "EntityTransformationJoinConfig.onField":
+		if e.complexity.EntityTransformationJoinConfig.OnField == nil {
+			break
+		}
+
+		return e.complexity.EntityTransformationJoinConfig.OnField(childComplexity), true
+	case "EntityTransformationJoinConfig.rightAlias":
+		if e.complexity.EntityTransformationJoinConfig.RightAlias == nil {
+			break
+		}
+
+		return e.complexity.EntityTransformationJoinConfig.RightAlias(childComplexity), true
+
+	case "EntityTransformationLoadConfig.alias":
+		if e.complexity.EntityTransformationLoadConfig.Alias == nil {
+			break
+		}
+
+		return e.complexity.EntityTransformationLoadConfig.Alias(childComplexity), true
+	case "EntityTransformationLoadConfig.entityType":
+		if e.complexity.EntityTransformationLoadConfig.EntityType == nil {
+			break
+		}
+
+		return e.complexity.EntityTransformationLoadConfig.EntityType(childComplexity), true
+	case "EntityTransformationLoadConfig.filters":
+		if e.complexity.EntityTransformationLoadConfig.Filters == nil {
+			break
+		}
+
+		return e.complexity.EntityTransformationLoadConfig.Filters(childComplexity), true
+
+	case "EntityTransformationMaterializeConfig.outputs":
+		if e.complexity.EntityTransformationMaterializeConfig.Outputs == nil {
+			break
+		}
+
+		return e.complexity.EntityTransformationMaterializeConfig.Outputs(childComplexity), true
+
+	case "EntityTransformationMaterializeFieldMapping.outputField":
+		if e.complexity.EntityTransformationMaterializeFieldMapping.OutputField == nil {
+			break
+		}
+
+		return e.complexity.EntityTransformationMaterializeFieldMapping.OutputField(childComplexity), true
+	case "EntityTransformationMaterializeFieldMapping.sourceAlias":
+		if e.complexity.EntityTransformationMaterializeFieldMapping.SourceAlias == nil {
+			break
+		}
+
+		return e.complexity.EntityTransformationMaterializeFieldMapping.SourceAlias(childComplexity), true
+	case "EntityTransformationMaterializeFieldMapping.sourceField":
+		if e.complexity.EntityTransformationMaterializeFieldMapping.SourceField == nil {
+			break
+		}
+
+		return e.complexity.EntityTransformationMaterializeFieldMapping.SourceField(childComplexity), true
+
+	case "EntityTransformationMaterializeOutput.alias":
+		if e.complexity.EntityTransformationMaterializeOutput.Alias == nil {
+			break
+		}
+
+		return e.complexity.EntityTransformationMaterializeOutput.Alias(childComplexity), true
+	case "EntityTransformationMaterializeOutput.fields":
+		if e.complexity.EntityTransformationMaterializeOutput.Fields == nil {
+			break
+		}
+
+		return e.complexity.EntityTransformationMaterializeOutput.Fields(childComplexity), true
+
+	case "EntityTransformationNode.filter":
+		if e.complexity.EntityTransformationNode.Filter == nil {
+			break
+		}
+
+		return e.complexity.EntityTransformationNode.Filter(childComplexity), true
+	case "EntityTransformationNode.id":
+		if e.complexity.EntityTransformationNode.ID == nil {
+			break
+		}
+
+		return e.complexity.EntityTransformationNode.ID(childComplexity), true
+	case "EntityTransformationNode.inputs":
+		if e.complexity.EntityTransformationNode.Inputs == nil {
+			break
+		}
+
+		return e.complexity.EntityTransformationNode.Inputs(childComplexity), true
+	case "EntityTransformationNode.join":
+		if e.complexity.EntityTransformationNode.Join == nil {
+			break
+		}
+
+		return e.complexity.EntityTransformationNode.Join(childComplexity), true
+	case "EntityTransformationNode.load":
+		if e.complexity.EntityTransformationNode.Load == nil {
+			break
+		}
+
+		return e.complexity.EntityTransformationNode.Load(childComplexity), true
+	case "EntityTransformationNode.materialize":
+		if e.complexity.EntityTransformationNode.Materialize == nil {
+			break
+		}
+
+		return e.complexity.EntityTransformationNode.Materialize(childComplexity), true
+	case "EntityTransformationNode.name":
+		if e.complexity.EntityTransformationNode.Name == nil {
+			break
+		}
+
+		return e.complexity.EntityTransformationNode.Name(childComplexity), true
+	case "EntityTransformationNode.paginate":
+		if e.complexity.EntityTransformationNode.Paginate == nil {
+			break
+		}
+
+		return e.complexity.EntityTransformationNode.Paginate(childComplexity), true
+	case "EntityTransformationNode.project":
+		if e.complexity.EntityTransformationNode.Project == nil {
+			break
+		}
+
+		return e.complexity.EntityTransformationNode.Project(childComplexity), true
+	case "EntityTransformationNode.sort":
+		if e.complexity.EntityTransformationNode.Sort == nil {
+			break
+		}
+
+		return e.complexity.EntityTransformationNode.Sort(childComplexity), true
+	case "EntityTransformationNode.type":
+		if e.complexity.EntityTransformationNode.Type == nil {
+			break
+		}
+
+		return e.complexity.EntityTransformationNode.Type(childComplexity), true
+
+	case "EntityTransformationPaginateConfig.limit":
+		if e.complexity.EntityTransformationPaginateConfig.Limit == nil {
+			break
+		}
+
+		return e.complexity.EntityTransformationPaginateConfig.Limit(childComplexity), true
+	case "EntityTransformationPaginateConfig.offset":
+		if e.complexity.EntityTransformationPaginateConfig.Offset == nil {
+			break
+		}
+
+		return e.complexity.EntityTransformationPaginateConfig.Offset(childComplexity), true
+
+	case "EntityTransformationProjectConfig.alias":
+		if e.complexity.EntityTransformationProjectConfig.Alias == nil {
+			break
+		}
+
+		return e.complexity.EntityTransformationProjectConfig.Alias(childComplexity), true
+	case "EntityTransformationProjectConfig.fields":
+		if e.complexity.EntityTransformationProjectConfig.Fields == nil {
+			break
+		}
+
+		return e.complexity.EntityTransformationProjectConfig.Fields(childComplexity), true
+
+	case "EntityTransformationRecordEdge.entities":
+		if e.complexity.EntityTransformationRecordEdge.Entities == nil {
+			break
+		}
+
+		return e.complexity.EntityTransformationRecordEdge.Entities(childComplexity), true
+
+	case "EntityTransformationRecordEntity.alias":
+		if e.complexity.EntityTransformationRecordEntity.Alias == nil {
+			break
+		}
+
+		return e.complexity.EntityTransformationRecordEntity.Alias(childComplexity), true
+	case "EntityTransformationRecordEntity.entity":
+		if e.complexity.EntityTransformationRecordEntity.Entity == nil {
+			break
+		}
+
+		return e.complexity.EntityTransformationRecordEntity.Entity(childComplexity), true
+
+	case "EntityTransformationSortConfig.alias":
+		if e.complexity.EntityTransformationSortConfig.Alias == nil {
+			break
+		}
+
+		return e.complexity.EntityTransformationSortConfig.Alias(childComplexity), true
+	case "EntityTransformationSortConfig.direction":
+		if e.complexity.EntityTransformationSortConfig.Direction == nil {
+			break
+		}
+
+		return e.complexity.EntityTransformationSortConfig.Direction(childComplexity), true
+	case "EntityTransformationSortConfig.field":
+		if e.complexity.EntityTransformationSortConfig.Field == nil {
+			break
+		}
+
+		return e.complexity.EntityTransformationSortConfig.Field(childComplexity), true
 
 	case "FieldDefinition.default":
 		if e.complexity.FieldDefinition.Default == nil {
@@ -713,6 +1123,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Mutation.CreateEntitySchema(childComplexity, args["input"].(CreateEntitySchemaInput)), true
+	case "Mutation.createEntityTransformation":
+		if e.complexity.Mutation.CreateEntityTransformation == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_createEntityTransformation_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.CreateEntityTransformation(childComplexity, args["input"].(CreateEntityTransformationInput)), true
 	case "Mutation.createOrganization":
 		if e.complexity.Mutation.CreateOrganization == nil {
 			break
@@ -757,6 +1178,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Mutation.DeleteEntitySchema(childComplexity, args["id"].(string)), true
+	case "Mutation.deleteEntityTransformation":
+		if e.complexity.Mutation.DeleteEntityTransformation == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_deleteEntityTransformation_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.DeleteEntityTransformation(childComplexity, args["id"].(string)), true
 	case "Mutation.deleteOrganization":
 		if e.complexity.Mutation.DeleteOrganization == nil {
 			break
@@ -823,6 +1255,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Mutation.UpdateEntitySchema(childComplexity, args["input"].(UpdateEntitySchemaInput)), true
+	case "Mutation.updateEntityTransformation":
+		if e.complexity.Mutation.UpdateEntityTransformation == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_updateEntityTransformation_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.UpdateEntityTransformation(childComplexity, args["input"].(UpdateEntityTransformationInput)), true
 	case "Mutation.updateOrganization":
 		if e.complexity.Mutation.UpdateOrganization == nil {
 			break
@@ -954,6 +1397,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Query.Entity(childComplexity, args["id"].(string)), true
+	case "Query.entityDiff":
+		if e.complexity.Query.EntityDiff == nil {
+			break
+		}
+
+		args, err := ec.field_Query_entityDiff_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.EntityDiff(childComplexity, args["id"].(string), args["baseVersion"].(int), args["targetVersion"].(int)), true
 	case "Query.entityHistory":
 		if e.complexity.Query.EntityHistory == nil {
 			break
@@ -1031,6 +1485,28 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Query.EntitySchemas(childComplexity, args["organizationId"].(string)), true
+	case "Query.entityTransformation":
+		if e.complexity.Query.EntityTransformation == nil {
+			break
+		}
+
+		args, err := ec.field_Query_entityTransformation_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.EntityTransformation(childComplexity, args["id"].(string)), true
+	case "Query.entityTransformations":
+		if e.complexity.Query.EntityTransformations == nil {
+			break
+		}
+
+		args, err := ec.field_Query_entityTransformations_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.EntityTransformations(childComplexity, args["organizationId"].(string)), true
 	case "Query.executeEntityJoin":
 		if e.complexity.Query.ExecuteEntityJoin == nil {
 			break
@@ -1042,6 +1518,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Query.ExecuteEntityJoin(childComplexity, args["input"].(ExecuteEntityJoinInput)), true
+	case "Query.executeEntityTransformation":
+		if e.complexity.Query.ExecuteEntityTransformation == nil {
+			break
+		}
+
+		args, err := ec.field_Query_executeEntityTransformation_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.ExecuteEntityTransformation(childComplexity, args["input"].(ExecuteEntityTransformationInput)), true
 	case "Query.getEntityAncestors":
 		if e.complexity.Query.GetEntityAncestors == nil {
 			break
@@ -1180,6 +1667,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Query.SearchEntitiesByPropertyRange(childComplexity, args["organizationId"].(string), args["propertyKey"].(string), args["minValue"].(*float64), args["maxValue"].(*float64)), true
+	case "Query.transformationExecution":
+		if e.complexity.Query.TransformationExecution == nil {
+			break
+		}
+
+		args, err := ec.field_Query_transformationExecution_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.TransformationExecution(childComplexity, args["transformationId"].(string), args["filters"].([]*TransformationExecutionFilterInput), args["sort"].(*TransformationExecutionSortInput), args["pagination"].(*PaginationInput)), true
 	case "Query.validateEntityAgainstSchema":
 		if e.complexity.Query.ValidateEntityAgainstSchema == nil {
 			break
@@ -1191,6 +1689,82 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Query.ValidateEntityAgainstSchema(childComplexity, args["entityId"].(string)), true
+
+	case "TransformationExecutionColumn.alias":
+		if e.complexity.TransformationExecutionColumn.Alias == nil {
+			break
+		}
+
+		return e.complexity.TransformationExecutionColumn.Alias(childComplexity), true
+	case "TransformationExecutionColumn.field":
+		if e.complexity.TransformationExecutionColumn.Field == nil {
+			break
+		}
+
+		return e.complexity.TransformationExecutionColumn.Field(childComplexity), true
+	case "TransformationExecutionColumn.key":
+		if e.complexity.TransformationExecutionColumn.Key == nil {
+			break
+		}
+
+		return e.complexity.TransformationExecutionColumn.Key(childComplexity), true
+	case "TransformationExecutionColumn.label":
+		if e.complexity.TransformationExecutionColumn.Label == nil {
+			break
+		}
+
+		return e.complexity.TransformationExecutionColumn.Label(childComplexity), true
+	case "TransformationExecutionColumn.sourceAlias":
+		if e.complexity.TransformationExecutionColumn.SourceAlias == nil {
+			break
+		}
+
+		return e.complexity.TransformationExecutionColumn.SourceAlias(childComplexity), true
+	case "TransformationExecutionColumn.sourceField":
+		if e.complexity.TransformationExecutionColumn.SourceField == nil {
+			break
+		}
+
+		return e.complexity.TransformationExecutionColumn.SourceField(childComplexity), true
+
+	case "TransformationExecutionConnection.columns":
+		if e.complexity.TransformationExecutionConnection.Columns == nil {
+			break
+		}
+
+		return e.complexity.TransformationExecutionConnection.Columns(childComplexity), true
+	case "TransformationExecutionConnection.pageInfo":
+		if e.complexity.TransformationExecutionConnection.PageInfo == nil {
+			break
+		}
+
+		return e.complexity.TransformationExecutionConnection.PageInfo(childComplexity), true
+	case "TransformationExecutionConnection.rows":
+		if e.complexity.TransformationExecutionConnection.Rows == nil {
+			break
+		}
+
+		return e.complexity.TransformationExecutionConnection.Rows(childComplexity), true
+
+	case "TransformationExecutionRow.values":
+		if e.complexity.TransformationExecutionRow.Values == nil {
+			break
+		}
+
+		return e.complexity.TransformationExecutionRow.Values(childComplexity), true
+
+	case "TransformationExecutionValue.columnKey":
+		if e.complexity.TransformationExecutionValue.ColumnKey == nil {
+			break
+		}
+
+		return e.complexity.TransformationExecutionValue.ColumnKey(childComplexity), true
+	case "TransformationExecutionValue.value":
+		if e.complexity.TransformationExecutionValue.Value == nil {
+			break
+		}
+
+		return e.complexity.TransformationExecutionValue.Value(childComplexity), true
 
 	case "ValidationResult.errors":
 		if e.complexity.ValidationResult.Errors == nil {
@@ -1222,17 +1796,33 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputCreateEntityInput,
 		ec.unmarshalInputCreateEntityJoinDefinitionInput,
 		ec.unmarshalInputCreateEntitySchemaInput,
+		ec.unmarshalInputCreateEntityTransformationInput,
 		ec.unmarshalInputCreateOrganizationInput,
 		ec.unmarshalInputEntityFilter,
+		ec.unmarshalInputEntitySortInput,
+		ec.unmarshalInputEntityTransformationFilterConfigInput,
+		ec.unmarshalInputEntityTransformationJoinConfigInput,
+		ec.unmarshalInputEntityTransformationLoadConfigInput,
+		ec.unmarshalInputEntityTransformationMaterializeConfigInput,
+		ec.unmarshalInputEntityTransformationMaterializeFieldMappingInput,
+		ec.unmarshalInputEntityTransformationMaterializeOutputInput,
+		ec.unmarshalInputEntityTransformationNodeInput,
+		ec.unmarshalInputEntityTransformationPaginateConfigInput,
+		ec.unmarshalInputEntityTransformationProjectConfigInput,
+		ec.unmarshalInputEntityTransformationSortConfigInput,
 		ec.unmarshalInputExecuteEntityJoinInput,
+		ec.unmarshalInputExecuteEntityTransformationInput,
 		ec.unmarshalInputFieldDefinitionInput,
 		ec.unmarshalInputJoinSortInput,
 		ec.unmarshalInputPaginationInput,
 		ec.unmarshalInputPathFilter,
 		ec.unmarshalInputPropertyFilter,
+		ec.unmarshalInputTransformationExecutionFilterInput,
+		ec.unmarshalInputTransformationExecutionSortInput,
 		ec.unmarshalInputUpdateEntityInput,
 		ec.unmarshalInputUpdateEntityJoinDefinitionInput,
 		ec.unmarshalInputUpdateEntitySchemaInput,
+		ec.unmarshalInputUpdateEntityTransformationInput,
 		ec.unmarshalInputUpdateOrganizationInput,
 	)
 	first := true
@@ -1388,6 +1978,17 @@ func (ec *executionContext) field_Mutation_createEntitySchema_args(ctx context.C
 	return args, nil
 }
 
+func (ec *executionContext) field_Mutation_createEntityTransformation_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateEntityTransformationInput2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐCreateEntityTransformationInput)
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_createEntity_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -1422,6 +2023,17 @@ func (ec *executionContext) field_Mutation_deleteEntityJoinDefinition_args(ctx c
 }
 
 func (ec *executionContext) field_Mutation_deleteEntitySchema_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id", ec.unmarshalNString2string)
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_deleteEntityTransformation_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id", ec.unmarshalNString2string)
@@ -1506,6 +2118,17 @@ func (ec *executionContext) field_Mutation_updateEntitySchema_args(ctx context.C
 	var err error
 	args := map[string]any{}
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateEntitySchemaInput2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐUpdateEntitySchemaInput)
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_updateEntityTransformation_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateEntityTransformationInput2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐUpdateEntityTransformationInput)
 	if err != nil {
 		return nil, err
 	}
@@ -1599,6 +2222,38 @@ func (ec *executionContext) field_Query_entities_args(ctx context.Context, rawAr
 	return args, nil
 }
 
+func (ec *executionContext) field_Query_entityDiff_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id", ec.unmarshalNString2string)
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "baseVersion", ec.unmarshalNInt2int)
+	if err != nil {
+		return nil, err
+	}
+	args["baseVersion"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "targetVersion", ec.unmarshalNInt2int)
+	if err != nil {
+		return nil, err
+	}
+	args["targetVersion"] = arg2
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_entityHistory_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id", ec.unmarshalNString2string)
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Query_entityJoinDefinition_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -1675,7 +2330,7 @@ func (ec *executionContext) field_Query_entitySchemas_args(ctx context.Context, 
 	return args, nil
 }
 
-func (ec *executionContext) field_Query_entityDiff_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+func (ec *executionContext) field_Query_entityTransformation_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id", ec.unmarshalNString2string)
@@ -1683,27 +2338,17 @@ func (ec *executionContext) field_Query_entityDiff_args(ctx context.Context, raw
 		return nil, err
 	}
 	args["id"] = arg0
-	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "baseVersion", ec.unmarshalNInt2int)
-	if err != nil {
-		return nil, err
-	}
-	args["baseVersion"] = arg1
-	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "targetVersion", ec.unmarshalNInt2int)
-	if err != nil {
-		return nil, err
-	}
-	args["targetVersion"] = arg2
 	return args, nil
 }
 
-func (ec *executionContext) field_Query_entityHistory_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+func (ec *executionContext) field_Query_entityTransformations_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id", ec.unmarshalNString2string)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "organizationId", ec.unmarshalNString2string)
 	if err != nil {
 		return nil, err
 	}
-	args["id"] = arg0
+	args["organizationId"] = arg0
 	return args, nil
 }
 
@@ -1722,6 +2367,17 @@ func (ec *executionContext) field_Query_executeEntityJoin_args(ctx context.Conte
 	var err error
 	args := map[string]any{}
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNExecuteEntityJoinInput2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐExecuteEntityJoinInput)
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_executeEntityTransformation_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNExecuteEntityTransformationInput2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐExecuteEntityTransformationInput)
 	if err != nil {
 		return nil, err
 	}
@@ -1903,6 +2559,32 @@ func (ec *executionContext) field_Query_searchEntitiesByProperty_args(ctx contex
 		return nil, err
 	}
 	args["propertyValue"] = arg2
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_transformationExecution_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "transformationId", ec.unmarshalNString2string)
+	if err != nil {
+		return nil, err
+	}
+	args["transformationId"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "filters", ec.unmarshalOTransformationExecutionFilterInput2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐTransformationExecutionFilterInputᚄ)
+	if err != nil {
+		return nil, err
+	}
+	args["filters"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "sort", ec.unmarshalOTransformationExecutionSortInput2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐTransformationExecutionSortInput)
+	if err != nil {
+		return nil, err
+	}
+	args["sort"] = arg2
+	arg3, err := graphql.ProcessArgField(ctx, rawArgs, "pagination", ec.unmarshalOPaginationInput2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐPaginationInput)
+	if err != nil {
+		return nil, err
+	}
+	args["pagination"] = arg3
 	return args, nil
 }
 
@@ -2397,6 +3079,117 @@ func (ec *executionContext) fieldContext_EntityConnection_pageInfo(_ context.Con
 				return ec.fieldContext_PageInfo_totalCount(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type PageInfo", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityDiffResult_base(ctx context.Context, field graphql.CollectedField, obj *EntityDiffResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityDiffResult_base,
+		func(ctx context.Context) (any, error) {
+			return obj.Base, nil
+		},
+		nil,
+		ec.marshalOEntitySnapshotView2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntitySnapshotView,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityDiffResult_base(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityDiffResult",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "version":
+				return ec.fieldContext_EntitySnapshotView_version(ctx, field)
+			case "path":
+				return ec.fieldContext_EntitySnapshotView_path(ctx, field)
+			case "schemaId":
+				return ec.fieldContext_EntitySnapshotView_schemaId(ctx, field)
+			case "entityType":
+				return ec.fieldContext_EntitySnapshotView_entityType(ctx, field)
+			case "canonicalText":
+				return ec.fieldContext_EntitySnapshotView_canonicalText(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type EntitySnapshotView", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityDiffResult_target(ctx context.Context, field graphql.CollectedField, obj *EntityDiffResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityDiffResult_target,
+		func(ctx context.Context) (any, error) {
+			return obj.Target, nil
+		},
+		nil,
+		ec.marshalOEntitySnapshotView2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntitySnapshotView,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityDiffResult_target(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityDiffResult",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "version":
+				return ec.fieldContext_EntitySnapshotView_version(ctx, field)
+			case "path":
+				return ec.fieldContext_EntitySnapshotView_path(ctx, field)
+			case "schemaId":
+				return ec.fieldContext_EntitySnapshotView_schemaId(ctx, field)
+			case "entityType":
+				return ec.fieldContext_EntitySnapshotView_entityType(ctx, field)
+			case "canonicalText":
+				return ec.fieldContext_EntitySnapshotView_canonicalText(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type EntitySnapshotView", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityDiffResult_unifiedDiff(ctx context.Context, field graphql.CollectedField, obj *EntityDiffResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityDiffResult_unifiedDiff,
+		func(ctx context.Context) (any, error) {
+			return obj.UnifiedDiff, nil
+		},
+		nil,
+		ec.marshalOString2ᚖstring,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityDiffResult_unifiedDiff(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityDiffResult",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
 		},
 	}
 	return fc, nil
@@ -3527,6 +4320,1573 @@ func (ec *executionContext) fieldContext_EntitySchema_updatedAt(_ context.Contex
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntitySnapshotView_version(ctx context.Context, field graphql.CollectedField, obj *EntitySnapshotView) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntitySnapshotView_version,
+		func(ctx context.Context) (any, error) {
+			return obj.Version, nil
+		},
+		nil,
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntitySnapshotView_version(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntitySnapshotView",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntitySnapshotView_path(ctx context.Context, field graphql.CollectedField, obj *EntitySnapshotView) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntitySnapshotView_path,
+		func(ctx context.Context) (any, error) {
+			return obj.Path, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntitySnapshotView_path(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntitySnapshotView",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntitySnapshotView_schemaId(ctx context.Context, field graphql.CollectedField, obj *EntitySnapshotView) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntitySnapshotView_schemaId,
+		func(ctx context.Context) (any, error) {
+			return obj.SchemaID, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntitySnapshotView_schemaId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntitySnapshotView",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntitySnapshotView_entityType(ctx context.Context, field graphql.CollectedField, obj *EntitySnapshotView) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntitySnapshotView_entityType,
+		func(ctx context.Context) (any, error) {
+			return obj.EntityType, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntitySnapshotView_entityType(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntitySnapshotView",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntitySnapshotView_canonicalText(ctx context.Context, field graphql.CollectedField, obj *EntitySnapshotView) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntitySnapshotView_canonicalText,
+		func(ctx context.Context) (any, error) {
+			return obj.CanonicalText, nil
+		},
+		nil,
+		ec.marshalNString2ᚕstringᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntitySnapshotView_canonicalText(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntitySnapshotView",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityTransformation_id(ctx context.Context, field graphql.CollectedField, obj *EntityTransformation) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityTransformation_id,
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityTransformation_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityTransformation",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityTransformation_organizationId(ctx context.Context, field graphql.CollectedField, obj *EntityTransformation) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityTransformation_organizationId,
+		func(ctx context.Context) (any, error) {
+			return obj.OrganizationID, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityTransformation_organizationId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityTransformation",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityTransformation_name(ctx context.Context, field graphql.CollectedField, obj *EntityTransformation) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityTransformation_name,
+		func(ctx context.Context) (any, error) {
+			return obj.Name, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityTransformation_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityTransformation",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityTransformation_description(ctx context.Context, field graphql.CollectedField, obj *EntityTransformation) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityTransformation_description,
+		func(ctx context.Context) (any, error) {
+			return obj.Description, nil
+		},
+		nil,
+		ec.marshalOString2ᚖstring,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityTransformation_description(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityTransformation",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityTransformation_nodes(ctx context.Context, field graphql.CollectedField, obj *EntityTransformation) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityTransformation_nodes,
+		func(ctx context.Context) (any, error) {
+			return obj.Nodes, nil
+		},
+		nil,
+		ec.marshalNEntityTransformationNode2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationNodeᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityTransformation_nodes(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityTransformation",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_EntityTransformationNode_id(ctx, field)
+			case "name":
+				return ec.fieldContext_EntityTransformationNode_name(ctx, field)
+			case "type":
+				return ec.fieldContext_EntityTransformationNode_type(ctx, field)
+			case "inputs":
+				return ec.fieldContext_EntityTransformationNode_inputs(ctx, field)
+			case "load":
+				return ec.fieldContext_EntityTransformationNode_load(ctx, field)
+			case "filter":
+				return ec.fieldContext_EntityTransformationNode_filter(ctx, field)
+			case "project":
+				return ec.fieldContext_EntityTransformationNode_project(ctx, field)
+			case "join":
+				return ec.fieldContext_EntityTransformationNode_join(ctx, field)
+			case "materialize":
+				return ec.fieldContext_EntityTransformationNode_materialize(ctx, field)
+			case "sort":
+				return ec.fieldContext_EntityTransformationNode_sort(ctx, field)
+			case "paginate":
+				return ec.fieldContext_EntityTransformationNode_paginate(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type EntityTransformationNode", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityTransformation_createdAt(ctx context.Context, field graphql.CollectedField, obj *EntityTransformation) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityTransformation_createdAt,
+		func(ctx context.Context) (any, error) {
+			return obj.CreatedAt, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityTransformation_createdAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityTransformation",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityTransformation_updatedAt(ctx context.Context, field graphql.CollectedField, obj *EntityTransformation) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityTransformation_updatedAt,
+		func(ctx context.Context) (any, error) {
+			return obj.UpdatedAt, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityTransformation_updatedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityTransformation",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityTransformationConnection_edges(ctx context.Context, field graphql.CollectedField, obj *EntityTransformationConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityTransformationConnection_edges,
+		func(ctx context.Context) (any, error) {
+			return obj.Edges, nil
+		},
+		nil,
+		ec.marshalNEntityTransformationRecordEdge2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationRecordEdgeᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityTransformationConnection_edges(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityTransformationConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "entities":
+				return ec.fieldContext_EntityTransformationRecordEdge_entities(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type EntityTransformationRecordEdge", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityTransformationConnection_pageInfo(ctx context.Context, field graphql.CollectedField, obj *EntityTransformationConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityTransformationConnection_pageInfo,
+		func(ctx context.Context) (any, error) {
+			return obj.PageInfo, nil
+		},
+		nil,
+		ec.marshalNPageInfo2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐPageInfo,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityTransformationConnection_pageInfo(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityTransformationConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "hasNextPage":
+				return ec.fieldContext_PageInfo_hasNextPage(ctx, field)
+			case "hasPreviousPage":
+				return ec.fieldContext_PageInfo_hasPreviousPage(ctx, field)
+			case "totalCount":
+				return ec.fieldContext_PageInfo_totalCount(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type PageInfo", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityTransformationFilterConfig_alias(ctx context.Context, field graphql.CollectedField, obj *EntityTransformationFilterConfig) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityTransformationFilterConfig_alias,
+		func(ctx context.Context) (any, error) {
+			return obj.Alias, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityTransformationFilterConfig_alias(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityTransformationFilterConfig",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityTransformationFilterConfig_filters(ctx context.Context, field graphql.CollectedField, obj *EntityTransformationFilterConfig) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityTransformationFilterConfig_filters,
+		func(ctx context.Context) (any, error) {
+			return obj.Filters, nil
+		},
+		nil,
+		ec.marshalNPropertyFilterConfig2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐPropertyFilterConfigᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityTransformationFilterConfig_filters(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityTransformationFilterConfig",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "key":
+				return ec.fieldContext_PropertyFilterConfig_key(ctx, field)
+			case "value":
+				return ec.fieldContext_PropertyFilterConfig_value(ctx, field)
+			case "exists":
+				return ec.fieldContext_PropertyFilterConfig_exists(ctx, field)
+			case "inArray":
+				return ec.fieldContext_PropertyFilterConfig_inArray(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type PropertyFilterConfig", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityTransformationJoinConfig_leftAlias(ctx context.Context, field graphql.CollectedField, obj *EntityTransformationJoinConfig) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityTransformationJoinConfig_leftAlias,
+		func(ctx context.Context) (any, error) {
+			return obj.LeftAlias, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityTransformationJoinConfig_leftAlias(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityTransformationJoinConfig",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityTransformationJoinConfig_rightAlias(ctx context.Context, field graphql.CollectedField, obj *EntityTransformationJoinConfig) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityTransformationJoinConfig_rightAlias,
+		func(ctx context.Context) (any, error) {
+			return obj.RightAlias, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityTransformationJoinConfig_rightAlias(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityTransformationJoinConfig",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityTransformationJoinConfig_onField(ctx context.Context, field graphql.CollectedField, obj *EntityTransformationJoinConfig) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityTransformationJoinConfig_onField,
+		func(ctx context.Context) (any, error) {
+			return obj.OnField, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityTransformationJoinConfig_onField(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityTransformationJoinConfig",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityTransformationLoadConfig_alias(ctx context.Context, field graphql.CollectedField, obj *EntityTransformationLoadConfig) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityTransformationLoadConfig_alias,
+		func(ctx context.Context) (any, error) {
+			return obj.Alias, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityTransformationLoadConfig_alias(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityTransformationLoadConfig",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityTransformationLoadConfig_entityType(ctx context.Context, field graphql.CollectedField, obj *EntityTransformationLoadConfig) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityTransformationLoadConfig_entityType,
+		func(ctx context.Context) (any, error) {
+			return obj.EntityType, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityTransformationLoadConfig_entityType(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityTransformationLoadConfig",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityTransformationLoadConfig_filters(ctx context.Context, field graphql.CollectedField, obj *EntityTransformationLoadConfig) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityTransformationLoadConfig_filters,
+		func(ctx context.Context) (any, error) {
+			return obj.Filters, nil
+		},
+		nil,
+		ec.marshalNPropertyFilterConfig2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐPropertyFilterConfigᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityTransformationLoadConfig_filters(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityTransformationLoadConfig",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "key":
+				return ec.fieldContext_PropertyFilterConfig_key(ctx, field)
+			case "value":
+				return ec.fieldContext_PropertyFilterConfig_value(ctx, field)
+			case "exists":
+				return ec.fieldContext_PropertyFilterConfig_exists(ctx, field)
+			case "inArray":
+				return ec.fieldContext_PropertyFilterConfig_inArray(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type PropertyFilterConfig", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityTransformationMaterializeConfig_outputs(ctx context.Context, field graphql.CollectedField, obj *EntityTransformationMaterializeConfig) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityTransformationMaterializeConfig_outputs,
+		func(ctx context.Context) (any, error) {
+			return obj.Outputs, nil
+		},
+		nil,
+		ec.marshalNEntityTransformationMaterializeOutput2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationMaterializeOutputᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityTransformationMaterializeConfig_outputs(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityTransformationMaterializeConfig",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "alias":
+				return ec.fieldContext_EntityTransformationMaterializeOutput_alias(ctx, field)
+			case "fields":
+				return ec.fieldContext_EntityTransformationMaterializeOutput_fields(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type EntityTransformationMaterializeOutput", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityTransformationMaterializeFieldMapping_sourceAlias(ctx context.Context, field graphql.CollectedField, obj *EntityTransformationMaterializeFieldMapping) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityTransformationMaterializeFieldMapping_sourceAlias,
+		func(ctx context.Context) (any, error) {
+			return obj.SourceAlias, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityTransformationMaterializeFieldMapping_sourceAlias(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityTransformationMaterializeFieldMapping",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityTransformationMaterializeFieldMapping_sourceField(ctx context.Context, field graphql.CollectedField, obj *EntityTransformationMaterializeFieldMapping) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityTransformationMaterializeFieldMapping_sourceField,
+		func(ctx context.Context) (any, error) {
+			return obj.SourceField, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityTransformationMaterializeFieldMapping_sourceField(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityTransformationMaterializeFieldMapping",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityTransformationMaterializeFieldMapping_outputField(ctx context.Context, field graphql.CollectedField, obj *EntityTransformationMaterializeFieldMapping) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityTransformationMaterializeFieldMapping_outputField,
+		func(ctx context.Context) (any, error) {
+			return obj.OutputField, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityTransformationMaterializeFieldMapping_outputField(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityTransformationMaterializeFieldMapping",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityTransformationMaterializeOutput_alias(ctx context.Context, field graphql.CollectedField, obj *EntityTransformationMaterializeOutput) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityTransformationMaterializeOutput_alias,
+		func(ctx context.Context) (any, error) {
+			return obj.Alias, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityTransformationMaterializeOutput_alias(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityTransformationMaterializeOutput",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityTransformationMaterializeOutput_fields(ctx context.Context, field graphql.CollectedField, obj *EntityTransformationMaterializeOutput) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityTransformationMaterializeOutput_fields,
+		func(ctx context.Context) (any, error) {
+			return obj.Fields, nil
+		},
+		nil,
+		ec.marshalNEntityTransformationMaterializeFieldMapping2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationMaterializeFieldMappingᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityTransformationMaterializeOutput_fields(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityTransformationMaterializeOutput",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "sourceAlias":
+				return ec.fieldContext_EntityTransformationMaterializeFieldMapping_sourceAlias(ctx, field)
+			case "sourceField":
+				return ec.fieldContext_EntityTransformationMaterializeFieldMapping_sourceField(ctx, field)
+			case "outputField":
+				return ec.fieldContext_EntityTransformationMaterializeFieldMapping_outputField(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type EntityTransformationMaterializeFieldMapping", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityTransformationNode_id(ctx context.Context, field graphql.CollectedField, obj *EntityTransformationNode) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityTransformationNode_id,
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityTransformationNode_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityTransformationNode",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityTransformationNode_name(ctx context.Context, field graphql.CollectedField, obj *EntityTransformationNode) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityTransformationNode_name,
+		func(ctx context.Context) (any, error) {
+			return obj.Name, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityTransformationNode_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityTransformationNode",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityTransformationNode_type(ctx context.Context, field graphql.CollectedField, obj *EntityTransformationNode) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityTransformationNode_type,
+		func(ctx context.Context) (any, error) {
+			return obj.Type, nil
+		},
+		nil,
+		ec.marshalNEntityTransformationNodeType2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationNodeType,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityTransformationNode_type(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityTransformationNode",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type EntityTransformationNodeType does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityTransformationNode_inputs(ctx context.Context, field graphql.CollectedField, obj *EntityTransformationNode) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityTransformationNode_inputs,
+		func(ctx context.Context) (any, error) {
+			return obj.Inputs, nil
+		},
+		nil,
+		ec.marshalNString2ᚕstringᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityTransformationNode_inputs(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityTransformationNode",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityTransformationNode_load(ctx context.Context, field graphql.CollectedField, obj *EntityTransformationNode) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityTransformationNode_load,
+		func(ctx context.Context) (any, error) {
+			return obj.Load, nil
+		},
+		nil,
+		ec.marshalOEntityTransformationLoadConfig2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationLoadConfig,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityTransformationNode_load(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityTransformationNode",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "alias":
+				return ec.fieldContext_EntityTransformationLoadConfig_alias(ctx, field)
+			case "entityType":
+				return ec.fieldContext_EntityTransformationLoadConfig_entityType(ctx, field)
+			case "filters":
+				return ec.fieldContext_EntityTransformationLoadConfig_filters(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type EntityTransformationLoadConfig", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityTransformationNode_filter(ctx context.Context, field graphql.CollectedField, obj *EntityTransformationNode) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityTransformationNode_filter,
+		func(ctx context.Context) (any, error) {
+			return obj.Filter, nil
+		},
+		nil,
+		ec.marshalOEntityTransformationFilterConfig2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationFilterConfig,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityTransformationNode_filter(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityTransformationNode",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "alias":
+				return ec.fieldContext_EntityTransformationFilterConfig_alias(ctx, field)
+			case "filters":
+				return ec.fieldContext_EntityTransformationFilterConfig_filters(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type EntityTransformationFilterConfig", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityTransformationNode_project(ctx context.Context, field graphql.CollectedField, obj *EntityTransformationNode) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityTransformationNode_project,
+		func(ctx context.Context) (any, error) {
+			return obj.Project, nil
+		},
+		nil,
+		ec.marshalOEntityTransformationProjectConfig2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationProjectConfig,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityTransformationNode_project(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityTransformationNode",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "alias":
+				return ec.fieldContext_EntityTransformationProjectConfig_alias(ctx, field)
+			case "fields":
+				return ec.fieldContext_EntityTransformationProjectConfig_fields(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type EntityTransformationProjectConfig", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityTransformationNode_join(ctx context.Context, field graphql.CollectedField, obj *EntityTransformationNode) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityTransformationNode_join,
+		func(ctx context.Context) (any, error) {
+			return obj.Join, nil
+		},
+		nil,
+		ec.marshalOEntityTransformationJoinConfig2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationJoinConfig,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityTransformationNode_join(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityTransformationNode",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "leftAlias":
+				return ec.fieldContext_EntityTransformationJoinConfig_leftAlias(ctx, field)
+			case "rightAlias":
+				return ec.fieldContext_EntityTransformationJoinConfig_rightAlias(ctx, field)
+			case "onField":
+				return ec.fieldContext_EntityTransformationJoinConfig_onField(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type EntityTransformationJoinConfig", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityTransformationNode_materialize(ctx context.Context, field graphql.CollectedField, obj *EntityTransformationNode) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityTransformationNode_materialize,
+		func(ctx context.Context) (any, error) {
+			return obj.Materialize, nil
+		},
+		nil,
+		ec.marshalOEntityTransformationMaterializeConfig2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationMaterializeConfig,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityTransformationNode_materialize(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityTransformationNode",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "outputs":
+				return ec.fieldContext_EntityTransformationMaterializeConfig_outputs(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type EntityTransformationMaterializeConfig", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityTransformationNode_sort(ctx context.Context, field graphql.CollectedField, obj *EntityTransformationNode) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityTransformationNode_sort,
+		func(ctx context.Context) (any, error) {
+			return obj.Sort, nil
+		},
+		nil,
+		ec.marshalOEntityTransformationSortConfig2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationSortConfig,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityTransformationNode_sort(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityTransformationNode",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "alias":
+				return ec.fieldContext_EntityTransformationSortConfig_alias(ctx, field)
+			case "field":
+				return ec.fieldContext_EntityTransformationSortConfig_field(ctx, field)
+			case "direction":
+				return ec.fieldContext_EntityTransformationSortConfig_direction(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type EntityTransformationSortConfig", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityTransformationNode_paginate(ctx context.Context, field graphql.CollectedField, obj *EntityTransformationNode) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityTransformationNode_paginate,
+		func(ctx context.Context) (any, error) {
+			return obj.Paginate, nil
+		},
+		nil,
+		ec.marshalOEntityTransformationPaginateConfig2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationPaginateConfig,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityTransformationNode_paginate(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityTransformationNode",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "limit":
+				return ec.fieldContext_EntityTransformationPaginateConfig_limit(ctx, field)
+			case "offset":
+				return ec.fieldContext_EntityTransformationPaginateConfig_offset(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type EntityTransformationPaginateConfig", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityTransformationPaginateConfig_limit(ctx context.Context, field graphql.CollectedField, obj *EntityTransformationPaginateConfig) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityTransformationPaginateConfig_limit,
+		func(ctx context.Context) (any, error) {
+			return obj.Limit, nil
+		},
+		nil,
+		ec.marshalOInt2ᚖint,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityTransformationPaginateConfig_limit(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityTransformationPaginateConfig",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityTransformationPaginateConfig_offset(ctx context.Context, field graphql.CollectedField, obj *EntityTransformationPaginateConfig) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityTransformationPaginateConfig_offset,
+		func(ctx context.Context) (any, error) {
+			return obj.Offset, nil
+		},
+		nil,
+		ec.marshalOInt2ᚖint,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityTransformationPaginateConfig_offset(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityTransformationPaginateConfig",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityTransformationProjectConfig_alias(ctx context.Context, field graphql.CollectedField, obj *EntityTransformationProjectConfig) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityTransformationProjectConfig_alias,
+		func(ctx context.Context) (any, error) {
+			return obj.Alias, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityTransformationProjectConfig_alias(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityTransformationProjectConfig",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityTransformationProjectConfig_fields(ctx context.Context, field graphql.CollectedField, obj *EntityTransformationProjectConfig) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityTransformationProjectConfig_fields,
+		func(ctx context.Context) (any, error) {
+			return obj.Fields, nil
+		},
+		nil,
+		ec.marshalNString2ᚕstringᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityTransformationProjectConfig_fields(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityTransformationProjectConfig",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityTransformationRecordEdge_entities(ctx context.Context, field graphql.CollectedField, obj *EntityTransformationRecordEdge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityTransformationRecordEdge_entities,
+		func(ctx context.Context) (any, error) {
+			return obj.Entities, nil
+		},
+		nil,
+		ec.marshalNEntityTransformationRecordEntity2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationRecordEntityᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityTransformationRecordEdge_entities(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityTransformationRecordEdge",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "alias":
+				return ec.fieldContext_EntityTransformationRecordEntity_alias(ctx, field)
+			case "entity":
+				return ec.fieldContext_EntityTransformationRecordEntity_entity(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type EntityTransformationRecordEntity", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityTransformationRecordEntity_alias(ctx context.Context, field graphql.CollectedField, obj *EntityTransformationRecordEntity) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityTransformationRecordEntity_alias,
+		func(ctx context.Context) (any, error) {
+			return obj.Alias, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityTransformationRecordEntity_alias(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityTransformationRecordEntity",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityTransformationRecordEntity_entity(ctx context.Context, field graphql.CollectedField, obj *EntityTransformationRecordEntity) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityTransformationRecordEntity_entity,
+		func(ctx context.Context) (any, error) {
+			return obj.Entity, nil
+		},
+		nil,
+		ec.marshalOEntity2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntity,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityTransformationRecordEntity_entity(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityTransformationRecordEntity",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Entity_id(ctx, field)
+			case "organizationId":
+				return ec.fieldContext_Entity_organizationId(ctx, field)
+			case "schemaId":
+				return ec.fieldContext_Entity_schemaId(ctx, field)
+			case "entityType":
+				return ec.fieldContext_Entity_entityType(ctx, field)
+			case "path":
+				return ec.fieldContext_Entity_path(ctx, field)
+			case "properties":
+				return ec.fieldContext_Entity_properties(ctx, field)
+			case "referenceValue":
+				return ec.fieldContext_Entity_referenceValue(ctx, field)
+			case "version":
+				return ec.fieldContext_Entity_version(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_Entity_createdAt(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_Entity_updatedAt(ctx, field)
+			case "linkedEntities":
+				return ec.fieldContext_Entity_linkedEntities(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Entity", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityTransformationSortConfig_alias(ctx context.Context, field graphql.CollectedField, obj *EntityTransformationSortConfig) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityTransformationSortConfig_alias,
+		func(ctx context.Context) (any, error) {
+			return obj.Alias, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityTransformationSortConfig_alias(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityTransformationSortConfig",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityTransformationSortConfig_field(ctx context.Context, field graphql.CollectedField, obj *EntityTransformationSortConfig) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityTransformationSortConfig_field,
+		func(ctx context.Context) (any, error) {
+			return obj.Field, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityTransformationSortConfig_field(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityTransformationSortConfig",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityTransformationSortConfig_direction(ctx context.Context, field graphql.CollectedField, obj *EntityTransformationSortConfig) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityTransformationSortConfig_direction,
+		func(ctx context.Context) (any, error) {
+			return obj.Direction, nil
+		},
+		nil,
+		ec.marshalNJoinSortDirection2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐJoinSortDirection,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityTransformationSortConfig_direction(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityTransformationSortConfig",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type JoinSortDirection does not have child fields")
 		},
 	}
 	return fc, nil
@@ -4681,6 +7041,161 @@ func (ec *executionContext) fieldContext_Mutation_deleteEntityJoinDefinition(ctx
 	return fc, nil
 }
 
+func (ec *executionContext) _Mutation_createEntityTransformation(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Mutation_createEntityTransformation,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Mutation().CreateEntityTransformation(ctx, fc.Args["input"].(CreateEntityTransformationInput))
+		},
+		nil,
+		ec.marshalNEntityTransformation2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformation,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Mutation_createEntityTransformation(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_EntityTransformation_id(ctx, field)
+			case "organizationId":
+				return ec.fieldContext_EntityTransformation_organizationId(ctx, field)
+			case "name":
+				return ec.fieldContext_EntityTransformation_name(ctx, field)
+			case "description":
+				return ec.fieldContext_EntityTransformation_description(ctx, field)
+			case "nodes":
+				return ec.fieldContext_EntityTransformation_nodes(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_EntityTransformation_createdAt(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_EntityTransformation_updatedAt(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type EntityTransformation", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_createEntityTransformation_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_updateEntityTransformation(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Mutation_updateEntityTransformation,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Mutation().UpdateEntityTransformation(ctx, fc.Args["input"].(UpdateEntityTransformationInput))
+		},
+		nil,
+		ec.marshalNEntityTransformation2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformation,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Mutation_updateEntityTransformation(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_EntityTransformation_id(ctx, field)
+			case "organizationId":
+				return ec.fieldContext_EntityTransformation_organizationId(ctx, field)
+			case "name":
+				return ec.fieldContext_EntityTransformation_name(ctx, field)
+			case "description":
+				return ec.fieldContext_EntityTransformation_description(ctx, field)
+			case "nodes":
+				return ec.fieldContext_EntityTransformation_nodes(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_EntityTransformation_createdAt(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_EntityTransformation_updatedAt(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type EntityTransformation", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_updateEntityTransformation_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_deleteEntityTransformation(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Mutation_deleteEntityTransformation,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Mutation().DeleteEntityTransformation(ctx, fc.Args["id"].(string))
+		},
+		nil,
+		ec.marshalNBoolean2bool,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Mutation_deleteEntityTransformation(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_deleteEntityTransformation_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Organization_id(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -5540,373 +8055,6 @@ func (ec *executionContext) fieldContext_Query_entity(ctx context.Context, field
 	return fc, nil
 }
 
-func (ec *executionContext) _EntityDiffResult_base(ctx context.Context, field graphql.CollectedField, obj *EntityDiffResult) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		ec.fieldContext_EntityDiffResult_base,
-		func(ctx context.Context) (any, error) {
-			if obj == nil {
-				return nil, nil
-			}
-			return obj.Base, nil
-		},
-		nil,
-		ec.marshalOEntitySnapshotView2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntitySnapshotView,
-		true,
-		false,
-	)
-}
-
-func (ec *executionContext) fieldContext_EntityDiffResult_base(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "EntityDiffResult",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "version":
-				return ec.fieldContext_EntitySnapshotView_version(ctx, field)
-			case "path":
-				return ec.fieldContext_EntitySnapshotView_path(ctx, field)
-			case "schemaId":
-				return ec.fieldContext_EntitySnapshotView_schemaId(ctx, field)
-			case "entityType":
-				return ec.fieldContext_EntitySnapshotView_entityType(ctx, field)
-			case "canonicalText":
-				return ec.fieldContext_EntitySnapshotView_canonicalText(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type EntitySnapshotView", field.Name)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _EntityDiffResult_target(ctx context.Context, field graphql.CollectedField, obj *EntityDiffResult) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		ec.fieldContext_EntityDiffResult_target,
-		func(ctx context.Context) (any, error) {
-			if obj == nil {
-				return nil, nil
-			}
-			return obj.Target, nil
-		},
-		nil,
-		ec.marshalOEntitySnapshotView2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntitySnapshotView,
-		true,
-		false,
-	)
-}
-
-func (ec *executionContext) fieldContext_EntityDiffResult_target(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "EntityDiffResult",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "version":
-				return ec.fieldContext_EntitySnapshotView_version(ctx, field)
-			case "path":
-				return ec.fieldContext_EntitySnapshotView_path(ctx, field)
-			case "schemaId":
-				return ec.fieldContext_EntitySnapshotView_schemaId(ctx, field)
-			case "entityType":
-				return ec.fieldContext_EntitySnapshotView_entityType(ctx, field)
-			case "canonicalText":
-				return ec.fieldContext_EntitySnapshotView_canonicalText(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type EntitySnapshotView", field.Name)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _EntityDiffResult_unifiedDiff(ctx context.Context, field graphql.CollectedField, obj *EntityDiffResult) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		ec.fieldContext_EntityDiffResult_unifiedDiff,
-		func(ctx context.Context) (any, error) {
-			if obj == nil {
-				return nil, nil
-			}
-			return obj.UnifiedDiff, nil
-		},
-		nil,
-		ec.marshalOString2ᚖstring,
-		true,
-		false,
-	)
-}
-
-func (ec *executionContext) fieldContext_EntityDiffResult_unifiedDiff(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "EntityDiffResult",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _EntitySnapshotView_version(ctx context.Context, field graphql.CollectedField, obj *EntitySnapshotView) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		ec.fieldContext_EntitySnapshotView_version,
-		func(ctx context.Context) (any, error) {
-			return obj.Version, nil
-		},
-		nil,
-		ec.marshalNInt2int,
-		true,
-		true,
-	)
-}
-
-func (ec *executionContext) fieldContext_EntitySnapshotView_version(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "EntitySnapshotView",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type Int does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _EntitySnapshotView_path(ctx context.Context, field graphql.CollectedField, obj *EntitySnapshotView) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		ec.fieldContext_EntitySnapshotView_path,
-		func(ctx context.Context) (any, error) {
-			return obj.Path, nil
-		},
-		nil,
-		ec.marshalNString2string,
-		true,
-		true,
-	)
-}
-
-func (ec *executionContext) fieldContext_EntitySnapshotView_path(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "EntitySnapshotView",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _EntitySnapshotView_schemaId(ctx context.Context, field graphql.CollectedField, obj *EntitySnapshotView) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		ec.fieldContext_EntitySnapshotView_schemaId,
-		func(ctx context.Context) (any, error) {
-			return obj.SchemaID, nil
-		},
-		nil,
-		ec.marshalNString2string,
-		true,
-		true,
-	)
-}
-
-func (ec *executionContext) fieldContext_EntitySnapshotView_schemaId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "EntitySnapshotView",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _EntitySnapshotView_entityType(ctx context.Context, field graphql.CollectedField, obj *EntitySnapshotView) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		ec.fieldContext_EntitySnapshotView_entityType,
-		func(ctx context.Context) (any, error) {
-			return obj.EntityType, nil
-		},
-		nil,
-		ec.marshalNString2string,
-		true,
-		true,
-	)
-}
-
-func (ec *executionContext) fieldContext_EntitySnapshotView_entityType(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "EntitySnapshotView",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _EntitySnapshotView_canonicalText(ctx context.Context, field graphql.CollectedField, obj *EntitySnapshotView) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		ec.fieldContext_EntitySnapshotView_canonicalText,
-		func(ctx context.Context) (any, error) {
-			return obj.CanonicalText, nil
-		},
-		nil,
-		ec.marshalNString2ᚕstringᚄ,
-		true,
-		true,
-	)
-}
-
-func (ec *executionContext) fieldContext_EntitySnapshotView_canonicalText(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "EntitySnapshotView",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Query_entityDiff(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		ec.fieldContext_Query_entityDiff,
-		func(ctx context.Context) (any, error) {
-			fc := graphql.GetFieldContext(ctx)
-			return ec.resolvers.Query().EntityDiff(ctx, fc.Args["id"].(string), fc.Args["baseVersion"].(int), fc.Args["targetVersion"].(int))
-		},
-		nil,
-		ec.marshalOEntityDiffResult2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityDiffResult,
-		false,
-		false,
-	)
-}
-
-func (ec *executionContext) fieldContext_Query_entityDiff(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Query",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "base":
-				return ec.fieldContext_EntityDiffResult_base(ctx, field)
-			case "target":
-				return ec.fieldContext_EntityDiffResult_target(ctx, field)
-			case "unifiedDiff":
-				return ec.fieldContext_EntityDiffResult_unifiedDiff(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type EntityDiffResult", field.Name)
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Query_entityDiff_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Query_entityHistory(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		ec.fieldContext_Query_entityHistory,
-		func(ctx context.Context) (any, error) {
-			fc := graphql.GetFieldContext(ctx)
-			return ec.resolvers.Query().EntityHistory(ctx, fc.Args["id"].(string))
-		},
-		nil,
-		ec.marshalNEntitySnapshotView2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntitySnapshotViewᚄ,
-		true,
-		false,
-	)
-}
-
-func (ec *executionContext) fieldContext_Query_entityHistory(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Query",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "version":
-				return ec.fieldContext_EntitySnapshotView_version(ctx, field)
-			case "path":
-				return ec.fieldContext_EntitySnapshotView_path(ctx, field)
-			case "schemaId":
-				return ec.fieldContext_EntitySnapshotView_schemaId(ctx, field)
-			case "entityType":
-				return ec.fieldContext_EntitySnapshotView_entityType(ctx, field)
-			case "canonicalText":
-				return ec.fieldContext_EntitySnapshotView_canonicalText(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type EntitySnapshotView", field.Name)
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Query_entityHistory_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
-	}
-	return fc, nil
-}
-
 func (ec *executionContext) _Query_entitiesByType(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -6031,6 +8179,108 @@ func (ec *executionContext) fieldContext_Query_entitiesByIDs(ctx context.Context
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Query_entitiesByIDs_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_entityDiff(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Query_entityDiff,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Query().EntityDiff(ctx, fc.Args["id"].(string), fc.Args["baseVersion"].(int), fc.Args["targetVersion"].(int))
+		},
+		nil,
+		ec.marshalOEntityDiffResult2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityDiffResult,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_Query_entityDiff(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "base":
+				return ec.fieldContext_EntityDiffResult_base(ctx, field)
+			case "target":
+				return ec.fieldContext_EntityDiffResult_target(ctx, field)
+			case "unifiedDiff":
+				return ec.fieldContext_EntityDiffResult_unifiedDiff(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type EntityDiffResult", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_entityDiff_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_entityHistory(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Query_entityHistory,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Query().EntityHistory(ctx, fc.Args["id"].(string))
+		},
+		nil,
+		ec.marshalNEntitySnapshotView2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntitySnapshotViewᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Query_entityHistory(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "version":
+				return ec.fieldContext_EntitySnapshotView_version(ctx, field)
+			case "path":
+				return ec.fieldContext_EntitySnapshotView_path(ctx, field)
+			case "schemaId":
+				return ec.fieldContext_EntitySnapshotView_schemaId(ctx, field)
+			case "entityType":
+				return ec.fieldContext_EntitySnapshotView_entityType(ctx, field)
+			case "canonicalText":
+				return ec.fieldContext_EntitySnapshotView_canonicalText(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type EntitySnapshotView", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_entityHistory_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -6911,6 +9161,216 @@ func (ec *executionContext) fieldContext_Query_executeEntityJoin(ctx context.Con
 	return fc, nil
 }
 
+func (ec *executionContext) _Query_entityTransformation(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Query_entityTransformation,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Query().EntityTransformation(ctx, fc.Args["id"].(string))
+		},
+		nil,
+		ec.marshalOEntityTransformation2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformation,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_Query_entityTransformation(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_EntityTransformation_id(ctx, field)
+			case "organizationId":
+				return ec.fieldContext_EntityTransformation_organizationId(ctx, field)
+			case "name":
+				return ec.fieldContext_EntityTransformation_name(ctx, field)
+			case "description":
+				return ec.fieldContext_EntityTransformation_description(ctx, field)
+			case "nodes":
+				return ec.fieldContext_EntityTransformation_nodes(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_EntityTransformation_createdAt(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_EntityTransformation_updatedAt(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type EntityTransformation", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_entityTransformation_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_entityTransformations(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Query_entityTransformations,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Query().EntityTransformations(ctx, fc.Args["organizationId"].(string))
+		},
+		nil,
+		ec.marshalNEntityTransformation2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Query_entityTransformations(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_EntityTransformation_id(ctx, field)
+			case "organizationId":
+				return ec.fieldContext_EntityTransformation_organizationId(ctx, field)
+			case "name":
+				return ec.fieldContext_EntityTransformation_name(ctx, field)
+			case "description":
+				return ec.fieldContext_EntityTransformation_description(ctx, field)
+			case "nodes":
+				return ec.fieldContext_EntityTransformation_nodes(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_EntityTransformation_createdAt(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_EntityTransformation_updatedAt(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type EntityTransformation", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_entityTransformations_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_executeEntityTransformation(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Query_executeEntityTransformation,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Query().ExecuteEntityTransformation(ctx, fc.Args["input"].(ExecuteEntityTransformationInput))
+		},
+		nil,
+		ec.marshalNEntityTransformationConnection2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationConnection,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Query_executeEntityTransformation(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "edges":
+				return ec.fieldContext_EntityTransformationConnection_edges(ctx, field)
+			case "pageInfo":
+				return ec.fieldContext_EntityTransformationConnection_pageInfo(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type EntityTransformationConnection", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_executeEntityTransformation_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_transformationExecution(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Query_transformationExecution,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Query().TransformationExecution(ctx, fc.Args["transformationId"].(string), fc.Args["filters"].([]*TransformationExecutionFilterInput), fc.Args["sort"].(*TransformationExecutionSortInput), fc.Args["pagination"].(*PaginationInput))
+		},
+		nil,
+		ec.marshalNTransformationExecutionConnection2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐTransformationExecutionConnection,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Query_transformationExecution(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "columns":
+				return ec.fieldContext_TransformationExecutionConnection_columns(ctx, field)
+			case "rows":
+				return ec.fieldContext_TransformationExecutionConnection_rows(ctx, field)
+			case "pageInfo":
+				return ec.fieldContext_TransformationExecutionConnection_pageInfo(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type TransformationExecutionConnection", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_transformationExecution_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Query___type(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -7014,6 +9474,386 @@ func (ec *executionContext) fieldContext_Query___schema(_ context.Context, field
 				return ec.fieldContext___Schema_directives(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type __Schema", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TransformationExecutionColumn_key(ctx context.Context, field graphql.CollectedField, obj *TransformationExecutionColumn) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_TransformationExecutionColumn_key,
+		func(ctx context.Context) (any, error) {
+			return obj.Key, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_TransformationExecutionColumn_key(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TransformationExecutionColumn",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TransformationExecutionColumn_alias(ctx context.Context, field graphql.CollectedField, obj *TransformationExecutionColumn) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_TransformationExecutionColumn_alias,
+		func(ctx context.Context) (any, error) {
+			return obj.Alias, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_TransformationExecutionColumn_alias(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TransformationExecutionColumn",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TransformationExecutionColumn_field(ctx context.Context, field graphql.CollectedField, obj *TransformationExecutionColumn) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_TransformationExecutionColumn_field,
+		func(ctx context.Context) (any, error) {
+			return obj.Field, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_TransformationExecutionColumn_field(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TransformationExecutionColumn",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TransformationExecutionColumn_label(ctx context.Context, field graphql.CollectedField, obj *TransformationExecutionColumn) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_TransformationExecutionColumn_label,
+		func(ctx context.Context) (any, error) {
+			return obj.Label, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_TransformationExecutionColumn_label(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TransformationExecutionColumn",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TransformationExecutionColumn_sourceAlias(ctx context.Context, field graphql.CollectedField, obj *TransformationExecutionColumn) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_TransformationExecutionColumn_sourceAlias,
+		func(ctx context.Context) (any, error) {
+			return obj.SourceAlias, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_TransformationExecutionColumn_sourceAlias(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TransformationExecutionColumn",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TransformationExecutionColumn_sourceField(ctx context.Context, field graphql.CollectedField, obj *TransformationExecutionColumn) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_TransformationExecutionColumn_sourceField,
+		func(ctx context.Context) (any, error) {
+			return obj.SourceField, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_TransformationExecutionColumn_sourceField(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TransformationExecutionColumn",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TransformationExecutionConnection_columns(ctx context.Context, field graphql.CollectedField, obj *TransformationExecutionConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_TransformationExecutionConnection_columns,
+		func(ctx context.Context) (any, error) {
+			return obj.Columns, nil
+		},
+		nil,
+		ec.marshalNTransformationExecutionColumn2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐTransformationExecutionColumnᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_TransformationExecutionConnection_columns(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TransformationExecutionConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "key":
+				return ec.fieldContext_TransformationExecutionColumn_key(ctx, field)
+			case "alias":
+				return ec.fieldContext_TransformationExecutionColumn_alias(ctx, field)
+			case "field":
+				return ec.fieldContext_TransformationExecutionColumn_field(ctx, field)
+			case "label":
+				return ec.fieldContext_TransformationExecutionColumn_label(ctx, field)
+			case "sourceAlias":
+				return ec.fieldContext_TransformationExecutionColumn_sourceAlias(ctx, field)
+			case "sourceField":
+				return ec.fieldContext_TransformationExecutionColumn_sourceField(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type TransformationExecutionColumn", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TransformationExecutionConnection_rows(ctx context.Context, field graphql.CollectedField, obj *TransformationExecutionConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_TransformationExecutionConnection_rows,
+		func(ctx context.Context) (any, error) {
+			return obj.Rows, nil
+		},
+		nil,
+		ec.marshalNTransformationExecutionRow2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐTransformationExecutionRowᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_TransformationExecutionConnection_rows(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TransformationExecutionConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "values":
+				return ec.fieldContext_TransformationExecutionRow_values(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type TransformationExecutionRow", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TransformationExecutionConnection_pageInfo(ctx context.Context, field graphql.CollectedField, obj *TransformationExecutionConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_TransformationExecutionConnection_pageInfo,
+		func(ctx context.Context) (any, error) {
+			return obj.PageInfo, nil
+		},
+		nil,
+		ec.marshalNPageInfo2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐPageInfo,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_TransformationExecutionConnection_pageInfo(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TransformationExecutionConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "hasNextPage":
+				return ec.fieldContext_PageInfo_hasNextPage(ctx, field)
+			case "hasPreviousPage":
+				return ec.fieldContext_PageInfo_hasPreviousPage(ctx, field)
+			case "totalCount":
+				return ec.fieldContext_PageInfo_totalCount(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type PageInfo", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TransformationExecutionRow_values(ctx context.Context, field graphql.CollectedField, obj *TransformationExecutionRow) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_TransformationExecutionRow_values,
+		func(ctx context.Context) (any, error) {
+			return obj.Values, nil
+		},
+		nil,
+		ec.marshalNTransformationExecutionValue2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐTransformationExecutionValueᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_TransformationExecutionRow_values(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TransformationExecutionRow",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "columnKey":
+				return ec.fieldContext_TransformationExecutionValue_columnKey(ctx, field)
+			case "value":
+				return ec.fieldContext_TransformationExecutionValue_value(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type TransformationExecutionValue", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TransformationExecutionValue_columnKey(ctx context.Context, field graphql.CollectedField, obj *TransformationExecutionValue) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_TransformationExecutionValue_columnKey,
+		func(ctx context.Context) (any, error) {
+			return obj.ColumnKey, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_TransformationExecutionValue_columnKey(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TransformationExecutionValue",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TransformationExecutionValue_value(ctx context.Context, field graphql.CollectedField, obj *TransformationExecutionValue) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_TransformationExecutionValue_value,
+		func(ctx context.Context) (any, error) {
+			return obj.Value, nil
+		},
+		nil,
+		ec.marshalOString2ᚖstring,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_TransformationExecutionValue_value(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TransformationExecutionValue",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
 		},
 	}
 	return fc, nil
@@ -8770,6 +11610,54 @@ func (ec *executionContext) unmarshalInputCreateEntitySchemaInput(ctx context.Co
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputCreateEntityTransformationInput(ctx context.Context, obj any) (CreateEntityTransformationInput, error) {
+	var it CreateEntityTransformationInput
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"organizationId", "name", "description", "nodes"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "organizationId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("organizationId"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.OrganizationID = data
+		case "name":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Name = data
+		case "description":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("description"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Description = data
+		case "nodes":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("nodes"))
+			data, err := ec.unmarshalNEntityTransformationNodeInput2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationNodeInputᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Nodes = data
+		}
+	}
+
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputCreateOrganizationInput(ctx context.Context, obj any) (CreateOrganizationInput, error) {
 	var it CreateOrganizationInput
 	asMap := map[string]any{}
@@ -8879,7 +11767,7 @@ func (ec *executionContext) unmarshalInputEntitySortInput(ctx context.Context, o
 			it.Field = data
 		case "direction":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("direction"))
-			data, err := ec.unmarshalNSortDirection2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐSortDirection(ctx, v)
+			data, err := ec.unmarshalOSortDirection2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐSortDirection(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -8891,6 +11779,430 @@ func (ec *executionContext) unmarshalInputEntitySortInput(ctx context.Context, o
 				return it, err
 			}
 			it.PropertyKey = data
+		}
+	}
+
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputEntityTransformationFilterConfigInput(ctx context.Context, obj any) (EntityTransformationFilterConfigInput, error) {
+	var it EntityTransformationFilterConfigInput
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"alias", "filters"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "alias":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("alias"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Alias = data
+		case "filters":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("filters"))
+			data, err := ec.unmarshalOPropertyFilter2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐPropertyFilterᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Filters = data
+		}
+	}
+
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputEntityTransformationJoinConfigInput(ctx context.Context, obj any) (EntityTransformationJoinConfigInput, error) {
+	var it EntityTransformationJoinConfigInput
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"leftAlias", "rightAlias", "onField"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "leftAlias":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("leftAlias"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.LeftAlias = data
+		case "rightAlias":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("rightAlias"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.RightAlias = data
+		case "onField":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("onField"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.OnField = data
+		}
+	}
+
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputEntityTransformationLoadConfigInput(ctx context.Context, obj any) (EntityTransformationLoadConfigInput, error) {
+	var it EntityTransformationLoadConfigInput
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"alias", "entityType", "filters"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "alias":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("alias"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Alias = data
+		case "entityType":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("entityType"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.EntityType = data
+		case "filters":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("filters"))
+			data, err := ec.unmarshalOPropertyFilter2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐPropertyFilterᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Filters = data
+		}
+	}
+
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputEntityTransformationMaterializeConfigInput(ctx context.Context, obj any) (EntityTransformationMaterializeConfigInput, error) {
+	var it EntityTransformationMaterializeConfigInput
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"outputs"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "outputs":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("outputs"))
+			data, err := ec.unmarshalNEntityTransformationMaterializeOutputInput2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationMaterializeOutputInputᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Outputs = data
+		}
+	}
+
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputEntityTransformationMaterializeFieldMappingInput(ctx context.Context, obj any) (EntityTransformationMaterializeFieldMappingInput, error) {
+	var it EntityTransformationMaterializeFieldMappingInput
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"sourceAlias", "sourceField", "outputField"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "sourceAlias":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("sourceAlias"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.SourceAlias = data
+		case "sourceField":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("sourceField"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.SourceField = data
+		case "outputField":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("outputField"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.OutputField = data
+		}
+	}
+
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputEntityTransformationMaterializeOutputInput(ctx context.Context, obj any) (EntityTransformationMaterializeOutputInput, error) {
+	var it EntityTransformationMaterializeOutputInput
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"alias", "fields"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "alias":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("alias"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Alias = data
+		case "fields":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("fields"))
+			data, err := ec.unmarshalNEntityTransformationMaterializeFieldMappingInput2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationMaterializeFieldMappingInputᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Fields = data
+		}
+	}
+
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputEntityTransformationNodeInput(ctx context.Context, obj any) (EntityTransformationNodeInput, error) {
+	var it EntityTransformationNodeInput
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"id", "name", "type", "inputs", "load", "filter", "project", "join", "materialize", "sort", "paginate"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "id":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ID = data
+		case "name":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Name = data
+		case "type":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("type"))
+			data, err := ec.unmarshalNEntityTransformationNodeType2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationNodeType(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Type = data
+		case "inputs":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("inputs"))
+			data, err := ec.unmarshalOString2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Inputs = data
+		case "load":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("load"))
+			data, err := ec.unmarshalOEntityTransformationLoadConfigInput2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationLoadConfigInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Load = data
+		case "filter":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("filter"))
+			data, err := ec.unmarshalOEntityTransformationFilterConfigInput2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationFilterConfigInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Filter = data
+		case "project":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("project"))
+			data, err := ec.unmarshalOEntityTransformationProjectConfigInput2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationProjectConfigInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Project = data
+		case "join":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("join"))
+			data, err := ec.unmarshalOEntityTransformationJoinConfigInput2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationJoinConfigInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Join = data
+		case "materialize":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("materialize"))
+			data, err := ec.unmarshalOEntityTransformationMaterializeConfigInput2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationMaterializeConfigInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Materialize = data
+		case "sort":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("sort"))
+			data, err := ec.unmarshalOEntityTransformationSortConfigInput2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationSortConfigInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Sort = data
+		case "paginate":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("paginate"))
+			data, err := ec.unmarshalOEntityTransformationPaginateConfigInput2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationPaginateConfigInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Paginate = data
+		}
+	}
+
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputEntityTransformationPaginateConfigInput(ctx context.Context, obj any) (EntityTransformationPaginateConfigInput, error) {
+	var it EntityTransformationPaginateConfigInput
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"limit", "offset"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "limit":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("limit"))
+			data, err := ec.unmarshalOInt2ᚖint(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Limit = data
+		case "offset":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("offset"))
+			data, err := ec.unmarshalOInt2ᚖint(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Offset = data
+		}
+	}
+
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputEntityTransformationProjectConfigInput(ctx context.Context, obj any) (EntityTransformationProjectConfigInput, error) {
+	var it EntityTransformationProjectConfigInput
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"alias", "fields"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "alias":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("alias"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Alias = data
+		case "fields":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("fields"))
+			data, err := ec.unmarshalNString2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Fields = data
+		}
+	}
+
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputEntityTransformationSortConfigInput(ctx context.Context, obj any) (EntityTransformationSortConfigInput, error) {
+	var it EntityTransformationSortConfigInput
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"alias", "field", "direction"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "alias":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("alias"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Alias = data
+		case "field":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("field"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Field = data
+		case "direction":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("direction"))
+			data, err := ec.unmarshalNJoinSortDirection2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐJoinSortDirection(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Direction = data
 		}
 	}
 
@@ -8939,6 +12251,40 @@ func (ec *executionContext) unmarshalInputExecuteEntityJoinInput(ctx context.Con
 				return it, err
 			}
 			it.SortCriteria = data
+		case "pagination":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("pagination"))
+			data, err := ec.unmarshalOPaginationInput2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐPaginationInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Pagination = data
+		}
+	}
+
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputExecuteEntityTransformationInput(ctx context.Context, obj any) (ExecuteEntityTransformationInput, error) {
+	var it ExecuteEntityTransformationInput
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"transformationId", "pagination"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "transformationId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("transformationId"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.TransformationID = data
 		case "pagination":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("pagination"))
 			data, err := ec.unmarshalOPaginationInput2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐPaginationInput(ctx, v)
@@ -9207,6 +12553,106 @@ func (ec *executionContext) unmarshalInputPropertyFilter(ctx context.Context, ob
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputTransformationExecutionFilterInput(ctx context.Context, obj any) (TransformationExecutionFilterInput, error) {
+	var it TransformationExecutionFilterInput
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"alias", "field", "value", "exists", "inArray"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "alias":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("alias"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Alias = data
+		case "field":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("field"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Field = data
+		case "value":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("value"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Value = data
+		case "exists":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("exists"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Exists = data
+		case "inArray":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("inArray"))
+			data, err := ec.unmarshalOString2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.InArray = data
+		}
+	}
+
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputTransformationExecutionSortInput(ctx context.Context, obj any) (TransformationExecutionSortInput, error) {
+	var it TransformationExecutionSortInput
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	if _, present := asMap["direction"]; !present {
+		asMap["direction"] = "ASC"
+	}
+
+	fieldsInOrder := [...]string{"alias", "field", "direction"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "alias":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("alias"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Alias = data
+		case "field":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("field"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Field = data
+		case "direction":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("direction"))
+			data, err := ec.unmarshalOSortDirection2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐSortDirection(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Direction = data
+		}
+	}
+
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputUpdateEntityInput(ctx context.Context, obj any) (UpdateEntityInput, error) {
 	var it UpdateEntityInput
 	asMap := map[string]any{}
@@ -9393,6 +12839,54 @@ func (ec *executionContext) unmarshalInputUpdateEntitySchemaInput(ctx context.Co
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputUpdateEntityTransformationInput(ctx context.Context, obj any) (UpdateEntityTransformationInput, error) {
+	var it UpdateEntityTransformationInput
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"id", "name", "description", "nodes"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "id":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ID = data
+		case "name":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Name = data
+		case "description":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("description"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Description = data
+		case "nodes":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("nodes"))
+			data, err := ec.unmarshalOEntityTransformationNodeInput2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationNodeInputᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Nodes = data
+		}
+	}
+
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputUpdateOrganizationInput(ctx context.Context, obj any) (UpdateOrganizationInput, error) {
 	var it UpdateOrganizationInput
 	asMap := map[string]any{}
@@ -9442,49 +12936,7 @@ func (ec *executionContext) unmarshalInputUpdateOrganizationInput(ctx context.Co
 
 // region    **************************** object.gotpl ****************************
 
-var entityDiffResultImplementors = []string{"EntityDiffResult"}
-
 var entityImplementors = []string{"Entity"}
-
-var entitySnapshotViewImplementors = []string{"EntitySnapshotView"}
-
-func (ec *executionContext) _EntityDiffResult(ctx context.Context, sel ast.SelectionSet, obj *EntityDiffResult) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, entityDiffResultImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := make(map[string]*graphql.FieldSet)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("EntityDiffResult")
-		case "base":
-			out.Values[i] = ec._EntityDiffResult_base(ctx, field, obj)
-		case "target":
-			out.Values[i] = ec._EntityDiffResult_target(ctx, field, obj)
-		case "unifiedDiff":
-			out.Values[i] = ec._EntityDiffResult_unifiedDiff(ctx, field, obj)
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
-
-	for label, dfs := range deferred {
-		ec.processDeferredGroup(graphql.DeferredGroup{
-			Label:    label,
-			Path:     graphql.GetPath(ctx),
-			FieldSet: dfs,
-			Context:  ctx,
-		})
-	}
-
-	return out
-}
 
 func (ec *executionContext) _Entity(ctx context.Context, sel ast.SelectionSet, obj *Entity) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, entityImplementors)
@@ -9527,9 +12979,6 @@ func (ec *executionContext) _Entity(ctx context.Context, sel ast.SelectionSet, o
 			}
 		case "referenceValue":
 			out.Values[i] = ec._Entity_referenceValue(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "version":
 			out.Values[i] = ec._Entity_version(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -9604,37 +13053,24 @@ func (ec *executionContext) _Entity(ctx context.Context, sel ast.SelectionSet, o
 	return out
 }
 
-func (ec *executionContext) _EntitySnapshotView(ctx context.Context, sel ast.SelectionSet, obj *EntitySnapshotView) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, entitySnapshotViewImplementors)
+var entityConnectionImplementors = []string{"EntityConnection"}
+
+func (ec *executionContext) _EntityConnection(ctx context.Context, sel ast.SelectionSet, obj *EntityConnection) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, entityConnectionImplementors)
 
 	out := graphql.NewFieldSet(fields)
 	deferred := make(map[string]*graphql.FieldSet)
 	for i, field := range fields {
 		switch field.Name {
 		case "__typename":
-			out.Values[i] = graphql.MarshalString("EntitySnapshotView")
-		case "version":
-			out.Values[i] = ec._EntitySnapshotView_version(ctx, field, obj)
+			out.Values[i] = graphql.MarshalString("EntityConnection")
+		case "entities":
+			out.Values[i] = ec._EntityConnection_entities(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "path":
-			out.Values[i] = ec._EntitySnapshotView_path(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "schemaId":
-			out.Values[i] = ec._EntitySnapshotView_schemaId(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "entityType":
-			out.Values[i] = ec._EntitySnapshotView_entityType(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "canonicalText":
-			out.Values[i] = ec._EntitySnapshotView_canonicalText(ctx, field, obj)
+		case "pageInfo":
+			out.Values[i] = ec._EntityConnection_pageInfo(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -9661,27 +13097,23 @@ func (ec *executionContext) _EntitySnapshotView(ctx context.Context, sel ast.Sel
 	return out
 }
 
-var entityConnectionImplementors = []string{"EntityConnection"}
+var entityDiffResultImplementors = []string{"EntityDiffResult"}
 
-func (ec *executionContext) _EntityConnection(ctx context.Context, sel ast.SelectionSet, obj *EntityConnection) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, entityConnectionImplementors)
+func (ec *executionContext) _EntityDiffResult(ctx context.Context, sel ast.SelectionSet, obj *EntityDiffResult) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, entityDiffResultImplementors)
 
 	out := graphql.NewFieldSet(fields)
 	deferred := make(map[string]*graphql.FieldSet)
 	for i, field := range fields {
 		switch field.Name {
 		case "__typename":
-			out.Values[i] = graphql.MarshalString("EntityConnection")
-		case "entities":
-			out.Values[i] = ec._EntityConnection_entities(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "pageInfo":
-			out.Values[i] = ec._EntityConnection_pageInfo(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
+			out.Values[i] = graphql.MarshalString("EntityDiffResult")
+		case "base":
+			out.Values[i] = ec._EntityDiffResult_base(ctx, field, obj)
+		case "target":
+			out.Values[i] = ec._EntityDiffResult_target(ctx, field, obj)
+		case "unifiedDiff":
+			out.Values[i] = ec._EntityDiffResult_unifiedDiff(ctx, field, obj)
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -10020,6 +13452,728 @@ func (ec *executionContext) _EntitySchema(ctx context.Context, sel ast.Selection
 	return out
 }
 
+var entitySnapshotViewImplementors = []string{"EntitySnapshotView"}
+
+func (ec *executionContext) _EntitySnapshotView(ctx context.Context, sel ast.SelectionSet, obj *EntitySnapshotView) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, entitySnapshotViewImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("EntitySnapshotView")
+		case "version":
+			out.Values[i] = ec._EntitySnapshotView_version(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "path":
+			out.Values[i] = ec._EntitySnapshotView_path(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "schemaId":
+			out.Values[i] = ec._EntitySnapshotView_schemaId(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "entityType":
+			out.Values[i] = ec._EntitySnapshotView_entityType(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "canonicalText":
+			out.Values[i] = ec._EntitySnapshotView_canonicalText(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var entityTransformationImplementors = []string{"EntityTransformation"}
+
+func (ec *executionContext) _EntityTransformation(ctx context.Context, sel ast.SelectionSet, obj *EntityTransformation) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, entityTransformationImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("EntityTransformation")
+		case "id":
+			out.Values[i] = ec._EntityTransformation_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "organizationId":
+			out.Values[i] = ec._EntityTransformation_organizationId(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "name":
+			out.Values[i] = ec._EntityTransformation_name(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "description":
+			out.Values[i] = ec._EntityTransformation_description(ctx, field, obj)
+		case "nodes":
+			out.Values[i] = ec._EntityTransformation_nodes(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "createdAt":
+			out.Values[i] = ec._EntityTransformation_createdAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "updatedAt":
+			out.Values[i] = ec._EntityTransformation_updatedAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var entityTransformationConnectionImplementors = []string{"EntityTransformationConnection"}
+
+func (ec *executionContext) _EntityTransformationConnection(ctx context.Context, sel ast.SelectionSet, obj *EntityTransformationConnection) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, entityTransformationConnectionImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("EntityTransformationConnection")
+		case "edges":
+			out.Values[i] = ec._EntityTransformationConnection_edges(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "pageInfo":
+			out.Values[i] = ec._EntityTransformationConnection_pageInfo(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var entityTransformationFilterConfigImplementors = []string{"EntityTransformationFilterConfig"}
+
+func (ec *executionContext) _EntityTransformationFilterConfig(ctx context.Context, sel ast.SelectionSet, obj *EntityTransformationFilterConfig) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, entityTransformationFilterConfigImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("EntityTransformationFilterConfig")
+		case "alias":
+			out.Values[i] = ec._EntityTransformationFilterConfig_alias(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "filters":
+			out.Values[i] = ec._EntityTransformationFilterConfig_filters(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var entityTransformationJoinConfigImplementors = []string{"EntityTransformationJoinConfig"}
+
+func (ec *executionContext) _EntityTransformationJoinConfig(ctx context.Context, sel ast.SelectionSet, obj *EntityTransformationJoinConfig) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, entityTransformationJoinConfigImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("EntityTransformationJoinConfig")
+		case "leftAlias":
+			out.Values[i] = ec._EntityTransformationJoinConfig_leftAlias(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "rightAlias":
+			out.Values[i] = ec._EntityTransformationJoinConfig_rightAlias(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "onField":
+			out.Values[i] = ec._EntityTransformationJoinConfig_onField(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var entityTransformationLoadConfigImplementors = []string{"EntityTransformationLoadConfig"}
+
+func (ec *executionContext) _EntityTransformationLoadConfig(ctx context.Context, sel ast.SelectionSet, obj *EntityTransformationLoadConfig) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, entityTransformationLoadConfigImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("EntityTransformationLoadConfig")
+		case "alias":
+			out.Values[i] = ec._EntityTransformationLoadConfig_alias(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "entityType":
+			out.Values[i] = ec._EntityTransformationLoadConfig_entityType(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "filters":
+			out.Values[i] = ec._EntityTransformationLoadConfig_filters(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var entityTransformationMaterializeConfigImplementors = []string{"EntityTransformationMaterializeConfig"}
+
+func (ec *executionContext) _EntityTransformationMaterializeConfig(ctx context.Context, sel ast.SelectionSet, obj *EntityTransformationMaterializeConfig) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, entityTransformationMaterializeConfigImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("EntityTransformationMaterializeConfig")
+		case "outputs":
+			out.Values[i] = ec._EntityTransformationMaterializeConfig_outputs(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var entityTransformationMaterializeFieldMappingImplementors = []string{"EntityTransformationMaterializeFieldMapping"}
+
+func (ec *executionContext) _EntityTransformationMaterializeFieldMapping(ctx context.Context, sel ast.SelectionSet, obj *EntityTransformationMaterializeFieldMapping) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, entityTransformationMaterializeFieldMappingImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("EntityTransformationMaterializeFieldMapping")
+		case "sourceAlias":
+			out.Values[i] = ec._EntityTransformationMaterializeFieldMapping_sourceAlias(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "sourceField":
+			out.Values[i] = ec._EntityTransformationMaterializeFieldMapping_sourceField(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "outputField":
+			out.Values[i] = ec._EntityTransformationMaterializeFieldMapping_outputField(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var entityTransformationMaterializeOutputImplementors = []string{"EntityTransformationMaterializeOutput"}
+
+func (ec *executionContext) _EntityTransformationMaterializeOutput(ctx context.Context, sel ast.SelectionSet, obj *EntityTransformationMaterializeOutput) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, entityTransformationMaterializeOutputImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("EntityTransformationMaterializeOutput")
+		case "alias":
+			out.Values[i] = ec._EntityTransformationMaterializeOutput_alias(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "fields":
+			out.Values[i] = ec._EntityTransformationMaterializeOutput_fields(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var entityTransformationNodeImplementors = []string{"EntityTransformationNode"}
+
+func (ec *executionContext) _EntityTransformationNode(ctx context.Context, sel ast.SelectionSet, obj *EntityTransformationNode) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, entityTransformationNodeImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("EntityTransformationNode")
+		case "id":
+			out.Values[i] = ec._EntityTransformationNode_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "name":
+			out.Values[i] = ec._EntityTransformationNode_name(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "type":
+			out.Values[i] = ec._EntityTransformationNode_type(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "inputs":
+			out.Values[i] = ec._EntityTransformationNode_inputs(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "load":
+			out.Values[i] = ec._EntityTransformationNode_load(ctx, field, obj)
+		case "filter":
+			out.Values[i] = ec._EntityTransformationNode_filter(ctx, field, obj)
+		case "project":
+			out.Values[i] = ec._EntityTransformationNode_project(ctx, field, obj)
+		case "join":
+			out.Values[i] = ec._EntityTransformationNode_join(ctx, field, obj)
+		case "materialize":
+			out.Values[i] = ec._EntityTransformationNode_materialize(ctx, field, obj)
+		case "sort":
+			out.Values[i] = ec._EntityTransformationNode_sort(ctx, field, obj)
+		case "paginate":
+			out.Values[i] = ec._EntityTransformationNode_paginate(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var entityTransformationPaginateConfigImplementors = []string{"EntityTransformationPaginateConfig"}
+
+func (ec *executionContext) _EntityTransformationPaginateConfig(ctx context.Context, sel ast.SelectionSet, obj *EntityTransformationPaginateConfig) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, entityTransformationPaginateConfigImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("EntityTransformationPaginateConfig")
+		case "limit":
+			out.Values[i] = ec._EntityTransformationPaginateConfig_limit(ctx, field, obj)
+		case "offset":
+			out.Values[i] = ec._EntityTransformationPaginateConfig_offset(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var entityTransformationProjectConfigImplementors = []string{"EntityTransformationProjectConfig"}
+
+func (ec *executionContext) _EntityTransformationProjectConfig(ctx context.Context, sel ast.SelectionSet, obj *EntityTransformationProjectConfig) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, entityTransformationProjectConfigImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("EntityTransformationProjectConfig")
+		case "alias":
+			out.Values[i] = ec._EntityTransformationProjectConfig_alias(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "fields":
+			out.Values[i] = ec._EntityTransformationProjectConfig_fields(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var entityTransformationRecordEdgeImplementors = []string{"EntityTransformationRecordEdge"}
+
+func (ec *executionContext) _EntityTransformationRecordEdge(ctx context.Context, sel ast.SelectionSet, obj *EntityTransformationRecordEdge) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, entityTransformationRecordEdgeImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("EntityTransformationRecordEdge")
+		case "entities":
+			out.Values[i] = ec._EntityTransformationRecordEdge_entities(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var entityTransformationRecordEntityImplementors = []string{"EntityTransformationRecordEntity"}
+
+func (ec *executionContext) _EntityTransformationRecordEntity(ctx context.Context, sel ast.SelectionSet, obj *EntityTransformationRecordEntity) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, entityTransformationRecordEntityImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("EntityTransformationRecordEntity")
+		case "alias":
+			out.Values[i] = ec._EntityTransformationRecordEntity_alias(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "entity":
+			out.Values[i] = ec._EntityTransformationRecordEntity_entity(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var entityTransformationSortConfigImplementors = []string{"EntityTransformationSortConfig"}
+
+func (ec *executionContext) _EntityTransformationSortConfig(ctx context.Context, sel ast.SelectionSet, obj *EntityTransformationSortConfig) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, entityTransformationSortConfigImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("EntityTransformationSortConfig")
+		case "alias":
+			out.Values[i] = ec._EntityTransformationSortConfig_alias(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "field":
+			out.Values[i] = ec._EntityTransformationSortConfig_field(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "direction":
+			out.Values[i] = ec._EntityTransformationSortConfig_direction(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var fieldDefinitionImplementors = []string{"FieldDefinition"}
 
 func (ec *executionContext) _FieldDefinition(ctx context.Context, sel ast.SelectionSet, obj *FieldDefinition) graphql.Marshaler {
@@ -10246,6 +14400,27 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		case "deleteEntityJoinDefinition":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_deleteEntityJoinDefinition(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "createEntityTransformation":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_createEntityTransformation(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "updateEntityTransformation":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_updateEntityTransformation(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "deleteEntityTransformation":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_deleteEntityTransformation(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
@@ -11015,6 +15190,91 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "entityTransformation":
+			field := field
+
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_entityTransformation(ctx, field)
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "entityTransformations":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_entityTransformations(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "executeEntityTransformation":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_executeEntityTransformation(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "transformationExecution":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_transformationExecution(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
 		case "__type":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Query___type(ctx, field)
@@ -11023,6 +15283,199 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Query___schema(ctx, field)
 			})
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var transformationExecutionColumnImplementors = []string{"TransformationExecutionColumn"}
+
+func (ec *executionContext) _TransformationExecutionColumn(ctx context.Context, sel ast.SelectionSet, obj *TransformationExecutionColumn) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, transformationExecutionColumnImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("TransformationExecutionColumn")
+		case "key":
+			out.Values[i] = ec._TransformationExecutionColumn_key(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "alias":
+			out.Values[i] = ec._TransformationExecutionColumn_alias(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "field":
+			out.Values[i] = ec._TransformationExecutionColumn_field(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "label":
+			out.Values[i] = ec._TransformationExecutionColumn_label(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "sourceAlias":
+			out.Values[i] = ec._TransformationExecutionColumn_sourceAlias(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "sourceField":
+			out.Values[i] = ec._TransformationExecutionColumn_sourceField(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var transformationExecutionConnectionImplementors = []string{"TransformationExecutionConnection"}
+
+func (ec *executionContext) _TransformationExecutionConnection(ctx context.Context, sel ast.SelectionSet, obj *TransformationExecutionConnection) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, transformationExecutionConnectionImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("TransformationExecutionConnection")
+		case "columns":
+			out.Values[i] = ec._TransformationExecutionConnection_columns(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "rows":
+			out.Values[i] = ec._TransformationExecutionConnection_rows(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "pageInfo":
+			out.Values[i] = ec._TransformationExecutionConnection_pageInfo(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var transformationExecutionRowImplementors = []string{"TransformationExecutionRow"}
+
+func (ec *executionContext) _TransformationExecutionRow(ctx context.Context, sel ast.SelectionSet, obj *TransformationExecutionRow) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, transformationExecutionRowImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("TransformationExecutionRow")
+		case "values":
+			out.Values[i] = ec._TransformationExecutionRow_values(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var transformationExecutionValueImplementors = []string{"TransformationExecutionValue"}
+
+func (ec *executionContext) _TransformationExecutionValue(ctx context.Context, sel ast.SelectionSet, obj *TransformationExecutionValue) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, transformationExecutionValueImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("TransformationExecutionValue")
+		case "columnKey":
+			out.Values[i] = ec._TransformationExecutionValue_columnKey(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "value":
+			out.Values[i] = ec._TransformationExecutionValue_value(ctx, field, obj)
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -11461,6 +15914,11 @@ func (ec *executionContext) unmarshalNCreateEntitySchemaInput2githubᚗcomᚋrpa
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
+func (ec *executionContext) unmarshalNCreateEntityTransformationInput2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐCreateEntityTransformationInput(ctx context.Context, v any) (CreateEntityTransformationInput, error) {
+	res, err := ec.unmarshalInputCreateEntityTransformationInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
 func (ec *executionContext) unmarshalNCreateOrganizationInput2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐCreateOrganizationInput(ctx context.Context, v any) (CreateOrganizationInput, error) {
 	res, err := ec.unmarshalInputCreateOrganizationInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -11512,63 +15970,6 @@ func (ec *executionContext) marshalNEntity2ᚕᚖgithubᚗcomᚋrpattnᚋengql�
 	}
 
 	return ret
-}
-
-func (ec *executionContext) marshalNEntitySnapshotView2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntitySnapshotViewᚄ(ctx context.Context, sel ast.SelectionSet, v []*EntitySnapshotView) graphql.Marshaler {
-	ret := make(graphql.Array, len(v))
-	var wg sync.WaitGroup
-	isLen1 := len(v) == 1
-	if !isLen1 {
-		wg.Add(len(v))
-	}
-	for i := range v {
-		i := i
-		fc := &graphql.FieldContext{
-			Index:  &i,
-			Result: &v[i],
-		}
-		ctx := graphql.WithFieldContext(ctx, fc)
-		f := func(i int) {
-			defer func() {
-				if r := recover(); r != nil {
-					ec.Error(ctx, ec.Recover(ctx, r))
-					ret = nil
-				}
-			}()
-			if !isLen1 {
-				defer wg.Done()
-			}
-			ret[i] = ec.marshalNEntitySnapshotView2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntitySnapshotView(ctx, sel, v[i])
-		}
-		if isLen1 {
-			f(i)
-		} else {
-			go f(i)
-		}
-
-	}
-
-	if !isLen1 {
-		wg.Wait()
-	}
-
-	for _, e := range ret {
-		if e == graphql.Null {
-			return graphql.Null
-		}
-	}
-
-	return ret
-}
-
-func (ec *executionContext) marshalNEntitySnapshotView2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntitySnapshotView(ctx context.Context, sel ast.SelectionSet, v *EntitySnapshotView) graphql.Marshaler {
-	if v == nil {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
-		}
-		return graphql.Null
-	}
-	return ec._EntitySnapshotView(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalNEntity2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntity(ctx context.Context, sel ast.SelectionSet, v *Entity) graphql.Marshaler {
@@ -11793,8 +16194,489 @@ func (ec *executionContext) marshalNEntitySchema2ᚖgithubᚗcomᚋrpattnᚋengq
 	return ec._EntitySchema(ctx, sel, v)
 }
 
+func (ec *executionContext) marshalNEntitySnapshotView2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntitySnapshotViewᚄ(ctx context.Context, sel ast.SelectionSet, v []*EntitySnapshotView) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNEntitySnapshotView2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntitySnapshotView(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNEntitySnapshotView2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntitySnapshotView(ctx context.Context, sel ast.SelectionSet, v *EntitySnapshotView) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._EntitySnapshotView(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNEntitySortField2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntitySortField(ctx context.Context, v any) (EntitySortField, error) {
+	var res EntitySortField
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNEntitySortField2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntitySortField(ctx context.Context, sel ast.SelectionSet, v EntitySortField) graphql.Marshaler {
+	return v
+}
+
+func (ec *executionContext) marshalNEntityTransformation2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformation(ctx context.Context, sel ast.SelectionSet, v EntityTransformation) graphql.Marshaler {
+	return ec._EntityTransformation(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNEntityTransformation2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationᚄ(ctx context.Context, sel ast.SelectionSet, v []*EntityTransformation) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNEntityTransformation2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformation(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNEntityTransformation2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformation(ctx context.Context, sel ast.SelectionSet, v *EntityTransformation) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._EntityTransformation(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNEntityTransformationConnection2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationConnection(ctx context.Context, sel ast.SelectionSet, v EntityTransformationConnection) graphql.Marshaler {
+	return ec._EntityTransformationConnection(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNEntityTransformationConnection2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationConnection(ctx context.Context, sel ast.SelectionSet, v *EntityTransformationConnection) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._EntityTransformationConnection(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNEntityTransformationMaterializeFieldMapping2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationMaterializeFieldMappingᚄ(ctx context.Context, sel ast.SelectionSet, v []*EntityTransformationMaterializeFieldMapping) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNEntityTransformationMaterializeFieldMapping2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationMaterializeFieldMapping(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNEntityTransformationMaterializeFieldMapping2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationMaterializeFieldMapping(ctx context.Context, sel ast.SelectionSet, v *EntityTransformationMaterializeFieldMapping) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._EntityTransformationMaterializeFieldMapping(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNEntityTransformationMaterializeFieldMappingInput2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationMaterializeFieldMappingInputᚄ(ctx context.Context, v any) ([]*EntityTransformationMaterializeFieldMappingInput, error) {
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]*EntityTransformationMaterializeFieldMappingInput, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNEntityTransformationMaterializeFieldMappingInput2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationMaterializeFieldMappingInput(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) unmarshalNEntityTransformationMaterializeFieldMappingInput2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationMaterializeFieldMappingInput(ctx context.Context, v any) (*EntityTransformationMaterializeFieldMappingInput, error) {
+	res, err := ec.unmarshalInputEntityTransformationMaterializeFieldMappingInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNEntityTransformationMaterializeOutput2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationMaterializeOutputᚄ(ctx context.Context, sel ast.SelectionSet, v []*EntityTransformationMaterializeOutput) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNEntityTransformationMaterializeOutput2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationMaterializeOutput(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNEntityTransformationMaterializeOutput2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationMaterializeOutput(ctx context.Context, sel ast.SelectionSet, v *EntityTransformationMaterializeOutput) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._EntityTransformationMaterializeOutput(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNEntityTransformationMaterializeOutputInput2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationMaterializeOutputInputᚄ(ctx context.Context, v any) ([]*EntityTransformationMaterializeOutputInput, error) {
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]*EntityTransformationMaterializeOutputInput, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNEntityTransformationMaterializeOutputInput2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationMaterializeOutputInput(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) unmarshalNEntityTransformationMaterializeOutputInput2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationMaterializeOutputInput(ctx context.Context, v any) (*EntityTransformationMaterializeOutputInput, error) {
+	res, err := ec.unmarshalInputEntityTransformationMaterializeOutputInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNEntityTransformationNode2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationNodeᚄ(ctx context.Context, sel ast.SelectionSet, v []*EntityTransformationNode) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNEntityTransformationNode2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationNode(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNEntityTransformationNode2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationNode(ctx context.Context, sel ast.SelectionSet, v *EntityTransformationNode) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._EntityTransformationNode(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNEntityTransformationNodeInput2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationNodeInputᚄ(ctx context.Context, v any) ([]*EntityTransformationNodeInput, error) {
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]*EntityTransformationNodeInput, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNEntityTransformationNodeInput2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationNodeInput(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) unmarshalNEntityTransformationNodeInput2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationNodeInput(ctx context.Context, v any) (*EntityTransformationNodeInput, error) {
+	res, err := ec.unmarshalInputEntityTransformationNodeInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNEntityTransformationNodeType2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationNodeType(ctx context.Context, v any) (EntityTransformationNodeType, error) {
+	var res EntityTransformationNodeType
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNEntityTransformationNodeType2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationNodeType(ctx context.Context, sel ast.SelectionSet, v EntityTransformationNodeType) graphql.Marshaler {
+	return v
+}
+
+func (ec *executionContext) marshalNEntityTransformationRecordEdge2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationRecordEdgeᚄ(ctx context.Context, sel ast.SelectionSet, v []*EntityTransformationRecordEdge) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNEntityTransformationRecordEdge2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationRecordEdge(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNEntityTransformationRecordEdge2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationRecordEdge(ctx context.Context, sel ast.SelectionSet, v *EntityTransformationRecordEdge) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._EntityTransformationRecordEdge(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNEntityTransformationRecordEntity2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationRecordEntityᚄ(ctx context.Context, sel ast.SelectionSet, v []*EntityTransformationRecordEntity) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNEntityTransformationRecordEntity2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationRecordEntity(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNEntityTransformationRecordEntity2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationRecordEntity(ctx context.Context, sel ast.SelectionSet, v *EntityTransformationRecordEntity) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._EntityTransformationRecordEntity(ctx, sel, v)
+}
+
 func (ec *executionContext) unmarshalNExecuteEntityJoinInput2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐExecuteEntityJoinInput(ctx context.Context, v any) (ExecuteEntityJoinInput, error) {
 	res, err := ec.unmarshalInputExecuteEntityJoinInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNExecuteEntityTransformationInput2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐExecuteEntityTransformationInput(ctx context.Context, v any) (ExecuteEntityTransformationInput, error) {
+	res, err := ec.unmarshalInputExecuteEntityTransformationInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
@@ -11974,26 +16856,6 @@ func (ec *executionContext) unmarshalNJoinSortDirection2githubᚗcomᚋrpattnᚋ
 }
 
 func (ec *executionContext) marshalNJoinSortDirection2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐJoinSortDirection(ctx context.Context, sel ast.SelectionSet, v JoinSortDirection) graphql.Marshaler {
-	return v
-}
-
-func (ec *executionContext) unmarshalNEntitySortField2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntitySortField(ctx context.Context, v any) (EntitySortField, error) {
-	var res EntitySortField
-	err := res.UnmarshalGQL(v)
-	return res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) marshalNEntitySortField2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntitySortField(ctx context.Context, sel ast.SelectionSet, v EntitySortField) graphql.Marshaler {
-	return v
-}
-
-func (ec *executionContext) unmarshalNSortDirection2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐSortDirection(ctx context.Context, v any) (SortDirection, error) {
-	var res SortDirection
-	err := res.UnmarshalGQL(v)
-	return res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) marshalNSortDirection2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐSortDirection(ctx context.Context, sel ast.SelectionSet, v SortDirection) graphql.Marshaler {
 	return v
 }
 
@@ -12195,6 +17057,187 @@ func (ec *executionContext) marshalNString2ᚕstringᚄ(ctx context.Context, sel
 	return ret
 }
 
+func (ec *executionContext) marshalNTransformationExecutionColumn2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐTransformationExecutionColumnᚄ(ctx context.Context, sel ast.SelectionSet, v []*TransformationExecutionColumn) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNTransformationExecutionColumn2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐTransformationExecutionColumn(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNTransformationExecutionColumn2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐTransformationExecutionColumn(ctx context.Context, sel ast.SelectionSet, v *TransformationExecutionColumn) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._TransformationExecutionColumn(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNTransformationExecutionConnection2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐTransformationExecutionConnection(ctx context.Context, sel ast.SelectionSet, v TransformationExecutionConnection) graphql.Marshaler {
+	return ec._TransformationExecutionConnection(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNTransformationExecutionConnection2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐTransformationExecutionConnection(ctx context.Context, sel ast.SelectionSet, v *TransformationExecutionConnection) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._TransformationExecutionConnection(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNTransformationExecutionFilterInput2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐTransformationExecutionFilterInput(ctx context.Context, v any) (*TransformationExecutionFilterInput, error) {
+	res, err := ec.unmarshalInputTransformationExecutionFilterInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNTransformationExecutionRow2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐTransformationExecutionRowᚄ(ctx context.Context, sel ast.SelectionSet, v []*TransformationExecutionRow) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNTransformationExecutionRow2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐTransformationExecutionRow(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNTransformationExecutionRow2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐTransformationExecutionRow(ctx context.Context, sel ast.SelectionSet, v *TransformationExecutionRow) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._TransformationExecutionRow(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNTransformationExecutionValue2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐTransformationExecutionValueᚄ(ctx context.Context, sel ast.SelectionSet, v []*TransformationExecutionValue) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNTransformationExecutionValue2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐTransformationExecutionValue(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNTransformationExecutionValue2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐTransformationExecutionValue(ctx context.Context, sel ast.SelectionSet, v *TransformationExecutionValue) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._TransformationExecutionValue(ctx, sel, v)
+}
+
 func (ec *executionContext) unmarshalNUpdateEntityInput2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐUpdateEntityInput(ctx context.Context, v any) (UpdateEntityInput, error) {
 	res, err := ec.unmarshalInputUpdateEntityInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -12207,6 +17250,11 @@ func (ec *executionContext) unmarshalNUpdateEntityJoinDefinitionInput2githubᚗc
 
 func (ec *executionContext) unmarshalNUpdateEntitySchemaInput2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐUpdateEntitySchemaInput(ctx context.Context, v any) (UpdateEntitySchemaInput, error) {
 	res, err := ec.unmarshalInputUpdateEntitySchemaInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNUpdateEntityTransformationInput2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐUpdateEntityTransformationInput(ctx context.Context, v any) (UpdateEntityTransformationInput, error) {
+	res, err := ec.unmarshalInputUpdateEntityTransformationInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
@@ -12526,26 +17574,11 @@ func (ec *executionContext) marshalOEntityDiffResult2ᚖgithubᚗcomᚋrpattnᚋ
 	return ec._EntityDiffResult(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOEntitySnapshotView2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntitySnapshotView(ctx context.Context, sel ast.SelectionSet, v *EntitySnapshotView) graphql.Marshaler {
-	if v == nil {
-		return graphql.Null
-	}
-	return ec._EntitySnapshotView(ctx, sel, v)
-}
-
 func (ec *executionContext) unmarshalOEntityFilter2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityFilter(ctx context.Context, v any) (*EntityFilter, error) {
 	if v == nil {
 		return nil, nil
 	}
 	res, err := ec.unmarshalInputEntityFilter(ctx, v)
-	return &res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) unmarshalOEntitySortInput2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntitySortInput(ctx context.Context, v any) (*EntitySortInput, error) {
-	if v == nil {
-		return nil, nil
-	}
-	res, err := ec.unmarshalInputEntitySortInput(ctx, v)
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
@@ -12561,6 +17594,151 @@ func (ec *executionContext) marshalOEntitySchema2ᚖgithubᚗcomᚋrpattnᚋengq
 		return graphql.Null
 	}
 	return ec._EntitySchema(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalOEntitySnapshotView2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntitySnapshotView(ctx context.Context, sel ast.SelectionSet, v *EntitySnapshotView) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._EntitySnapshotView(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalOEntitySortInput2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntitySortInput(ctx context.Context, v any) (*EntitySortInput, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputEntitySortInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOEntityTransformation2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformation(ctx context.Context, sel ast.SelectionSet, v *EntityTransformation) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._EntityTransformation(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalOEntityTransformationFilterConfig2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationFilterConfig(ctx context.Context, sel ast.SelectionSet, v *EntityTransformationFilterConfig) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._EntityTransformationFilterConfig(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalOEntityTransformationFilterConfigInput2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationFilterConfigInput(ctx context.Context, v any) (*EntityTransformationFilterConfigInput, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputEntityTransformationFilterConfigInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOEntityTransformationJoinConfig2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationJoinConfig(ctx context.Context, sel ast.SelectionSet, v *EntityTransformationJoinConfig) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._EntityTransformationJoinConfig(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalOEntityTransformationJoinConfigInput2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationJoinConfigInput(ctx context.Context, v any) (*EntityTransformationJoinConfigInput, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputEntityTransformationJoinConfigInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOEntityTransformationLoadConfig2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationLoadConfig(ctx context.Context, sel ast.SelectionSet, v *EntityTransformationLoadConfig) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._EntityTransformationLoadConfig(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalOEntityTransformationLoadConfigInput2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationLoadConfigInput(ctx context.Context, v any) (*EntityTransformationLoadConfigInput, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputEntityTransformationLoadConfigInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOEntityTransformationMaterializeConfig2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationMaterializeConfig(ctx context.Context, sel ast.SelectionSet, v *EntityTransformationMaterializeConfig) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._EntityTransformationMaterializeConfig(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalOEntityTransformationMaterializeConfigInput2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationMaterializeConfigInput(ctx context.Context, v any) (*EntityTransformationMaterializeConfigInput, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputEntityTransformationMaterializeConfigInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalOEntityTransformationNodeInput2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationNodeInputᚄ(ctx context.Context, v any) ([]*EntityTransformationNodeInput, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]*EntityTransformationNodeInput, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNEntityTransformationNodeInput2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationNodeInput(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalOEntityTransformationPaginateConfig2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationPaginateConfig(ctx context.Context, sel ast.SelectionSet, v *EntityTransformationPaginateConfig) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._EntityTransformationPaginateConfig(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalOEntityTransformationPaginateConfigInput2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationPaginateConfigInput(ctx context.Context, v any) (*EntityTransformationPaginateConfigInput, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputEntityTransformationPaginateConfigInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOEntityTransformationProjectConfig2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationProjectConfig(ctx context.Context, sel ast.SelectionSet, v *EntityTransformationProjectConfig) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._EntityTransformationProjectConfig(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalOEntityTransformationProjectConfigInput2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationProjectConfigInput(ctx context.Context, v any) (*EntityTransformationProjectConfigInput, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputEntityTransformationProjectConfigInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOEntityTransformationSortConfig2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationSortConfig(ctx context.Context, sel ast.SelectionSet, v *EntityTransformationSortConfig) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._EntityTransformationSortConfig(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalOEntityTransformationSortConfigInput2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformationSortConfigInput(ctx context.Context, v any) (*EntityTransformationSortConfigInput, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputEntityTransformationSortConfigInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
 func (ec *executionContext) unmarshalOFieldDefinitionInput2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐFieldDefinitionInputᚄ(ctx context.Context, v any) ([]*FieldDefinitionInput, error) {
@@ -12723,6 +17901,22 @@ func (ec *executionContext) unmarshalOPropertyFilter2ᚕᚖgithubᚗcomᚋrpattn
 	return res, nil
 }
 
+func (ec *executionContext) unmarshalOSortDirection2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐSortDirection(ctx context.Context, v any) (*SortDirection, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var res = new(SortDirection)
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOSortDirection2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐSortDirection(ctx context.Context, sel ast.SelectionSet, v *SortDirection) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return v
+}
+
 func (ec *executionContext) unmarshalOString2ᚕstringᚄ(ctx context.Context, v any) ([]string, error) {
 	if v == nil {
 		return nil, nil
@@ -12775,6 +17969,32 @@ func (ec *executionContext) marshalOString2ᚖstring(ctx context.Context, sel as
 	_ = ctx
 	res := graphql.MarshalString(*v)
 	return res
+}
+
+func (ec *executionContext) unmarshalOTransformationExecutionFilterInput2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐTransformationExecutionFilterInputᚄ(ctx context.Context, v any) ([]*TransformationExecutionFilterInput, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]*TransformationExecutionFilterInput, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNTransformationExecutionFilterInput2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐTransformationExecutionFilterInput(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) unmarshalOTransformationExecutionSortInput2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐTransformationExecutionSortInput(ctx context.Context, v any) (*TransformationExecutionSortInput, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputTransformationExecutionSortInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
 func (ec *executionContext) marshalO__EnumValue2ᚕgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐEnumValueᚄ(ctx context.Context, sel ast.SelectionSet, v []introspection.EnumValue) graphql.Marshaler {

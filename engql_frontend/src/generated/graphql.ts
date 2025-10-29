@@ -47,6 +47,13 @@ export type CreateEntitySchemaInput = {
   organizationId: Scalars['String']['input'];
 };
 
+export type CreateEntityTransformationInput = {
+  description?: InputMaybe<Scalars['String']['input']>;
+  name: Scalars['String']['input'];
+  nodes: Array<EntityTransformationNodeInput>;
+  organizationId: Scalars['String']['input'];
+};
+
 export type CreateOrganizationInput = {
   description?: InputMaybe<Scalars['String']['input']>;
   name: Scalars['String']['input'];
@@ -163,12 +170,192 @@ export type EntitySortInput = {
   propertyKey?: InputMaybe<Scalars['String']['input']>;
 };
 
+export type EntityTransformation = {
+  __typename?: 'EntityTransformation';
+  createdAt: Scalars['String']['output'];
+  description?: Maybe<Scalars['String']['output']>;
+  id: Scalars['String']['output'];
+  name: Scalars['String']['output'];
+  nodes: Array<EntityTransformationNode>;
+  organizationId: Scalars['String']['output'];
+  updatedAt: Scalars['String']['output'];
+};
+
+export type EntityTransformationConnection = {
+  __typename?: 'EntityTransformationConnection';
+  edges: Array<EntityTransformationRecordEdge>;
+  pageInfo: PageInfo;
+};
+
+export type EntityTransformationFilterConfig = {
+  __typename?: 'EntityTransformationFilterConfig';
+  alias: Scalars['String']['output'];
+  filters: Array<PropertyFilterConfig>;
+};
+
+export type EntityTransformationFilterConfigInput = {
+  alias: Scalars['String']['input'];
+  filters?: InputMaybe<Array<PropertyFilter>>;
+};
+
+export type EntityTransformationJoinConfig = {
+  __typename?: 'EntityTransformationJoinConfig';
+  leftAlias: Scalars['String']['output'];
+  onField: Scalars['String']['output'];
+  rightAlias: Scalars['String']['output'];
+};
+
+export type EntityTransformationJoinConfigInput = {
+  leftAlias: Scalars['String']['input'];
+  onField: Scalars['String']['input'];
+  rightAlias: Scalars['String']['input'];
+};
+
+export type EntityTransformationLoadConfig = {
+  __typename?: 'EntityTransformationLoadConfig';
+  alias: Scalars['String']['output'];
+  entityType: Scalars['String']['output'];
+  filters: Array<PropertyFilterConfig>;
+};
+
+export type EntityTransformationLoadConfigInput = {
+  alias: Scalars['String']['input'];
+  entityType: Scalars['String']['input'];
+  filters?: InputMaybe<Array<PropertyFilter>>;
+};
+
+export type EntityTransformationMaterializeConfig = {
+  __typename?: 'EntityTransformationMaterializeConfig';
+  outputs: Array<EntityTransformationMaterializeOutput>;
+};
+
+export type EntityTransformationMaterializeConfigInput = {
+  outputs: Array<EntityTransformationMaterializeOutputInput>;
+};
+
+export type EntityTransformationMaterializeFieldMapping = {
+  __typename?: 'EntityTransformationMaterializeFieldMapping';
+  outputField: Scalars['String']['output'];
+  sourceAlias: Scalars['String']['output'];
+  sourceField: Scalars['String']['output'];
+};
+
+export type EntityTransformationMaterializeFieldMappingInput = {
+  outputField: Scalars['String']['input'];
+  sourceAlias: Scalars['String']['input'];
+  sourceField: Scalars['String']['input'];
+};
+
+export type EntityTransformationMaterializeOutput = {
+  __typename?: 'EntityTransformationMaterializeOutput';
+  alias: Scalars['String']['output'];
+  fields: Array<EntityTransformationMaterializeFieldMapping>;
+};
+
+export type EntityTransformationMaterializeOutputInput = {
+  alias: Scalars['String']['input'];
+  fields: Array<EntityTransformationMaterializeFieldMappingInput>;
+};
+
+export type EntityTransformationNode = {
+  __typename?: 'EntityTransformationNode';
+  filter?: Maybe<EntityTransformationFilterConfig>;
+  id: Scalars['String']['output'];
+  inputs: Array<Scalars['String']['output']>;
+  join?: Maybe<EntityTransformationJoinConfig>;
+  load?: Maybe<EntityTransformationLoadConfig>;
+  materialize?: Maybe<EntityTransformationMaterializeConfig>;
+  name: Scalars['String']['output'];
+  paginate?: Maybe<EntityTransformationPaginateConfig>;
+  project?: Maybe<EntityTransformationProjectConfig>;
+  sort?: Maybe<EntityTransformationSortConfig>;
+  type: EntityTransformationNodeType;
+};
+
+export type EntityTransformationNodeInput = {
+  filter?: InputMaybe<EntityTransformationFilterConfigInput>;
+  id?: InputMaybe<Scalars['String']['input']>;
+  inputs?: InputMaybe<Array<Scalars['String']['input']>>;
+  join?: InputMaybe<EntityTransformationJoinConfigInput>;
+  load?: InputMaybe<EntityTransformationLoadConfigInput>;
+  materialize?: InputMaybe<EntityTransformationMaterializeConfigInput>;
+  name: Scalars['String']['input'];
+  paginate?: InputMaybe<EntityTransformationPaginateConfigInput>;
+  project?: InputMaybe<EntityTransformationProjectConfigInput>;
+  sort?: InputMaybe<EntityTransformationSortConfigInput>;
+  type: EntityTransformationNodeType;
+};
+
+export enum EntityTransformationNodeType {
+  AntiJoin = 'ANTI_JOIN',
+  Filter = 'FILTER',
+  Join = 'JOIN',
+  LeftJoin = 'LEFT_JOIN',
+  Load = 'LOAD',
+  Materialize = 'MATERIALIZE',
+  Paginate = 'PAGINATE',
+  Project = 'PROJECT',
+  Sort = 'SORT',
+  Union = 'UNION'
+}
+
+export type EntityTransformationPaginateConfig = {
+  __typename?: 'EntityTransformationPaginateConfig';
+  limit?: Maybe<Scalars['Int']['output']>;
+  offset?: Maybe<Scalars['Int']['output']>;
+};
+
+export type EntityTransformationPaginateConfigInput = {
+  limit?: InputMaybe<Scalars['Int']['input']>;
+  offset?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export type EntityTransformationProjectConfig = {
+  __typename?: 'EntityTransformationProjectConfig';
+  alias: Scalars['String']['output'];
+  fields: Array<Scalars['String']['output']>;
+};
+
+export type EntityTransformationProjectConfigInput = {
+  alias: Scalars['String']['input'];
+  fields: Array<Scalars['String']['input']>;
+};
+
+export type EntityTransformationRecordEdge = {
+  __typename?: 'EntityTransformationRecordEdge';
+  entities: Array<EntityTransformationRecordEntity>;
+};
+
+export type EntityTransformationRecordEntity = {
+  __typename?: 'EntityTransformationRecordEntity';
+  alias: Scalars['String']['output'];
+  entity?: Maybe<Entity>;
+};
+
+export type EntityTransformationSortConfig = {
+  __typename?: 'EntityTransformationSortConfig';
+  alias: Scalars['String']['output'];
+  direction: JoinSortDirection;
+  field: Scalars['String']['output'];
+};
+
+export type EntityTransformationSortConfigInput = {
+  alias: Scalars['String']['input'];
+  direction: JoinSortDirection;
+  field: Scalars['String']['input'];
+};
+
 export type ExecuteEntityJoinInput = {
   joinId: Scalars['String']['input'];
   leftFilters?: InputMaybe<Array<PropertyFilter>>;
   pagination?: InputMaybe<PaginationInput>;
   rightFilters?: InputMaybe<Array<PropertyFilter>>;
   sortCriteria?: InputMaybe<Array<JoinSortInput>>;
+};
+
+export type ExecuteEntityTransformationInput = {
+  pagination?: InputMaybe<PaginationInput>;
+  transformationId: Scalars['String']['input'];
 };
 
 export type FieldDefinition = {
@@ -241,16 +428,19 @@ export type Mutation = {
   createEntity: Entity;
   createEntityJoinDefinition: EntityJoinDefinition;
   createEntitySchema: EntitySchema;
+  createEntityTransformation: EntityTransformation;
   createOrganization: Organization;
   deleteEntity: Scalars['Boolean']['output'];
   deleteEntityJoinDefinition: Scalars['Boolean']['output'];
   deleteEntitySchema: Scalars['Boolean']['output'];
+  deleteEntityTransformation: Scalars['Boolean']['output'];
   deleteOrganization: Scalars['Boolean']['output'];
   removeFieldFromSchema: EntitySchema;
   rollbackEntity: Entity;
   updateEntity: Entity;
   updateEntityJoinDefinition: EntityJoinDefinition;
   updateEntitySchema: EntitySchema;
+  updateEntityTransformation: EntityTransformation;
   updateOrganization: Organization;
 };
 
@@ -276,6 +466,11 @@ export type MutationCreateEntitySchemaArgs = {
 };
 
 
+export type MutationCreateEntityTransformationArgs = {
+  input: CreateEntityTransformationInput;
+};
+
+
 export type MutationCreateOrganizationArgs = {
   input: CreateOrganizationInput;
 };
@@ -292,6 +487,11 @@ export type MutationDeleteEntityJoinDefinitionArgs = {
 
 
 export type MutationDeleteEntitySchemaArgs = {
+  id: Scalars['String']['input'];
+};
+
+
+export type MutationDeleteEntityTransformationArgs = {
   id: Scalars['String']['input'];
 };
 
@@ -326,6 +526,11 @@ export type MutationUpdateEntityJoinDefinitionArgs = {
 
 export type MutationUpdateEntitySchemaArgs = {
   input: UpdateEntitySchemaInput;
+};
+
+
+export type MutationUpdateEntityTransformationArgs = {
+  input: UpdateEntityTransformationInput;
 };
 
 
@@ -390,7 +595,10 @@ export type Query = {
   entitySchemaByName?: Maybe<EntitySchema>;
   entitySchemaVersions: Array<EntitySchema>;
   entitySchemas: Array<EntitySchema>;
+  entityTransformation?: Maybe<EntityTransformation>;
+  entityTransformations: Array<EntityTransformation>;
   executeEntityJoin: EntityJoinConnection;
+  executeEntityTransformation: EntityTransformationConnection;
   getEntityAncestors: Array<Entity>;
   getEntityChildren: Array<Entity>;
   getEntityDescendants: Array<Entity>;
@@ -404,6 +612,7 @@ export type Query = {
   searchEntitiesByPropertyContains: Array<Entity>;
   searchEntitiesByPropertyExists: Array<Entity>;
   searchEntitiesByPropertyRange: Array<Entity>;
+  transformationExecution: TransformationExecutionConnection;
   validateEntityAgainstSchema: ValidationResult;
 };
 
@@ -476,8 +685,23 @@ export type QueryEntitySchemasArgs = {
 };
 
 
+export type QueryEntityTransformationArgs = {
+  id: Scalars['String']['input'];
+};
+
+
+export type QueryEntityTransformationsArgs = {
+  organizationId: Scalars['String']['input'];
+};
+
+
 export type QueryExecuteEntityJoinArgs = {
   input: ExecuteEntityJoinInput;
+};
+
+
+export type QueryExecuteEntityTransformationArgs = {
+  input: ExecuteEntityTransformationInput;
 };
 
 
@@ -550,6 +774,14 @@ export type QuerySearchEntitiesByPropertyRangeArgs = {
 };
 
 
+export type QueryTransformationExecutionArgs = {
+  filters?: InputMaybe<Array<TransformationExecutionFilterInput>>;
+  pagination?: InputMaybe<PaginationInput>;
+  sort?: InputMaybe<TransformationExecutionSortInput>;
+  transformationId: Scalars['String']['input'];
+};
+
+
 export type QueryValidateEntityAgainstSchemaArgs = {
   entityId: Scalars['String']['input'];
 };
@@ -565,6 +797,48 @@ export enum SortDirection {
   Asc = 'ASC',
   Desc = 'DESC'
 }
+
+export type TransformationExecutionColumn = {
+  __typename?: 'TransformationExecutionColumn';
+  alias: Scalars['String']['output'];
+  field: Scalars['String']['output'];
+  key: Scalars['String']['output'];
+  label: Scalars['String']['output'];
+  sourceAlias: Scalars['String']['output'];
+  sourceField: Scalars['String']['output'];
+};
+
+export type TransformationExecutionConnection = {
+  __typename?: 'TransformationExecutionConnection';
+  columns: Array<TransformationExecutionColumn>;
+  pageInfo: PageInfo;
+  rows: Array<TransformationExecutionRow>;
+};
+
+export type TransformationExecutionFilterInput = {
+  alias: Scalars['String']['input'];
+  exists?: InputMaybe<Scalars['Boolean']['input']>;
+  field: Scalars['String']['input'];
+  inArray?: InputMaybe<Array<Scalars['String']['input']>>;
+  value?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type TransformationExecutionRow = {
+  __typename?: 'TransformationExecutionRow';
+  values: Array<TransformationExecutionValue>;
+};
+
+export type TransformationExecutionSortInput = {
+  alias: Scalars['String']['input'];
+  direction?: InputMaybe<SortDirection>;
+  field: Scalars['String']['input'];
+};
+
+export type TransformationExecutionValue = {
+  __typename?: 'TransformationExecutionValue';
+  columnKey: Scalars['String']['output'];
+  value?: Maybe<Scalars['String']['output']>;
+};
 
 export type UpdateEntityInput = {
   entityType?: InputMaybe<Scalars['String']['input']>;
@@ -591,6 +865,13 @@ export type UpdateEntitySchemaInput = {
   fields?: InputMaybe<Array<FieldDefinitionInput>>;
   id: Scalars['String']['input'];
   name?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type UpdateEntityTransformationInput = {
+  description?: InputMaybe<Scalars['String']['input']>;
+  id: Scalars['String']['input'];
+  name?: InputMaybe<Scalars['String']['input']>;
+  nodes?: InputMaybe<Array<EntityTransformationNodeInput>>;
 };
 
 export type UpdateOrganizationInput = {
@@ -772,8 +1053,116 @@ export type ExecuteJoinQueryVariables = Exact<{
 
 export type ExecuteJoinQuery = { __typename?: 'Query', executeEntityJoin: { __typename?: 'EntityJoinConnection', edges: Array<{ __typename?: 'EntityJoinEdge', left: { __typename?: 'Entity', id: string, entityType: string, properties: string }, right: { __typename?: 'Entity', id: string, entityType: string, properties: string } }>, pageInfo: { __typename?: 'PageInfo', totalCount: number, hasNextPage: boolean, hasPreviousPage: boolean } } };
 
+export type EntityTransformationNodeFieldsFragment = { __typename?: 'EntityTransformationNode', id: string, name: string, type: EntityTransformationNodeType, inputs: Array<string>, load?: { __typename?: 'EntityTransformationLoadConfig', alias: string, entityType: string, filters: Array<{ __typename?: 'PropertyFilterConfig', key: string, value?: string | null, exists?: boolean | null, inArray?: Array<string> | null }> } | null, filter?: { __typename?: 'EntityTransformationFilterConfig', alias: string, filters: Array<{ __typename?: 'PropertyFilterConfig', key: string, value?: string | null, exists?: boolean | null, inArray?: Array<string> | null }> } | null, project?: { __typename?: 'EntityTransformationProjectConfig', alias: string, fields: Array<string> } | null, join?: { __typename?: 'EntityTransformationJoinConfig', leftAlias: string, rightAlias: string, onField: string } | null, materialize?: { __typename?: 'EntityTransformationMaterializeConfig', outputs: Array<{ __typename?: 'EntityTransformationMaterializeOutput', alias: string, fields: Array<{ __typename?: 'EntityTransformationMaterializeFieldMapping', sourceAlias: string, sourceField: string, outputField: string }> }> } | null, sort?: { __typename?: 'EntityTransformationSortConfig', alias: string, field: string, direction: JoinSortDirection } | null, paginate?: { __typename?: 'EntityTransformationPaginateConfig', limit?: number | null, offset?: number | null } | null };
+
+export type EntityTransformationsQueryVariables = Exact<{
+  organizationId: Scalars['String']['input'];
+}>;
 
 
+export type EntityTransformationsQuery = { __typename?: 'Query', entityTransformations: Array<{ __typename?: 'EntityTransformation', id: string, organizationId: string, name: string, description?: string | null, createdAt: string, updatedAt: string, nodes: Array<{ __typename?: 'EntityTransformationNode', id: string }> }> };
+
+export type EntityTransformationQueryVariables = Exact<{
+  id: Scalars['String']['input'];
+}>;
+
+
+export type EntityTransformationQuery = { __typename?: 'Query', entityTransformation?: { __typename?: 'EntityTransformation', id: string, organizationId: string, name: string, description?: string | null, createdAt: string, updatedAt: string, nodes: Array<{ __typename?: 'EntityTransformationNode', id: string, name: string, type: EntityTransformationNodeType, inputs: Array<string>, load?: { __typename?: 'EntityTransformationLoadConfig', alias: string, entityType: string, filters: Array<{ __typename?: 'PropertyFilterConfig', key: string, value?: string | null, exists?: boolean | null, inArray?: Array<string> | null }> } | null, filter?: { __typename?: 'EntityTransformationFilterConfig', alias: string, filters: Array<{ __typename?: 'PropertyFilterConfig', key: string, value?: string | null, exists?: boolean | null, inArray?: Array<string> | null }> } | null, project?: { __typename?: 'EntityTransformationProjectConfig', alias: string, fields: Array<string> } | null, join?: { __typename?: 'EntityTransformationJoinConfig', leftAlias: string, rightAlias: string, onField: string } | null, materialize?: { __typename?: 'EntityTransformationMaterializeConfig', outputs: Array<{ __typename?: 'EntityTransformationMaterializeOutput', alias: string, fields: Array<{ __typename?: 'EntityTransformationMaterializeFieldMapping', sourceAlias: string, sourceField: string, outputField: string }> }> } | null, sort?: { __typename?: 'EntityTransformationSortConfig', alias: string, field: string, direction: JoinSortDirection } | null, paginate?: { __typename?: 'EntityTransformationPaginateConfig', limit?: number | null, offset?: number | null } | null }> } | null };
+
+export type CreateEntityTransformationMutationVariables = Exact<{
+  input: CreateEntityTransformationInput;
+}>;
+
+
+export type CreateEntityTransformationMutation = { __typename?: 'Mutation', createEntityTransformation: { __typename?: 'EntityTransformation', id: string, organizationId: string, name: string, description?: string | null, createdAt: string, updatedAt: string, nodes: Array<{ __typename?: 'EntityTransformationNode', id: string, name: string, type: EntityTransformationNodeType, inputs: Array<string>, load?: { __typename?: 'EntityTransformationLoadConfig', alias: string, entityType: string, filters: Array<{ __typename?: 'PropertyFilterConfig', key: string, value?: string | null, exists?: boolean | null, inArray?: Array<string> | null }> } | null, filter?: { __typename?: 'EntityTransformationFilterConfig', alias: string, filters: Array<{ __typename?: 'PropertyFilterConfig', key: string, value?: string | null, exists?: boolean | null, inArray?: Array<string> | null }> } | null, project?: { __typename?: 'EntityTransformationProjectConfig', alias: string, fields: Array<string> } | null, join?: { __typename?: 'EntityTransformationJoinConfig', leftAlias: string, rightAlias: string, onField: string } | null, materialize?: { __typename?: 'EntityTransformationMaterializeConfig', outputs: Array<{ __typename?: 'EntityTransformationMaterializeOutput', alias: string, fields: Array<{ __typename?: 'EntityTransformationMaterializeFieldMapping', sourceAlias: string, sourceField: string, outputField: string }> }> } | null, sort?: { __typename?: 'EntityTransformationSortConfig', alias: string, field: string, direction: JoinSortDirection } | null, paginate?: { __typename?: 'EntityTransformationPaginateConfig', limit?: number | null, offset?: number | null } | null }> } };
+
+export type UpdateEntityTransformationMutationVariables = Exact<{
+  input: UpdateEntityTransformationInput;
+}>;
+
+
+export type UpdateEntityTransformationMutation = { __typename?: 'Mutation', updateEntityTransformation: { __typename?: 'EntityTransformation', id: string, organizationId: string, name: string, description?: string | null, createdAt: string, updatedAt: string, nodes: Array<{ __typename?: 'EntityTransformationNode', id: string, name: string, type: EntityTransformationNodeType, inputs: Array<string>, load?: { __typename?: 'EntityTransformationLoadConfig', alias: string, entityType: string, filters: Array<{ __typename?: 'PropertyFilterConfig', key: string, value?: string | null, exists?: boolean | null, inArray?: Array<string> | null }> } | null, filter?: { __typename?: 'EntityTransformationFilterConfig', alias: string, filters: Array<{ __typename?: 'PropertyFilterConfig', key: string, value?: string | null, exists?: boolean | null, inArray?: Array<string> | null }> } | null, project?: { __typename?: 'EntityTransformationProjectConfig', alias: string, fields: Array<string> } | null, join?: { __typename?: 'EntityTransformationJoinConfig', leftAlias: string, rightAlias: string, onField: string } | null, materialize?: { __typename?: 'EntityTransformationMaterializeConfig', outputs: Array<{ __typename?: 'EntityTransformationMaterializeOutput', alias: string, fields: Array<{ __typename?: 'EntityTransformationMaterializeFieldMapping', sourceAlias: string, sourceField: string, outputField: string }> }> } | null, sort?: { __typename?: 'EntityTransformationSortConfig', alias: string, field: string, direction: JoinSortDirection } | null, paginate?: { __typename?: 'EntityTransformationPaginateConfig', limit?: number | null, offset?: number | null } | null }> } };
+
+export type DeleteEntityTransformationMutationVariables = Exact<{
+  id: Scalars['String']['input'];
+}>;
+
+
+export type DeleteEntityTransformationMutation = { __typename?: 'Mutation', deleteEntityTransformation: boolean };
+
+export type ExecuteEntityTransformationQueryVariables = Exact<{
+  input: ExecuteEntityTransformationInput;
+}>;
+
+
+export type ExecuteEntityTransformationQuery = { __typename?: 'Query', executeEntityTransformation: { __typename?: 'EntityTransformationConnection', edges: Array<{ __typename?: 'EntityTransformationRecordEdge', entities: Array<{ __typename?: 'EntityTransformationRecordEntity', alias: string, entity?: { __typename?: 'Entity', id: string, entityType: string, path: string, referenceValue?: string | null, properties: string } | null }> }>, pageInfo: { __typename?: 'PageInfo', totalCount: number, hasNextPage: boolean, hasPreviousPage: boolean } } };
+
+export type TransformationExecutionQueryVariables = Exact<{
+  transformationId: Scalars['String']['input'];
+  filters?: InputMaybe<Array<TransformationExecutionFilterInput> | TransformationExecutionFilterInput>;
+  sort?: InputMaybe<TransformationExecutionSortInput>;
+  pagination?: InputMaybe<PaginationInput>;
+}>;
+
+
+export type TransformationExecutionQuery = { __typename?: 'Query', transformationExecution: { __typename?: 'TransformationExecutionConnection', columns: Array<{ __typename?: 'TransformationExecutionColumn', key: string, alias: string, field: string, label: string, sourceAlias: string, sourceField: string }>, rows: Array<{ __typename?: 'TransformationExecutionRow', values: Array<{ __typename?: 'TransformationExecutionValue', columnKey: string, value?: string | null }> }>, pageInfo: { __typename?: 'PageInfo', totalCount: number, hasNextPage: boolean, hasPreviousPage: boolean } } };
+
+
+export const EntityTransformationNodeFieldsFragmentDoc = `
+    fragment EntityTransformationNodeFields on EntityTransformationNode {
+  id
+  name
+  type
+  inputs
+  load {
+    alias
+    entityType
+    filters {
+      key
+      value
+      exists
+      inArray
+    }
+  }
+  filter {
+    alias
+    filters {
+      key
+      value
+      exists
+      inArray
+    }
+  }
+  project {
+    alias
+    fields
+  }
+  join {
+    leftAlias
+    rightAlias
+    onField
+  }
+  materialize {
+    outputs {
+      alias
+      fields {
+        sourceAlias
+        sourceField
+        outputField
+      }
+    }
+  }
+  sort {
+    alias
+    field
+    direction
+  }
+  paginate {
+    limit
+    offset
+  }
+}
+    `;
 export const GetOrganizationsDocument = `
     query GetOrganizations {
   organizations {
@@ -1608,3 +1997,266 @@ useExecuteJoinQuery.getKey = (variables: ExecuteJoinQueryVariables) => ['Execute
 
 
 useExecuteJoinQuery.fetcher = (variables: ExecuteJoinQueryVariables, options?: RequestInit['headers']) => graphqlRequest<ExecuteJoinQuery, ExecuteJoinQueryVariables>(ExecuteJoinDocument, variables, options);
+
+export const EntityTransformationsDocument = `
+    query EntityTransformations($organizationId: String!) {
+  entityTransformations(organizationId: $organizationId) {
+    id
+    organizationId
+    name
+    description
+    createdAt
+    updatedAt
+    nodes {
+      id
+    }
+  }
+}
+    `;
+
+export const useEntityTransformationsQuery = <
+      TData = EntityTransformationsQuery,
+      TError = unknown
+    >(
+      variables: EntityTransformationsQueryVariables,
+      options?: Omit<UseQueryOptions<EntityTransformationsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<EntityTransformationsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<EntityTransformationsQuery, TError, TData>(
+      {
+    queryKey: ['EntityTransformations', variables],
+    queryFn: () => graphqlRequest<EntityTransformationsQuery, EntityTransformationsQueryVariables>(EntityTransformationsDocument, variables),
+    ...options
+  }
+    )};
+
+useEntityTransformationsQuery.getKey = (variables: EntityTransformationsQueryVariables) => ['EntityTransformations', variables];
+
+
+useEntityTransformationsQuery.fetcher = (variables: EntityTransformationsQueryVariables, options?: RequestInit['headers']) => graphqlRequest<EntityTransformationsQuery, EntityTransformationsQueryVariables>(EntityTransformationsDocument, variables, options);
+
+export const EntityTransformationDocument = `
+    query EntityTransformation($id: String!) {
+  entityTransformation(id: $id) {
+    id
+    organizationId
+    name
+    description
+    createdAt
+    updatedAt
+    nodes {
+      ...EntityTransformationNodeFields
+    }
+  }
+}
+    ${EntityTransformationNodeFieldsFragmentDoc}`;
+
+export const useEntityTransformationQuery = <
+      TData = EntityTransformationQuery,
+      TError = unknown
+    >(
+      variables: EntityTransformationQueryVariables,
+      options?: Omit<UseQueryOptions<EntityTransformationQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<EntityTransformationQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<EntityTransformationQuery, TError, TData>(
+      {
+    queryKey: ['EntityTransformation', variables],
+    queryFn: () => graphqlRequest<EntityTransformationQuery, EntityTransformationQueryVariables>(EntityTransformationDocument, variables),
+    ...options
+  }
+    )};
+
+useEntityTransformationQuery.getKey = (variables: EntityTransformationQueryVariables) => ['EntityTransformation', variables];
+
+
+useEntityTransformationQuery.fetcher = (variables: EntityTransformationQueryVariables, options?: RequestInit['headers']) => graphqlRequest<EntityTransformationQuery, EntityTransformationQueryVariables>(EntityTransformationDocument, variables, options);
+
+export const CreateEntityTransformationDocument = `
+    mutation CreateEntityTransformation($input: CreateEntityTransformationInput!) {
+  createEntityTransformation(input: $input) {
+    id
+    organizationId
+    name
+    description
+    createdAt
+    updatedAt
+    nodes {
+      ...EntityTransformationNodeFields
+    }
+  }
+}
+    ${EntityTransformationNodeFieldsFragmentDoc}`;
+
+export const useCreateEntityTransformationMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateEntityTransformationMutation, TError, CreateEntityTransformationMutationVariables, TContext>) => {
+    
+    return useMutation<CreateEntityTransformationMutation, TError, CreateEntityTransformationMutationVariables, TContext>(
+      {
+    mutationKey: ['CreateEntityTransformation'],
+    mutationFn: (variables?: CreateEntityTransformationMutationVariables) => graphqlRequest<CreateEntityTransformationMutation, CreateEntityTransformationMutationVariables>(CreateEntityTransformationDocument, variables),
+    ...options
+  }
+    )};
+
+useCreateEntityTransformationMutation.getKey = () => ['CreateEntityTransformation'];
+
+
+useCreateEntityTransformationMutation.fetcher = (variables: CreateEntityTransformationMutationVariables, options?: RequestInit['headers']) => graphqlRequest<CreateEntityTransformationMutation, CreateEntityTransformationMutationVariables>(CreateEntityTransformationDocument, variables, options);
+
+export const UpdateEntityTransformationDocument = `
+    mutation UpdateEntityTransformation($input: UpdateEntityTransformationInput!) {
+  updateEntityTransformation(input: $input) {
+    id
+    organizationId
+    name
+    description
+    createdAt
+    updatedAt
+    nodes {
+      ...EntityTransformationNodeFields
+    }
+  }
+}
+    ${EntityTransformationNodeFieldsFragmentDoc}`;
+
+export const useUpdateEntityTransformationMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateEntityTransformationMutation, TError, UpdateEntityTransformationMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateEntityTransformationMutation, TError, UpdateEntityTransformationMutationVariables, TContext>(
+      {
+    mutationKey: ['UpdateEntityTransformation'],
+    mutationFn: (variables?: UpdateEntityTransformationMutationVariables) => graphqlRequest<UpdateEntityTransformationMutation, UpdateEntityTransformationMutationVariables>(UpdateEntityTransformationDocument, variables),
+    ...options
+  }
+    )};
+
+useUpdateEntityTransformationMutation.getKey = () => ['UpdateEntityTransformation'];
+
+
+useUpdateEntityTransformationMutation.fetcher = (variables: UpdateEntityTransformationMutationVariables, options?: RequestInit['headers']) => graphqlRequest<UpdateEntityTransformationMutation, UpdateEntityTransformationMutationVariables>(UpdateEntityTransformationDocument, variables, options);
+
+export const DeleteEntityTransformationDocument = `
+    mutation DeleteEntityTransformation($id: String!) {
+  deleteEntityTransformation(id: $id)
+}
+    `;
+
+export const useDeleteEntityTransformationMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteEntityTransformationMutation, TError, DeleteEntityTransformationMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteEntityTransformationMutation, TError, DeleteEntityTransformationMutationVariables, TContext>(
+      {
+    mutationKey: ['DeleteEntityTransformation'],
+    mutationFn: (variables?: DeleteEntityTransformationMutationVariables) => graphqlRequest<DeleteEntityTransformationMutation, DeleteEntityTransformationMutationVariables>(DeleteEntityTransformationDocument, variables),
+    ...options
+  }
+    )};
+
+useDeleteEntityTransformationMutation.getKey = () => ['DeleteEntityTransformation'];
+
+
+useDeleteEntityTransformationMutation.fetcher = (variables: DeleteEntityTransformationMutationVariables, options?: RequestInit['headers']) => graphqlRequest<DeleteEntityTransformationMutation, DeleteEntityTransformationMutationVariables>(DeleteEntityTransformationDocument, variables, options);
+
+export const ExecuteEntityTransformationDocument = `
+    query ExecuteEntityTransformation($input: ExecuteEntityTransformationInput!) {
+  executeEntityTransformation(input: $input) {
+    edges {
+      entities {
+        alias
+        entity {
+          id
+          entityType
+          path
+          referenceValue
+          properties
+        }
+      }
+    }
+    pageInfo {
+      totalCount
+      hasNextPage
+      hasPreviousPage
+    }
+  }
+}
+    `;
+
+export const useExecuteEntityTransformationQuery = <
+      TData = ExecuteEntityTransformationQuery,
+      TError = unknown
+    >(
+      variables: ExecuteEntityTransformationQueryVariables,
+      options?: Omit<UseQueryOptions<ExecuteEntityTransformationQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<ExecuteEntityTransformationQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<ExecuteEntityTransformationQuery, TError, TData>(
+      {
+    queryKey: ['ExecuteEntityTransformation', variables],
+    queryFn: () => graphqlRequest<ExecuteEntityTransformationQuery, ExecuteEntityTransformationQueryVariables>(ExecuteEntityTransformationDocument, variables),
+    ...options
+  }
+    )};
+
+useExecuteEntityTransformationQuery.getKey = (variables: ExecuteEntityTransformationQueryVariables) => ['ExecuteEntityTransformation', variables];
+
+
+useExecuteEntityTransformationQuery.fetcher = (variables: ExecuteEntityTransformationQueryVariables, options?: RequestInit['headers']) => graphqlRequest<ExecuteEntityTransformationQuery, ExecuteEntityTransformationQueryVariables>(ExecuteEntityTransformationDocument, variables, options);
+
+export const TransformationExecutionDocument = `
+    query TransformationExecution($transformationId: String!, $filters: [TransformationExecutionFilterInput!], $sort: TransformationExecutionSortInput, $pagination: PaginationInput) {
+  transformationExecution(
+    transformationId: $transformationId
+    filters: $filters
+    sort: $sort
+    pagination: $pagination
+  ) {
+    columns {
+      key
+      alias
+      field
+      label
+      sourceAlias
+      sourceField
+    }
+    rows {
+      values {
+        columnKey
+        value
+      }
+    }
+    pageInfo {
+      totalCount
+      hasNextPage
+      hasPreviousPage
+    }
+  }
+}
+    `;
+
+export const useTransformationExecutionQuery = <
+      TData = TransformationExecutionQuery,
+      TError = unknown
+    >(
+      variables: TransformationExecutionQueryVariables,
+      options?: Omit<UseQueryOptions<TransformationExecutionQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<TransformationExecutionQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<TransformationExecutionQuery, TError, TData>(
+      {
+    queryKey: ['TransformationExecution', variables],
+    queryFn: () => graphqlRequest<TransformationExecutionQuery, TransformationExecutionQueryVariables>(TransformationExecutionDocument, variables),
+    ...options
+  }
+    )};
+
+useTransformationExecutionQuery.getKey = (variables: TransformationExecutionQueryVariables) => ['TransformationExecution', variables];
+
+
+useTransformationExecutionQuery.fetcher = (variables: TransformationExecutionQueryVariables, options?: RequestInit['headers']) => graphqlRequest<TransformationExecutionQuery, TransformationExecutionQueryVariables>(TransformationExecutionDocument, variables, options);

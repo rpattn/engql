@@ -12,13 +12,15 @@ import (
 )
 
 type Querier interface {
-	CreateEntity(ctx context.Context, arg CreateEntityParams) (CreateEntityRow, error)
-	CreateEntityJoin(ctx context.Context, arg CreateEntityJoinParams) (CreateEntityJoinRow, error)
-	CreateEntitySchema(ctx context.Context, arg CreateEntitySchemaParams) (CreateEntitySchemaRow, error)
+        CreateEntity(ctx context.Context, arg CreateEntityParams) (CreateEntityRow, error)
+        CreateEntityJoin(ctx context.Context, arg CreateEntityJoinParams) (CreateEntityJoinRow, error)
+        CreateEntityTransformation(ctx context.Context, arg CreateEntityTransformationParams) (CreateEntityTransformationRow, error)
+        CreateEntitySchema(ctx context.Context, arg CreateEntitySchemaParams) (CreateEntitySchemaRow, error)
 	CreateEntitySchemaAndArchivePrevious(ctx context.Context, arg CreateEntitySchemaAndArchivePreviousParams) (CreateEntitySchemaAndArchivePreviousRow, error)
 	CreateOrganization(ctx context.Context, arg CreateOrganizationParams) (Organization, error)
-	DeleteEntity(ctx context.Context, id uuid.UUID) error
-	DeleteEntityJoin(ctx context.Context, id uuid.UUID) error
+        DeleteEntity(ctx context.Context, id uuid.UUID) error
+        DeleteEntityJoin(ctx context.Context, id uuid.UUID) error
+        DeleteEntityTransformation(ctx context.Context, id uuid.UUID) error
 	DeleteOrganization(ctx context.Context, id uuid.UUID) error
 	EntityIngestBatchStats(ctx context.Context, organizationID pgtype.UUID) (EntityIngestBatchStatsRow, error)
 	FilterEntitiesByProperty(ctx context.Context, arg FilterEntitiesByPropertyParams) ([]FilterEntitiesByPropertyRow, error)
@@ -30,9 +32,10 @@ type Querier interface {
         GetEntityCountByType(ctx context.Context, arg GetEntityCountByTypeParams) (int64, error)
         GetEntityByReference(ctx context.Context, arg GetEntityByReferenceParams) (GetEntityByReferenceRow, error)
 	GetEntityDescendants(ctx context.Context, arg GetEntityDescendantsParams) ([]GetEntityDescendantsRow, error)
-	GetEntityHistoryByVersion(ctx context.Context, arg GetEntityHistoryByVersionParams) (EntitiesHistory, error)
-	GetEntityJoin(ctx context.Context, id uuid.UUID) (GetEntityJoinRow, error)
-	GetEntitySchema(ctx context.Context, id uuid.UUID) (GetEntitySchemaRow, error)
+        GetEntityHistoryByVersion(ctx context.Context, arg GetEntityHistoryByVersionParams) (EntitiesHistory, error)
+        GetEntityJoin(ctx context.Context, id uuid.UUID) (GetEntityJoinRow, error)
+        GetEntityTransformation(ctx context.Context, id uuid.UUID) (GetEntityTransformationRow, error)
+        GetEntitySchema(ctx context.Context, id uuid.UUID) (GetEntitySchemaRow, error)
 	GetEntitySchemaByName(ctx context.Context, arg GetEntitySchemaByNameParams) (GetEntitySchemaByNameRow, error)
 	GetEntitySchemaVersionByNumber(ctx context.Context, arg GetEntitySchemaVersionByNumberParams) (GetEntitySchemaVersionByNumberRow, error)
 	GetEntitySiblings(ctx context.Context, arg GetEntitySiblingsParams) ([]GetEntitySiblingsRow, error)
@@ -46,9 +49,10 @@ type Querier interface {
         ListEntitiesByType(ctx context.Context, arg ListEntitiesByTypeParams) ([]ListEntitiesByTypeRow, error)
         ListEntitiesByReferences(ctx context.Context, arg ListEntitiesByReferencesParams) ([]ListEntitiesByReferencesRow, error)
 	ListEntityHistory(ctx context.Context, entityID uuid.UUID) ([]EntitiesHistory, error)
-	ListEntityIngestBatchesByStatus(ctx context.Context, arg ListEntityIngestBatchesByStatusParams) ([]EntityIngestBatch, error)
-	ListEntityJoinsByOrganization(ctx context.Context, organizationID uuid.UUID) ([]ListEntityJoinsByOrganizationRow, error)
-	ListEntitySchemaVersions(ctx context.Context, arg ListEntitySchemaVersionsParams) ([]ListEntitySchemaVersionsRow, error)
+        ListEntityIngestBatchesByStatus(ctx context.Context, arg ListEntityIngestBatchesByStatusParams) ([]EntityIngestBatch, error)
+        ListEntityJoinsByOrganization(ctx context.Context, organizationID uuid.UUID) ([]ListEntityJoinsByOrganizationRow, error)
+        ListEntityTransformationsByOrganization(ctx context.Context, organizationID uuid.UUID) ([]ListEntityTransformationsByOrganizationRow, error)
+        ListEntitySchemaVersions(ctx context.Context, arg ListEntitySchemaVersionsParams) ([]ListEntitySchemaVersionsRow, error)
 	ListEntitySchemas(ctx context.Context, organizationID uuid.UUID) ([]ListEntitySchemasRow, error)
 	ListOrganizations(ctx context.Context) ([]Organization, error)
 	MarkEntityIngestBatchCompleted(ctx context.Context, arg MarkEntityIngestBatchCompletedParams) error
@@ -56,9 +60,10 @@ type Querier interface {
 	MarkEntityIngestBatchFlushing(ctx context.Context, id uuid.UUID) error
 	MarkEntitySchemaInactive(ctx context.Context, id uuid.UUID) error
 	SchemaExists(ctx context.Context, arg SchemaExistsParams) (bool, error)
-	UpdateEntity(ctx context.Context, arg UpdateEntityParams) (UpdateEntityRow, error)
-	UpdateEntityJoin(ctx context.Context, arg UpdateEntityJoinParams) (UpdateEntityJoinRow, error)
-	UpdateOrganization(ctx context.Context, arg UpdateOrganizationParams) (Organization, error)
+        UpdateEntity(ctx context.Context, arg UpdateEntityParams) (UpdateEntityRow, error)
+        UpdateEntityJoin(ctx context.Context, arg UpdateEntityJoinParams) (UpdateEntityJoinRow, error)
+        UpdateEntityTransformation(ctx context.Context, arg UpdateEntityTransformationParams) (UpdateEntityTransformationRow, error)
+        UpdateOrganization(ctx context.Context, arg UpdateOrganizationParams) (Organization, error)
 	UpsertEntityFromHistory(ctx context.Context, arg UpsertEntityFromHistoryParams) error
 }
 
