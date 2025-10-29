@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { MutableRefObject, useMemo } from 'react'
 
 import ReactFlow, { Background, Controls } from 'reactflow'
 
@@ -11,11 +11,19 @@ import 'reactflow/dist/style.css'
 export function TransformationCanvas({
   controller,
   onSelect,
+  onDeselect,
   selectedNodeId,
+  preserveSelectionRef,
+  onBackgroundPointerDown,
+  onNodePointerDown,
 }: {
   controller: TransformationGraphController
   onSelect: (node: TransformationCanvasNode | null) => void
+  onDeselect: () => void
   selectedNodeId: string | null
+  preserveSelectionRef: MutableRefObject<boolean>
+  onBackgroundPointerDown: () => void
+  onNodePointerDown: () => void
 }) {
   const nodeTypes = useMemo(
     () => ({
@@ -47,15 +55,41 @@ export function TransformationCanvas({
           onNodesChange={controller.onNodesChange}
           onEdgesChange={controller.onEdgesChange}
           onConnect={controller.onConnect}
+          onPaneMouseDown={onBackgroundPointerDown}
+          onPaneClick={onDeselect}
+          onNodeMouseDown={onNodePointerDown}
           onSelectionChange={(changes) => {
-            const next = changes.nodes?.find((node) => node.selected) ?? null
+            const shouldPreserveSelection = preserveSelectionRef.current
+            const candidates = changes.nodes ?? []
+            let next: typeof candidates[number] | null = null
+
+            for (let index = candidates.length - 1; index >= 0; index -= 1) {
+              const candidate = candidates[index]
+              if (candidate.selected) {
+                next = candidate
+                break
+              }
+            }
+
             const nextId = next?.id ?? null
 
-            if (nextId === selectedNodeId) {
+            if (nextId) {
+              if (nextId === selectedNodeId) {
+                return
+              }
+
+              onSelect(next as TransformationCanvasNode | null)
               return
             }
 
-            onSelect(next as TransformationCanvasNode | null)
+            if (shouldPreserveSelection) {
+              // React Flow emitted a selection reset for the existing node (for example
+              // after the graph re-renders). Keep our explicit selection state so the
+              // inspector stays open.
+              return
+            }
+
+            onSelect(null)
           }}
           minZoom={0.2}
           maxZoom={1.75}

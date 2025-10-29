@@ -1,9 +1,16 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import { EntityTransformationNodeType } from '@/generated/graphql'
 
 import type { TransformationCanvasNode, TransformationNodeData } from '../types'
+import {
+  generateUniqueAlias,
+  isAliasDerivedFromEntityType,
+  sanitizeAlias,
+} from '../utils/alias'
 import { formatNodeType } from '../utils/format'
+
+type SchemaFieldOptions = Record<string, string[]>
 
 type NodeInspectorProps = {
   node: TransformationCanvasNode | null
@@ -12,6 +19,9 @@ type NodeInspectorProps = {
     updater: (node: TransformationCanvasNode) => TransformationCanvasNode,
   ) => void
   onDelete: (nodeId: string) => void
+  allNodes: TransformationCanvasNode[]
+  schemaFieldOptions: SchemaFieldOptions
+  entityTypeOptions: string[]
 }
 
 type FilterRow = {
@@ -21,7 +31,35 @@ type FilterRow = {
   inArray?: string[] | null
 }
 
-export function NodeInspector({ node, onUpdate, onDelete }: NodeInspectorProps) {
+type ProjectFieldsInputProps = {
+  nodeId: string
+  draftValue: string
+  onDraftChange: (value: string) => void
+  onCommit: (value: string) => void
+  onRemoveLast: () => void
+  options: string[]
+  alias?: string | null
+}
+
+export function NodeInspector({
+  node,
+  onUpdate,
+  onDelete,
+  allNodes,
+  schemaFieldOptions,
+  entityTypeOptions,
+}: NodeInspectorProps) {
+  const [projectFieldDraft, setProjectFieldDraft] = useState('')
+
+  const typeLabel = useMemo(
+    () => (node ? formatNodeType(node.data.type) : ''),
+    [node?.data.type],
+  )
+
+  useEffect(() => {
+    setProjectFieldDraft('')
+  }, [node?.id])
+
   if (!node) {
     return (
       <aside className="rounded-md border border-dashed border-slate-300 p-4 text-sm text-slate-500">
@@ -31,8 +69,6 @@ export function NodeInspector({ node, onUpdate, onDelete }: NodeInspectorProps) 
   }
 
   const { data } = node
-
-  const typeLabel = useMemo(() => formatNodeType(data.type), [data.type])
 
   const updateData = (updater: (data: TransformationNodeData) => TransformationNodeData) => {
     onUpdate(node.id, (current) => ({
@@ -50,9 +86,28 @@ export function NodeInspector({ node, onUpdate, onDelete }: NodeInspectorProps) 
     }))
   }
 
+  const getFieldOptions = (alias?: string | null) => {
+    if (!alias) {
+      return [] as string[]
+    }
+
+    const trimmed = alias.trim()
+    if (!trimmed.length) {
+      return [] as string[]
+    }
+
+    return (
+      schemaFieldOptions[trimmed] ??
+      schemaFieldOptions[sanitizeAlias(trimmed)] ??
+      []
+    )
+  }
+
   const renderFilters = (
     filters: FilterRow[] | undefined,
     onChange: (rows: FilterRow[]) => void,
+    alias?: string,
+    contextKey = 'filters',
   ) => {
     const rows = filters ?? []
 
@@ -66,10 +121,19 @@ export function NodeInspector({ node, onUpdate, onDelete }: NodeInspectorProps) 
       onChange(rows.filter((_, rowIndex) => rowIndex !== index))
     }
 
+    const propertyOptions = getFieldOptions(alias)
+    const datalistId =
+      alias && propertyOptions.length
+        ? `${contextKey}-properties-${node.id}-${sanitizeAlias(alias) || 'default'}`
+        : undefined
+
     return (
       <div className="space-y-2">
         {rows.map((row, index) => (
-          <div key={`${row.key}-${index}`} className="rounded border border-slate-200 p-2">
+          <div
+            key={`${contextKey}-${node.id}-${index}`}
+            className="rounded border border-slate-200 p-2"
+          >
             <label className="block text-xs font-medium text-slate-600">
               Property key
               <input
@@ -80,6 +144,7 @@ export function NodeInspector({ node, onUpdate, onDelete }: NodeInspectorProps) 
                     key: event.target.value,
                   })
                 }
+                list={datalistId}
                 className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
               />
             </label>
@@ -134,6 +199,13 @@ export function NodeInspector({ node, onUpdate, onDelete }: NodeInspectorProps) 
             </button>
           </div>
         ))}
+        {datalistId && (
+          <datalist id={datalistId}>
+            {propertyOptions.map((option) => (
+              <option key={option} value={option} />
+            ))}
+          </datalist>
+        )}
         <button
           type="button"
           onClick={() => onChange([...rows, { key: '' }])}
@@ -199,28 +271,61 @@ export function NodeInspector({ node, onUpdate, onDelete }: NodeInspectorProps) 
             </label>
             <label className="block text-xs font-medium text-slate-600">
               Entity type
-              <input
-                value={data.config.load.entityType}
-                onChange={(event) =>
-                  updateConfig((config) => ({
-                    ...config,
-                    load: {
-                      ...config.load!,
-                      entityType: event.target.value,
-                    },
-                  }))
-                }
-                className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
-              />
+              {(() => {
+                const entityTypeListId = entityTypeOptions.length
+                  ? `load-entity-types-${node.id}`
+                  : undefined
+
+                return (
+                  <>
+                    <input
+                      value={data.config.load.entityType}
+                      onChange={(event) =>
+                        updateConfig((config) => ({
+                          ...config,
+                          load: {
+                            ...config.load!,
+                            entityType: event.target.value,
+                            alias:
+                              isAliasDerivedFromEntityType(
+                                config.load!.alias,
+                                config.load!.entityType,
+                              ) && event.target.value.trim()
+                                ? generateUniqueAlias(
+                                    event.target.value,
+                                    allNodes,
+                                    node.id,
+                                  )
+                                : config.load!.alias,
+                          },
+                        }))
+                      }
+                      list={entityTypeListId}
+                      className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
+                    />
+                    {entityTypeListId && (
+                      <datalist id={entityTypeListId}>
+                        {entityTypeOptions.map((option) => (
+                          <option key={option} value={option} />
+                        ))}
+                      </datalist>
+                    )}
+                  </>
+                )
+              })()}
             </label>
-            {renderFilters(data.config.load.filters, (rows) =>
-              updateConfig((config) => ({
-                ...config,
-                load: {
-                  ...config.load!,
-                  filters: rows,
-                },
-              })),
+            {renderFilters(
+              data.config.load.filters,
+              (rows) =>
+                updateConfig((config) => ({
+                  ...config,
+                  load: {
+                    ...config.load!,
+                    filters: rows,
+                  },
+                })),
+              data.config.load.alias,
+              'load',
             )}
           </div>
         )}
@@ -246,14 +351,18 @@ export function NodeInspector({ node, onUpdate, onDelete }: NodeInspectorProps) 
                 className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
               />
             </label>
-            {renderFilters(data.config.filter.filters, (rows) =>
-              updateConfig((config) => ({
-                ...config,
-                filter: {
-                  ...config.filter!,
-                  filters: rows,
-                },
-              })),
+            {renderFilters(
+              data.config.filter.filters,
+              (rows) =>
+                updateConfig((config) => ({
+                  ...config,
+                  filter: {
+                    ...config.filter!,
+                    filters: rows,
+                  },
+                })),
+              data.config.filter.alias,
+              'filter',
             )}
           </div>
         )}
@@ -279,25 +388,108 @@ export function NodeInspector({ node, onUpdate, onDelete }: NodeInspectorProps) 
                 className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
               />
             </label>
-            <label className="block text-xs font-medium text-slate-600">
-              Fields (comma separated)
-              <input
-                value={data.config.project.fields.join(', ')}
-                onChange={(event) =>
-                  updateConfig((config) => ({
-                    ...config,
-                    project: {
-                      ...config.project!,
-                      fields: event.target.value
-                        .split(',')
-                        .map((field) => field.trim())
-                        .filter(Boolean),
-                    },
-                  }))
-                }
-                className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
-              />
-            </label>
+            <div className="text-xs font-medium text-slate-600">
+              <span>Fields</span>
+              <div className="mt-1 flex min-h-[2.25rem] flex-wrap gap-1 rounded border border-slate-200 px-2 py-1">
+                {data.config.project.fields.map((field, index) => (
+                  <span
+                    key={`${node.id}-project-field-${field}-${index}`}
+                    className="flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-700"
+                  >
+                    {field}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        updateConfig((config) => {
+                          if (!config.project) {
+                            return config
+                          }
+
+                          return {
+                            ...config,
+                            project: {
+                              ...config.project,
+                              fields: config.project.fields.filter((_, fieldIndex) => fieldIndex !== index),
+                            },
+                          }
+                        })
+                      }
+                      className="rounded bg-slate-200 px-1 text-[10px] font-semibold text-slate-600 hover:bg-slate-300"
+                      aria-label={`Remove ${field}`}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+                <ProjectFieldsInput
+                  key={node.id}
+                  nodeId={node.id}
+                  draftValue={projectFieldDraft}
+                  onDraftChange={setProjectFieldDraft}
+                  onCommit={(rawValue) => {
+                    const commitValues = rawValue
+                      .split(',')
+                      .map((field) => field.trim())
+                      .filter(Boolean)
+
+                    if (!commitValues.length) {
+                      setProjectFieldDraft('')
+                      return
+                    }
+
+                    updateConfig((config) => {
+                      if (!config.project) {
+                        return config
+                      }
+
+                      const nextFields = commitValues.reduce<string[]>((accumulator, value) => {
+                        if (!accumulator.includes(value)) {
+                          accumulator.push(value)
+                        }
+                        return accumulator
+                      }, [...config.project.fields])
+
+                      if (nextFields.length === config.project.fields.length) {
+                        return config
+                      }
+
+                      return {
+                        ...config,
+                        project: {
+                          ...config.project,
+                          fields: nextFields,
+                        },
+                      }
+                    })
+
+                    setProjectFieldDraft('')
+                  }}
+                  onRemoveLast={() => {
+                    if (!data.config.project?.fields.length) {
+                      return
+                    }
+
+                    updateConfig((config) => {
+                      if (!config.project || !config.project.fields.length) {
+                        return config
+                      }
+
+                      return {
+                        ...config,
+                        project: {
+                          ...config.project,
+                          fields: config.project.fields.slice(0, -1),
+                        },
+                      }
+                    })
+                  }}
+                  options={getFieldOptions(data.config.project.alias).filter(
+                    (option) => !data.config.project!.fields.includes(option),
+                  )}
+                  alias={data.config.project.alias}
+                />
+              </div>
+            </div>
           </div>
         )}
 
@@ -340,19 +532,43 @@ export function NodeInspector({ node, onUpdate, onDelete }: NodeInspectorProps) 
             </label>
             <label className="block text-xs font-medium text-slate-600">
               Join field
-              <input
-                value={data.config.join.onField}
-                onChange={(event) =>
-                  updateConfig((config) => ({
-                    ...config,
-                    join: {
-                      ...config.join!,
-                      onField: event.target.value,
-                    },
-                  }))
-                }
-                className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
-              />
+              {(() => {
+                const joinFieldOptions = Array.from(
+                  new Set([
+                    ...getFieldOptions(data.config.join.leftAlias),
+                    ...getFieldOptions(data.config.join.rightAlias),
+                  ]),
+                )
+                const joinFieldListId = joinFieldOptions.length
+                  ? `join-field-${node.id}`
+                  : undefined
+
+                return (
+                  <>
+                    <input
+                      value={data.config.join.onField}
+                      onChange={(event) =>
+                        updateConfig((config) => ({
+                          ...config,
+                          join: {
+                            ...config.join!,
+                            onField: event.target.value,
+                          },
+                        }))
+                      }
+                      list={joinFieldListId}
+                      className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
+                    />
+                    {joinFieldListId && (
+                      <datalist id={joinFieldListId}>
+                        {joinFieldOptions.map((option) => (
+                          <option key={option} value={option} />
+                        ))}
+                      </datalist>
+                    )}
+                  </>
+                )
+              })()}
             </label>
           </div>
         )}
@@ -380,19 +596,38 @@ export function NodeInspector({ node, onUpdate, onDelete }: NodeInspectorProps) 
             </label>
             <label className="block text-xs font-medium text-slate-600">
               Field
-              <input
-                value={data.config.sort.field}
-                onChange={(event) =>
-                  updateConfig((config) => ({
-                    ...config,
-                    sort: {
-                      ...config.sort!,
-                      field: event.target.value,
-                    },
-                  }))
-                }
-                className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
-              />
+              {(() => {
+                const sortFieldOptions = getFieldOptions(data.config.sort.alias)
+                const sortFieldListId = sortFieldOptions.length
+                  ? `sort-field-${node.id}-${sanitizeAlias(data.config.sort.alias) || 'default'}`
+                  : undefined
+
+                return (
+                  <>
+                    <input
+                      value={data.config.sort.field}
+                      onChange={(event) =>
+                        updateConfig((config) => ({
+                          ...config,
+                          sort: {
+                            ...config.sort!,
+                            field: event.target.value,
+                          },
+                        }))
+                      }
+                      list={sortFieldListId}
+                      className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
+                    />
+                    {sortFieldListId && (
+                      <datalist id={sortFieldListId}>
+                        {sortFieldOptions.map((option) => (
+                          <option key={option} value={option} />
+                        ))}
+                      </datalist>
+                    )}
+                  </>
+                )
+              })()}
             </label>
             <label className="block text-xs font-medium text-slate-600">
               Direction
@@ -480,5 +715,96 @@ export function NodeInspector({ node, onUpdate, onDelete }: NodeInspectorProps) 
         )}
       </div>
     </aside>
+  )
+}
+
+function ProjectFieldsInput({
+  nodeId,
+  draftValue,
+  onDraftChange,
+  onCommit,
+  onRemoveLast,
+  options,
+  alias,
+}: ProjectFieldsInputProps) {
+  const datalistId =
+    options.length > 0
+      ? `project-fields-${nodeId}-${sanitizeAlias(alias ?? '') || 'default'}`
+      : undefined
+
+  return (
+    <>
+      <input
+        value={draftValue}
+        onChange={(event) => {
+          const { value } = event.target
+
+          if (value.includes(',')) {
+            const parts = value.split(',')
+            const remainder = parts.pop() ?? ''
+            const committed = parts
+              .map((part) => part.trim())
+              .filter(Boolean)
+
+            if (committed.length) {
+              onCommit(committed.join(','))
+            }
+
+            onDraftChange(remainder.trimStart())
+            return
+          }
+
+          onDraftChange(value)
+        }}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            if (!draftValue.trim()) {
+              event.preventDefault()
+              return
+            }
+
+            event.preventDefault()
+            onCommit(draftValue)
+            return
+          }
+
+          if (event.key === 'Tab') {
+            if (draftValue.trim()) {
+              onCommit(draftValue)
+            }
+            return
+          }
+
+          if (event.key === ',') {
+            event.preventDefault()
+            if (draftValue.trim()) {
+              onCommit(draftValue)
+            }
+            return
+          }
+
+          if (event.key === 'Backspace' && !draftValue.length) {
+            onRemoveLast()
+          }
+        }}
+        onBlur={() => {
+          if (draftValue.trim()) {
+            onCommit(draftValue)
+          } else {
+            onDraftChange('')
+          }
+        }}
+        list={datalistId}
+        placeholder="Add a field"
+        className="flex-1 min-w-[6rem] border-0 bg-transparent text-sm focus:outline-none focus:ring-0"
+      />
+      {datalistId && (
+        <datalist id={datalistId}>
+          {options.map((option) => (
+            <option key={`${nodeId}-project-field-option-${option}`} value={option} />
+          ))}
+        </datalist>
+      )}
+    </>
   )
 }

@@ -2,7 +2,10 @@ import { useEffect, useMemo, useRef } from 'react'
 
 import { useExecuteEntityTransformationQuery } from '@/generated/graphql'
 
-import { summarizeTransformationEdges } from '../utils/preview'
+import {
+  summarizeTransformationEdges,
+  type TransformationAliasSummary,
+} from '../utils/preview'
 
 const DEFAULT_LIMIT = 5
 
@@ -11,6 +14,7 @@ type TransformationPreviewPanelProps = {
   isDirty: boolean
   highlightedAliases?: string[]
   refreshKey?: number
+  onSchemaSummariesChange?: (summaries: TransformationAliasSummary[]) => void
 }
 
 export function TransformationPreviewPanel({
@@ -18,6 +22,7 @@ export function TransformationPreviewPanel({
   isDirty,
   highlightedAliases = [],
   refreshKey = 0,
+  onSchemaSummariesChange,
 }: TransformationPreviewPanelProps) {
   const variables = useMemo(
     () => ({
@@ -54,6 +59,23 @@ export function TransformationPreviewPanel({
   const summaries = useMemo(() => summarizeTransformationEdges(edges), [edges])
 
   const highlighted = useMemo(() => new Set(highlightedAliases.filter(Boolean)), [highlightedAliases])
+
+  useEffect(() => {
+    if (!onSchemaSummariesChange) {
+      return
+    }
+
+    if (error) {
+      onSchemaSummariesChange([])
+      return
+    }
+
+    if (!data?.executeEntityTransformation) {
+      return
+    }
+
+    onSchemaSummariesChange(summaries)
+  }, [data?.executeEntityTransformation, error, summaries, onSchemaSummariesChange])
 
   return (
     <aside className="flex max-h-full flex-col rounded-md border border-slate-200 bg-white p-4">
