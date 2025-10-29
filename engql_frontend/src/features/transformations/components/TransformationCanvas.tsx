@@ -59,11 +59,6 @@ export function TransformationCanvas({
             const shouldPreserveSelection = preserveSelectionRef.current
             const next = changes.nodes?.find((node) => node.selected) ?? null
             const nextId = next?.id ?? null
-            const deselectingCurrent =
-              !!selectedNodeId &&
-              changes.nodes?.some(
-                (node) => node.id === selectedNodeId && node.selected === false,
-              )
 
             if (nextId) {
               if (nextId === selectedNodeId) {
@@ -74,7 +69,7 @@ export function TransformationCanvas({
               return
             }
 
-            if (shouldPreserveSelection && deselectingCurrent) {
+            if (shouldPreserveSelection) {
               // React Flow emitted a selection reset for the existing node (for example
               // after the graph re-renders). Keep our explicit selection state so the
               // inspector stays open.

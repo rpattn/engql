@@ -114,7 +114,10 @@ export function NodeInspector({
     return (
       <div className="space-y-2">
         {rows.map((row, index) => (
-          <div key={`${row.key}-${index}`} className="rounded border border-slate-200 p-2">
+          <div
+            key={`${contextKey}-${node.id}-${index}`}
+            className="rounded border border-slate-200 p-2"
+          >
             <label className="block text-xs font-medium text-slate-600">
               Property key
               <input
