@@ -61,8 +61,21 @@ export function TransformationPreviewPanel({
   const highlighted = useMemo(() => new Set(highlightedAliases.filter(Boolean)), [highlightedAliases])
 
   useEffect(() => {
-    onSchemaSummariesChange?.(summaries)
-  }, [summaries, onSchemaSummariesChange])
+    if (!onSchemaSummariesChange) {
+      return
+    }
+
+    if (error) {
+      onSchemaSummariesChange([])
+      return
+    }
+
+    if (!data?.executeEntityTransformation) {
+      return
+    }
+
+    onSchemaSummariesChange(summaries)
+  }, [data?.executeEntityTransformation, error, summaries, onSchemaSummariesChange])
 
   return (
     <aside className="flex max-h-full flex-col rounded-md border border-slate-200 bg-white p-4">

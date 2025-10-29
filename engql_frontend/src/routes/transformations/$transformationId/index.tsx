@@ -23,7 +23,7 @@ import type { TransformationAliasSummary } from '@/features/transformations/util
 import { sanitizeAlias } from '@/features/transformations/utils/alias'
 import type { TransformationCanvasNode } from '@/features/transformations/types'
 
-const AUTO_SAVE_DEBOUNCE_MS = 800
+const AUTO_SAVE_DEBOUNCE_MS = 5000
 
 export const Route = createFileRoute('/transformations/$transformationId/')({
   component: TransformationDetailRoute,
