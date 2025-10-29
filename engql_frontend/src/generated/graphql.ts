@@ -224,6 +224,39 @@ export type EntityTransformationLoadConfigInput = {
   filters?: InputMaybe<Array<PropertyFilter>>;
 };
 
+export type EntityTransformationMaterializeConfig = {
+  __typename?: 'EntityTransformationMaterializeConfig';
+  outputs: Array<EntityTransformationMaterializeOutput>;
+};
+
+export type EntityTransformationMaterializeConfigInput = {
+  outputs: Array<EntityTransformationMaterializeOutputInput>;
+};
+
+export type EntityTransformationMaterializeFieldMapping = {
+  __typename?: 'EntityTransformationMaterializeFieldMapping';
+  outputField: Scalars['String']['output'];
+  sourceAlias: Scalars['String']['output'];
+  sourceField: Scalars['String']['output'];
+};
+
+export type EntityTransformationMaterializeFieldMappingInput = {
+  outputField: Scalars['String']['input'];
+  sourceAlias: Scalars['String']['input'];
+  sourceField: Scalars['String']['input'];
+};
+
+export type EntityTransformationMaterializeOutput = {
+  __typename?: 'EntityTransformationMaterializeOutput';
+  alias: Scalars['String']['output'];
+  fields: Array<EntityTransformationMaterializeFieldMapping>;
+};
+
+export type EntityTransformationMaterializeOutputInput = {
+  alias: Scalars['String']['input'];
+  fields: Array<EntityTransformationMaterializeFieldMappingInput>;
+};
+
 export type EntityTransformationNode = {
   __typename?: 'EntityTransformationNode';
   filter?: Maybe<EntityTransformationFilterConfig>;
@@ -231,6 +264,7 @@ export type EntityTransformationNode = {
   inputs: Array<Scalars['String']['output']>;
   join?: Maybe<EntityTransformationJoinConfig>;
   load?: Maybe<EntityTransformationLoadConfig>;
+  materialize?: Maybe<EntityTransformationMaterializeConfig>;
   name: Scalars['String']['output'];
   paginate?: Maybe<EntityTransformationPaginateConfig>;
   project?: Maybe<EntityTransformationProjectConfig>;
@@ -244,6 +278,7 @@ export type EntityTransformationNodeInput = {
   inputs?: InputMaybe<Array<Scalars['String']['input']>>;
   join?: InputMaybe<EntityTransformationJoinConfigInput>;
   load?: InputMaybe<EntityTransformationLoadConfigInput>;
+  materialize?: InputMaybe<EntityTransformationMaterializeConfigInput>;
   name: Scalars['String']['input'];
   paginate?: InputMaybe<EntityTransformationPaginateConfigInput>;
   project?: InputMaybe<EntityTransformationProjectConfigInput>;
@@ -257,6 +292,7 @@ export enum EntityTransformationNodeType {
   Join = 'JOIN',
   LeftJoin = 'LEFT_JOIN',
   Load = 'LOAD',
+  Materialize = 'MATERIALIZE',
   Paginate = 'PAGINATE',
   Project = 'PROJECT',
   Sort = 'SORT',
@@ -576,6 +612,7 @@ export type Query = {
   searchEntitiesByPropertyContains: Array<Entity>;
   searchEntitiesByPropertyExists: Array<Entity>;
   searchEntitiesByPropertyRange: Array<Entity>;
+  transformationExecution: TransformationExecutionConnection;
   validateEntityAgainstSchema: ValidationResult;
 };
 
@@ -737,6 +774,14 @@ export type QuerySearchEntitiesByPropertyRangeArgs = {
 };
 
 
+export type QueryTransformationExecutionArgs = {
+  filters?: InputMaybe<Array<TransformationExecutionFilterInput>>;
+  pagination?: InputMaybe<PaginationInput>;
+  sort?: InputMaybe<TransformationExecutionSortInput>;
+  transformationId: Scalars['String']['input'];
+};
+
+
 export type QueryValidateEntityAgainstSchemaArgs = {
   entityId: Scalars['String']['input'];
 };
@@ -752,6 +797,48 @@ export enum SortDirection {
   Asc = 'ASC',
   Desc = 'DESC'
 }
+
+export type TransformationExecutionColumn = {
+  __typename?: 'TransformationExecutionColumn';
+  alias: Scalars['String']['output'];
+  field: Scalars['String']['output'];
+  key: Scalars['String']['output'];
+  label: Scalars['String']['output'];
+  sourceAlias: Scalars['String']['output'];
+  sourceField: Scalars['String']['output'];
+};
+
+export type TransformationExecutionConnection = {
+  __typename?: 'TransformationExecutionConnection';
+  columns: Array<TransformationExecutionColumn>;
+  pageInfo: PageInfo;
+  rows: Array<TransformationExecutionRow>;
+};
+
+export type TransformationExecutionFilterInput = {
+  alias: Scalars['String']['input'];
+  exists?: InputMaybe<Scalars['Boolean']['input']>;
+  field: Scalars['String']['input'];
+  inArray?: InputMaybe<Array<Scalars['String']['input']>>;
+  value?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type TransformationExecutionRow = {
+  __typename?: 'TransformationExecutionRow';
+  values: Array<TransformationExecutionValue>;
+};
+
+export type TransformationExecutionSortInput = {
+  alias: Scalars['String']['input'];
+  direction?: InputMaybe<SortDirection>;
+  field: Scalars['String']['input'];
+};
+
+export type TransformationExecutionValue = {
+  __typename?: 'TransformationExecutionValue';
+  columnKey: Scalars['String']['output'];
+  value?: Maybe<Scalars['String']['output']>;
+};
 
 export type UpdateEntityInput = {
   entityType?: InputMaybe<Scalars['String']['input']>;
@@ -1009,6 +1096,16 @@ export type ExecuteEntityTransformationQueryVariables = Exact<{
 
 
 export type ExecuteEntityTransformationQuery = { __typename?: 'Query', executeEntityTransformation: { __typename?: 'EntityTransformationConnection', edges: Array<{ __typename?: 'EntityTransformationRecordEdge', entities: Array<{ __typename?: 'EntityTransformationRecordEntity', alias: string, entity?: { __typename?: 'Entity', id: string, entityType: string, path: string, referenceValue?: string | null, properties: string } | null }> }>, pageInfo: { __typename?: 'PageInfo', totalCount: number, hasNextPage: boolean, hasPreviousPage: boolean } } };
+
+export type TransformationExecutionQueryVariables = Exact<{
+  transformationId: Scalars['String']['input'];
+  filters?: InputMaybe<Array<TransformationExecutionFilterInput> | TransformationExecutionFilterInput>;
+  sort?: InputMaybe<TransformationExecutionSortInput>;
+  pagination?: InputMaybe<PaginationInput>;
+}>;
+
+
+export type TransformationExecutionQuery = { __typename?: 'Query', transformationExecution: { __typename?: 'TransformationExecutionConnection', columns: Array<{ __typename?: 'TransformationExecutionColumn', key: string, alias: string, field: string, label: string, sourceAlias: string, sourceField: string }>, rows: Array<{ __typename?: 'TransformationExecutionRow', values: Array<{ __typename?: 'TransformationExecutionValue', columnKey: string, value?: string | null }> }>, pageInfo: { __typename?: 'PageInfo', totalCount: number, hasNextPage: boolean, hasPreviousPage: boolean } } };
 
 
 export const EntityTransformationNodeFieldsFragmentDoc = `
@@ -2101,3 +2198,55 @@ useExecuteEntityTransformationQuery.getKey = (variables: ExecuteEntityTransforma
 
 
 useExecuteEntityTransformationQuery.fetcher = (variables: ExecuteEntityTransformationQueryVariables, options?: RequestInit['headers']) => graphqlRequest<ExecuteEntityTransformationQuery, ExecuteEntityTransformationQueryVariables>(ExecuteEntityTransformationDocument, variables, options);
+
+export const TransformationExecutionDocument = `
+    query TransformationExecution($transformationId: String!, $filters: [TransformationExecutionFilterInput!], $sort: TransformationExecutionSortInput, $pagination: PaginationInput) {
+  transformationExecution(
+    transformationId: $transformationId
+    filters: $filters
+    sort: $sort
+    pagination: $pagination
+  ) {
+    columns {
+      key
+      alias
+      field
+      label
+      sourceAlias
+      sourceField
+    }
+    rows {
+      values {
+        columnKey
+        value
+      }
+    }
+    pageInfo {
+      totalCount
+      hasNextPage
+      hasPreviousPage
+    }
+  }
+}
+    `;
+
+export const useTransformationExecutionQuery = <
+      TData = TransformationExecutionQuery,
+      TError = unknown
+    >(
+      variables: TransformationExecutionQueryVariables,
+      options?: Omit<UseQueryOptions<TransformationExecutionQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<TransformationExecutionQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<TransformationExecutionQuery, TError, TData>(
+      {
+    queryKey: ['TransformationExecution', variables],
+    queryFn: () => graphqlRequest<TransformationExecutionQuery, TransformationExecutionQueryVariables>(TransformationExecutionDocument, variables),
+    ...options
+  }
+    )};
+
+useTransformationExecutionQuery.getKey = (variables: TransformationExecutionQueryVariables) => ['TransformationExecution', variables];
+
+
+useTransformationExecutionQuery.fetcher = (variables: TransformationExecutionQueryVariables, options?: RequestInit['headers']) => graphqlRequest<TransformationExecutionQuery, TransformationExecutionQueryVariables>(TransformationExecutionDocument, variables, options);

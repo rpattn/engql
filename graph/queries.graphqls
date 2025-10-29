@@ -500,3 +500,37 @@ query ExecuteEntityTransformation($input: ExecuteEntityTransformationInput!) {
     }
   }
 }
+
+query TransformationExecution(
+  $transformationId: String!
+  $filters: [TransformationExecutionFilterInput!]
+  $sort: TransformationExecutionSortInput
+  $pagination: PaginationInput
+) {
+  transformationExecution(
+    transformationId: $transformationId
+    filters: $filters
+    sort: $sort
+    pagination: $pagination
+  ) {
+    columns {
+      key
+      alias
+      field
+      label
+      sourceAlias
+      sourceField
+    }
+    rows {
+      values {
+        columnKey
+        value
+      }
+    }
+    pageInfo {
+      totalCount
+      hasNextPage
+      hasPreviousPage
+    }
+  }
+}
