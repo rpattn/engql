@@ -8,7 +8,6 @@ import {
   useDeleteEntityMutation,
   useEntitiesManagementQuery,
   useEntitySchemasQuery,
-  useGetOrganizationsQuery,
   useQueueEntityTypeExportMutation,
   useUpdateEntityMutation,
 } from '../generated/graphql'
@@ -26,7 +25,7 @@ import {
   prepareFieldValueForSubmit,
   safeParseProperties,
 } from '../features/entities/components/helpers'
-import { loadLastOrganizationId, persistLastOrganizationId } from '../lib/browserStorage'
+import { OrganizationSelect, useOrganizations } from '@/features/organizations'
 
 type FeedbackState = { type: 'success' | 'error'; message: string; context?: 'export' }
 
@@ -40,12 +39,12 @@ export const Route = createFileRoute('/entities/')({
 
 function EntitiesPage() {
   const queryClient = useQueryClient()
-  const organizationsQuery = useGetOrganizationsQuery()
-  const organizations = organizationsQuery.data?.organizations ?? []
-
-  const [selectedOrgId, setSelectedOrgId] = useState<string | null>(
-    () => loadLastOrganizationId(),
-  )
+  const {
+    organizations,
+    selectedOrganizationId: selectedOrgId,
+    setSelectedOrganizationId: setSelectedOrgId,
+    isLoading: organizationsLoading,
+  } = useOrganizations()
   const [selectedSchemaId, setSelectedSchemaId] = useState<string | null>(null)
   const [columnFilters, setColumnFilters] = useState<Record<string, ColumnFilterValue>>({})
   const [hiddenFieldNames, setHiddenFieldNames] = useState<string[]>([])
@@ -55,30 +54,6 @@ function EntitiesPage() {
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
   const [sortState, setSortState] = useState<SortState | null>(null)
-
-  useEffect(() => {
-    if (organizations.length === 0) {
-      setSelectedOrgId(null)
-      return
-    }
-
-    setSelectedOrgId((current) => {
-      const activeId =
-        current && organizations.some((org) => org.id === current)
-          ? current
-          : loadLastOrganizationId()
-
-      if (activeId && organizations.some((org) => org.id === activeId)) {
-        return activeId
-      }
-
-      return organizations[0]?.id ?? null
-    })
-  }, [organizations])
-
-  useEffect(() => {
-    persistLastOrganizationId(selectedOrgId)
-  }, [selectedOrgId])
 
   const entitySchemasQuery = useEntitySchemasQuery(
     { organizationId: selectedOrgId ?? '' },
@@ -459,23 +434,14 @@ function EntitiesPage() {
       <div className="mt-6 grid gap-4 sm:grid-cols-[2fr,2fr,1fr] sm:items-end">
         <label className="flex flex-col text-sm font-medium text-gray-700">
           Organization
-          <select
-            value={selectedOrgId ?? ''}
-            onChange={(event) => {
-              setSelectedOrgId(event.target.value || null)
+          <OrganizationSelect
+            value={selectedOrgId}
+            onChange={(value) => {
+              setSelectedOrgId(value)
               setFeedback(null)
             }}
-            className="mt-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
-          >
-            <option value="" disabled>
-              Select an organization
-            </option>
-            {organizations.map((organization) => (
-              <option key={organization.id} value={organization.id}>
-                {organization.name}
-              </option>
-            ))}
-          </select>
+            className="mt-1"
+          />
         </label>
 
         <label className="flex flex-col text-sm font-medium text-gray-700">
@@ -507,7 +473,7 @@ function EntitiesPage() {
             <p>
               Working in <span className="font-semibold">{activeOrganization.name}</span>
             </p>
-          ) : organizationsQuery.isLoading ? (
+          ) : organizationsLoading ? (
             <p>Loading organizations…</p>
           ) : (
             <p>Select an organization.</p>

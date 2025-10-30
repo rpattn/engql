@@ -7,6 +7,7 @@ import {
   type EntityExportJobsQuery,
   useEntityExportJobsQuery,
 } from '@/generated/graphql'
+import { OrganizationSelect, useOrganizations } from '@/features/organizations'
 
 const ACTIVE_POLL_INTERVAL = 5_000
 const IDLE_POLL_INTERVAL = 15_000
@@ -21,7 +22,8 @@ export const Route = createFileRoute('/exports')({
 })
 
 function ExportsPage() {
-  const [organizationId, setOrganizationId] = useState('')
+  const { selectedOrganizationId, setSelectedOrganizationId } = useOrganizations()
+  const organizationId = selectedOrganizationId ?? ''
   const [limit, setLimit] = useState(50)
   const [offset, setOffset] = useState(0)
   const [cancelError, setCancelError] = useState<string | null>(null)
@@ -182,14 +184,13 @@ function ExportsPage() {
           <h2 className="text-lg font-semibold">Filter exports</h2>
           <div className="mt-4 grid gap-4 md:grid-cols-4">
             <label className="flex flex-col text-sm font-medium text-muted">
-              <span className="mb-1">Organization ID</span>
-              <input
-                value={organizationId}
-                onChange={(event) => {
-                  setOrganizationId(event.target.value)
+              <span className="mb-1">Organization</span>
+              <OrganizationSelect
+                value={selectedOrganizationId}
+                onChange={(value) => {
+                  setSelectedOrganizationId(value)
                   setOffset(0)
                 }}
-                placeholder="UUID"
                 className="rounded-md border border-subtle bg-subtle px-3 py-2 text-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
               />
             </label>
@@ -261,7 +262,7 @@ function ExportsPage() {
             <StatCard label="Rows exported" value={stats.rowsExported} />
           </section>
         ) : (
-          <p className="mb-8 text-sm text-muted">Provide an organization ID to load export activity.</p>
+          <p className="mb-8 text-sm text-muted">Select an organization to load export activity.</p>
         )}
 
         <section className="mb-10 rounded-xl border border-subtle bg-surface p-5 shadow-sm">
@@ -273,7 +274,7 @@ function ExportsPage() {
           </header>
 
           {!enabled ? (
-            <p className="text-sm text-muted">Enter an organization to view jobs.</p>
+            <p className="text-sm text-muted">Select an organization to view jobs.</p>
           ) : exportsQuery.isLoading ? (
             <p className="text-sm text-muted">Loading export jobs…</p>
           ) : inProgressJobs.length === 0 ? (
@@ -346,7 +347,7 @@ function ExportsPage() {
           </header>
 
           {!enabled ? (
-            <p className="text-sm text-muted">Enter an organization to view job history.</p>
+            <p className="text-sm text-muted">Select an organization to view job history.</p>
           ) : exportsQuery.isLoading ? (
             <p className="text-sm text-muted">Loading job history…</p>
           ) : historicalJobs.length === 0 ? (

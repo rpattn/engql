@@ -58,7 +58,7 @@ function TransformationsListRoute() {
 
   const handleCreate = () => {
     if (!trimmedOrgId) {
-      alert('Please enter an organization ID before creating a transformation.')
+      alert('Please select an organization before creating a transformation.')
       return
     }
 
@@ -103,7 +103,7 @@ function TransformationsListRoute() {
 
       {!canLoad ? (
         <p className="rounded border border-dashed border-slate-300 p-6 text-sm text-slate-500">
-          Provide an organization ID to load transformations.
+          Select an organization to load transformations.
         </p>
       ) : listQuery.isLoading ? (
         <p className="rounded border border-slate-200 p-6 text-sm text-slate-500">Loading…</p>

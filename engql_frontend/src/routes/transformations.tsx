@@ -1,6 +1,7 @@
 import { Link, Outlet, createFileRoute, useLocation } from '@tanstack/react-router'
 import { useMemo } from 'react'
 
+import { OrganizationSelect } from '@/features/organizations'
 import { TransformationsProvider, useTransformationsContext } from '@/features/transformations/context'
 
 export const Route = createFileRoute('/transformations')({
@@ -41,12 +42,11 @@ function LayoutShell() {
         </div>
         <div>
           <label className="block text-xs font-semibold text-slate-600">
-            Organization ID
-            <input
-              value={organizationId}
-              placeholder="org_123"
-              onChange={(event) => setOrganizationId(event.target.value)}
-              className="mt-1 w-56 rounded border border-slate-300 px-3 py-1 text-sm"
+            Organization
+            <OrganizationSelect
+              value={organizationId || null}
+              onChange={(value) => setOrganizationId(value ?? '')}
+              className="mt-1 w-56"
             />
           </label>
         </div>

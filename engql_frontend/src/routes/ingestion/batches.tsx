@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
+import { OrganizationSelect, useOrganizations } from "@/features/organizations";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_URL?.replace(/\/$/, "") ?? "http://localhost:8080";
@@ -50,7 +51,10 @@ export const Route = createFileRoute("/ingestion/batches")({
 });
 
 function IngestionBatchesPage() {
-  const [organizationId, setOrganizationId] = useState("");
+  const { selectedOrganizationId, setSelectedOrganizationId } =
+    useOrganizations();
+  const organizationId = selectedOrganizationId ?? "";
+  const trimmedOrganizationId = organizationId.trim();
   const [limit, setLimit] = useState(25);
   const [offset, setOffset] = useState(0);
   const [selectedBatch, setSelectedBatch] = useState<BatchRecord | null>(null);
@@ -60,11 +64,11 @@ function IngestionBatchesPage() {
   }, [organizationId]);
 
   const overviewQuery = useQuery({
-    queryKey: ["ingestion-batch-overview", organizationId.trim(), limit, offset],
-    enabled: organizationId.trim().length > 0,
+    queryKey: ["ingestion-batch-overview", trimmedOrganizationId, limit, offset],
+    enabled: trimmedOrganizationId.length > 0,
     queryFn: async () => {
       const params = new URLSearchParams();
-      params.set("organizationId", organizationId.trim());
+      params.set("organizationId", trimmedOrganizationId);
       params.set("limit", String(limit));
       params.set("offset", String(offset));
 
@@ -86,18 +90,18 @@ function IngestionBatchesPage() {
     queryKey: [
       "ingestion-batch-logs",
       selectedBatch?.id,
-      organizationId.trim(),
+      trimmedOrganizationId,
     ],
     enabled:
       Boolean(selectedBatch) &&
-      organizationId.trim().length > 0 &&
+      trimmedOrganizationId.length > 0 &&
       Boolean(selectedBatch?.fileName),
     queryFn: async () => {
       if (!selectedBatch) {
         return [] as BatchLogEntry[];
       }
       const params = new URLSearchParams();
-      params.set("organizationId", organizationId.trim());
+      params.set("organizationId", trimmedOrganizationId);
       params.set("schemaName", selectedBatch.entityType);
       if (selectedBatch.fileName) {
         params.set("fileName", selectedBatch.fileName);
@@ -157,7 +161,7 @@ function IngestionBatchesPage() {
           type="button"
           onClick={() => overviewQuery.refetch()}
           className="rounded-lg border border-cyan-500 px-4 py-2 text-sm font-medium text-cyan-300 transition hover:bg-cyan-500/10 disabled:cursor-not-allowed disabled:opacity-60"
-          disabled={overviewQuery.isFetching || organizationId.trim().length === 0}
+          disabled={overviewQuery.isFetching || trimmedOrganizationId.length === 0}
         >
           {overviewQuery.isFetching ? "Refreshing..." : "Refresh Overview"}
         </button>
@@ -169,13 +173,10 @@ function IngestionBatchesPage() {
         </h2>
         <div className="mt-4 grid gap-4 md:grid-cols-4">
           <label className="flex flex-col text-sm text-slate-300">
-            <span className="mb-1 font-medium">Organization ID</span>
-            <input
-              value={organizationId}
-              onChange={(event) => {
-                setOrganizationId(event.target.value);
-              }}
-              placeholder="UUID"
+            <span className="mb-1 font-medium">Organization</span>
+            <OrganizationSelect
+              value={selectedOrganizationId}
+              onChange={(value) => setSelectedOrganizationId(value)}
               className="rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white outline-none focus:border-cyan-400"
             />
           </label>
@@ -201,7 +202,7 @@ function IngestionBatchesPage() {
           </label>
         </div>
         <p className="mt-3 text-xs text-slate-500">
-          Enter an organization ID to load batch data. Use limit and offset to
+          Select an organization to load batch data. Use limit and offset to
           page through results.
         </p>
       </section>
@@ -237,9 +238,9 @@ function IngestionBatchesPage() {
           </span>
         </header>
 
-        {organizationId.trim().length === 0 ? (
+        {trimmedOrganizationId.length === 0 ? (
           <p className="text-sm text-slate-500">
-            Provide an organization ID to load current jobs.
+            Select an organization to load current jobs.
           </p>
         ) : overviewQuery.isLoading ? (
           <p className="text-sm text-slate-500">Loading current batches…</p>
@@ -305,9 +306,9 @@ function IngestionBatchesPage() {
           </span>
         </header>
 
-        {organizationId.trim().length === 0 ? (
+        {trimmedOrganizationId.length === 0 ? (
           <p className="text-sm text-slate-500">
-            Provide an organization ID to load batches.
+            Select an organization to load batches.
           </p>
         ) : overviewQuery.isLoading ? (
           <p className="text-sm text-slate-500">Loading batches…</p>

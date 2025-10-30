@@ -7,10 +7,9 @@ import {
   useCreateSchemaMutation,
   useDeleteSchemaMutation,
   useEntitySchemasQuery,
-  useGetOrganizationsQuery,
   useUpdateSchemaMutation,
 } from '../generated/graphql'
-import { loadLastOrganizationId, persistLastOrganizationId } from '../lib/browserStorage'
+import { OrganizationSelect, useOrganizations } from '@/features/organizations'
 
 type ModalMode = 'create' | 'edit'
 
@@ -54,39 +53,15 @@ export const Route = createFileRoute('/entity-schemas')({
 
 function EntitySchemasPage() {
   const queryClient = useQueryClient()
-  const [selectedOrgId, setSelectedOrgId] = useState<string | null>(
-    () => loadLastOrganizationId(),
-  )
+  const {
+    organizations,
+    selectedOrganizationId: selectedOrgId,
+    setSelectedOrganizationId: setSelectedOrgId,
+    isLoading: organizationsLoading,
+  } = useOrganizations()
   const [modalState, setModalState] = useState<ModalState | null>(null)
   const [modalError, setModalError] = useState<string | null>(null)
   const [feedback, setFeedback] = useState<FeedbackState>(null)
-
-  const organizationsQuery = useGetOrganizationsQuery()
-  const organizations = organizationsQuery.data?.organizations ?? []
-
-  useEffect(() => {
-    if (organizations.length === 0) {
-      setSelectedOrgId(null)
-      return
-    }
-
-    setSelectedOrgId((current) => {
-      const activeId =
-        current && organizations.some((org) => org.id === current)
-          ? current
-          : loadLastOrganizationId()
-
-      if (activeId && organizations.some((org) => org.id === activeId)) {
-        return activeId
-      }
-
-      return organizations[0]?.id ?? null
-    })
-  }, [organizations])
-
-  useEffect(() => {
-    persistLastOrganizationId(selectedOrgId)
-  }, [selectedOrgId])
 
   const entitySchemasQueryKey = useMemo(
     () =>
@@ -246,8 +221,7 @@ function EntitySchemasPage() {
   }
 
   const schemas = entitySchemasQuery.data?.entitySchemas ?? []
-  const isLoading =
-    organizationsQuery.isLoading || entitySchemasQuery.isLoading
+  const isLoading = organizationsLoading || entitySchemasQuery.isLoading
   const isFetching = entitySchemasQuery.isFetching
 
   const isSubmitting =
@@ -280,29 +254,22 @@ function EntitySchemasPage() {
       <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-end">
         <label className="flex flex-col text-sm font-medium text-gray-700">
           Organization
-          <select
-            value={selectedOrgId ?? ''}
-            onChange={(event) => {
-              setSelectedOrgId(event.target.value || null)
+          <OrganizationSelect
+            value={selectedOrgId}
+            onChange={(value) => {
+              setSelectedOrgId(value)
               setFeedback(null)
             }}
-            className="mt-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
-          >
-            <option value="" disabled>
-              Select an organization
-            </option>
-            {organizations.map((organization) => (
-              <option key={organization.id} value={organization.id}>
-                {organization.name}
-              </option>
-            ))}
-          </select>
+            className="mt-1"
+          />
         </label>
         <div className="text-xs text-gray-500">
           {activeOrganization ? (
             <p>
               Working in <span className="font-semibold">{activeOrganization.name}</span>
             </p>
+          ) : organizationsLoading ? (
+            <p>Loading organizations…</p>
           ) : (
             <p>Select an organization to manage its schemas.</p>
           )}
