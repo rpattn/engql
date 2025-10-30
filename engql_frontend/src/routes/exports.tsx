@@ -10,6 +10,9 @@ import {
 const ACTIVE_POLL_INTERVAL = 5_000
 const IDLE_POLL_INTERVAL = 15_000
 
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL?.replace(/\/$/, '') ?? 'http://localhost:8080'
+
 type EntityExportJob = EntityExportJobsQuery['entityExportJobs'][number]
 
 export const Route = createFileRoute('/exports')({
@@ -330,38 +333,45 @@ function ExportsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800">
-                  {historicalJobs.map((job) => (
-                    <tr key={job.id} className="hover:bg-slate-900/60">
-                      <td className="px-4 py-3 capitalize text-slate-200">{job.jobType.toLowerCase()}</td>
-                      <td className="px-4 py-3 text-slate-300">{jobDisplayName(job)}</td>
-                      <td className="px-4 py-3 text-slate-200">
-                        <StatusBadge status={job.status} />
-                      </td>
-                      <td className="px-4 py-3 text-slate-300">
-                        {job.rowsExported.toLocaleString()} / {job.rowsRequested.toLocaleString()}
-                      </td>
-                      <td className="px-4 py-3 text-slate-300">
-                        {job.fileByteSize != null ? formatBytes(job.fileByteSize) : '—'}
-                      </td>
-                      <td className="px-4 py-3 text-slate-400">{formatTimestamp(job.enqueuedAt)}</td>
-                      <td className="px-4 py-3 text-slate-400">{job.completedAt ? formatTimestamp(job.completedAt) : '—'}</td>
-                      <td className="px-4 py-3 text-slate-200">
-                        {job.status === EntityExportJobStatus.Completed && job.downloadUrl ? (
-                          <a
-                            href={job.downloadUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center rounded-md border border-cyan-500 px-3 py-1 text-xs font-medium text-cyan-200 transition hover:bg-cyan-500/10"
-                          >
-                            Download
-                          </a>
-                        ) : (
-                          <span className="text-xs text-slate-500">—</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-slate-400">{job.errorMessage ?? '—'}</td>
-                    </tr>
-                  ))}
+                  {historicalJobs.map((job) => {
+                    const downloadHref = buildDownloadHref(job.downloadUrl)
+                    return (
+                      <tr key={job.id} className="hover:bg-slate-900/60">
+                        <td className="px-4 py-3 capitalize text-slate-200">{job.jobType.toLowerCase()}</td>
+                        <td className="px-4 py-3 text-slate-300">{jobDisplayName(job)}</td>
+                        <td className="px-4 py-3 text-slate-200">
+                          <StatusBadge status={job.status} />
+                        </td>
+                        <td className="px-4 py-3 text-slate-300">
+                          {job.rowsExported.toLocaleString()} / {job.rowsRequested.toLocaleString()}
+                        </td>
+                        <td className="px-4 py-3 text-slate-300">
+                          {job.fileByteSize != null ? formatBytes(job.fileByteSize) : '—'}
+                        </td>
+                        <td className="px-4 py-3 text-slate-400">{formatTimestamp(job.enqueuedAt)}</td>
+                        <td className="px-4 py-3 text-slate-400">{job.completedAt ? formatTimestamp(job.completedAt) : '—'}</td>
+                        <td className="px-4 py-3 text-slate-200">
+                          {job.status === EntityExportJobStatus.Completed ? (
+                            downloadHref ? (
+                              <a
+                                href={downloadHref}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center rounded-md border border-cyan-500 px-3 py-1 text-xs font-medium text-cyan-200 transition hover:bg-cyan-500/10"
+                              >
+                                Download
+                              </a>
+                            ) : (
+                              <span className="text-xs text-slate-500">Invalid download</span>
+                            )
+                          ) : (
+                            <span className="text-xs text-slate-500">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-slate-400">{job.errorMessage ?? '—'}</td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
@@ -383,6 +393,21 @@ function jobDisplayName(job: EntityExportJob) {
     return `Transformation ${job.transformationId.slice(0, 8)}…`
   }
   return 'Transformation export'
+}
+
+function buildDownloadHref(downloadUrl?: string | null) {
+  if (!downloadUrl) {
+    return null
+  }
+  try {
+    if (/^https?:\/\//i.test(downloadUrl)) {
+      return downloadUrl
+    }
+    const url = new URL(downloadUrl, `${API_BASE_URL}`)
+    return url.toString()
+  } catch {
+    return null
+  }
 }
 
 function formatTimestamp(input?: string | null) {
