@@ -31,7 +31,7 @@ function LayoutShell() {
   )
 
   return (
-    <div className="mx-auto flex max-w-7xl flex-col gap-6 px-6 py-6">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-6">
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-lg font-semibold text-slate-900">Entity transformations</h1>

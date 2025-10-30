@@ -464,7 +464,7 @@ function IngestionPage() {
   const hasEntities = parsedEntities.length > 0;
 
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-8 px-4 py-8">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-8">
       <section className="rounded-2xl border border-subtle bg-surface p-6 shadow-sm">
         <header className="mb-6">
           <h1 className="text-2xl font-semibold text-blue-600">
