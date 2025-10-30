@@ -27,13 +27,56 @@ func (m *mockEntityRepository) List(ctx context.Context, organizationID uuid.UUI
 			if len(filter.PropertyFilters) > 0 {
 				matched := true
 				for _, pf := range filter.PropertyFilters {
-					value := entity.Properties[pf.Key]
-					if pf.Value != "" && value != pf.Value {
-						matched = false
-						break
-					}
+					value, ok := entity.Properties[pf.Key]
 					if pf.Exists != nil {
-						if *pf.Exists && value == nil {
+						if *pf.Exists {
+							if !ok {
+								matched = false
+								break
+							}
+						} else {
+							if ok {
+								if pf.Value == "" && len(pf.InArray) == 0 {
+									if str, okStr := value.(string); okStr {
+										if str != "" {
+											matched = false
+											break
+										}
+									} else if value != nil {
+										matched = false
+										break
+									}
+								} else {
+									matched = false
+									break
+								}
+							}
+						}
+					}
+					if pf.Value != "" {
+						if !ok {
+							matched = false
+							break
+						}
+						if fmt.Sprintf("%v", value) != pf.Value {
+							matched = false
+							break
+						}
+					}
+					if len(pf.InArray) > 0 {
+						if !ok {
+							matched = false
+							break
+						}
+						valueStr := fmt.Sprintf("%v", value)
+						found := false
+						for _, candidate := range pf.InArray {
+							if valueStr == candidate {
+								found = true
+								break
+							}
+						}
+						if !found {
 							matched = false
 							break
 						}
@@ -47,6 +90,45 @@ func (m *mockEntityRepository) List(ctx context.Context, organizationID uuid.UUI
 		result = append(result, entity)
 	}
 	return result, len(result), nil
+}
+
+type windowedEntityRepository struct {
+	entities map[string][]domain.Entity
+}
+
+func (w *windowedEntityRepository) List(ctx context.Context, organizationID uuid.UUID, filter *domain.EntityFilter, sort *domain.EntitySort, limit int, offset int) ([]domain.Entity, int, error) {
+	var filtered []domain.Entity
+	if filter != nil && filter.EntityType != "" {
+		filtered = append(filtered, w.entities[filter.EntityType]...)
+	} else {
+		for _, group := range w.entities {
+			filtered = append(filtered, group...)
+		}
+	}
+	result := make([]domain.Entity, 0, len(filtered))
+	for _, entity := range filtered {
+		if entity.OrganizationID != organizationID {
+			continue
+		}
+		result = append(result, entity)
+	}
+
+	total := len(result)
+	start := offset
+	if start < 0 {
+		start = 0
+	}
+	if start > total {
+		start = total
+	}
+	end := total
+	if limit > 0 && start+limit < end {
+		end = start + limit
+	}
+
+	window := make([]domain.Entity, end-start)
+	copy(window, result[start:end])
+	return window, total, nil
 }
 
 type mockSchemaProvider struct {
@@ -1395,8 +1477,8 @@ func TestExecutor_JoinRespectsExecutionWindow(t *testing.T) {
 	if len(result.Records) != opts.Limit {
 		t.Fatalf("expected %d records, got %d", opts.Limit, len(result.Records))
 	}
-	if result.TotalCount != opts.Limit {
-		t.Fatalf("expected total count %d, got %d", opts.Limit, result.TotalCount)
+	if result.TotalCount != totalCombos {
+		t.Fatalf("expected total count %d, got %d", totalCombos, result.TotalCount)
 	}
 
 	expectedFirstLeft := opts.Offset / rightCount
@@ -1428,6 +1510,128 @@ func TestExecutor_JoinRespectsExecutionWindow(t *testing.T) {
 	}
 	if got, ok := rightEntity.Properties["idx"].(int); !ok || got != expectedLastRight {
 		t.Fatalf("expected last right idx %d, got %v", expectedLastRight, rightEntity.Properties["idx"])
+	}
+}
+
+func TestExecutor_MultipleCartesianJoinsReportStableTotals(t *testing.T) {
+	orgID := uuid.New()
+	leftCount := 120
+	middleCount := 110
+	rightCount := 95
+
+	repo := &windowedEntityRepository{entities: make(map[string][]domain.Entity)}
+	for i := 0; i < leftCount; i++ {
+		repo.entities["left"] = append(repo.entities["left"], domain.Entity{
+			ID:             uuid.New(),
+			OrganizationID: orgID,
+			EntityType:     "left",
+			Properties:     map[string]any{"idx": i},
+			CreatedAt:      time.Now(),
+			UpdatedAt:      time.Now(),
+		})
+	}
+	for i := 0; i < middleCount; i++ {
+		repo.entities["middle"] = append(repo.entities["middle"], domain.Entity{
+			ID:             uuid.New(),
+			OrganizationID: orgID,
+			EntityType:     "middle",
+			Properties:     map[string]any{"idx": i},
+			CreatedAt:      time.Now(),
+			UpdatedAt:      time.Now(),
+		})
+	}
+	for i := 0; i < rightCount; i++ {
+		repo.entities["right"] = append(repo.entities["right"], domain.Entity{
+			ID:             uuid.New(),
+			OrganizationID: orgID,
+			EntityType:     "right",
+			Properties:     map[string]any{"idx": i},
+			CreatedAt:      time.Now(),
+			UpdatedAt:      time.Now(),
+		})
+	}
+
+	executor := NewExecutor(repo, nil)
+
+	loadLeftID := uuid.New()
+	loadMiddleID := uuid.New()
+	loadRightID := uuid.New()
+	joinFirstID := uuid.New()
+	joinFinalID := uuid.New()
+
+	transformation := domain.EntityTransformation{
+		ID:             uuid.New(),
+		OrganizationID: orgID,
+		Name:           "cartesian-multi-join",
+		Nodes: []domain.EntityTransformationNode{
+			{
+				ID:   loadLeftID,
+				Name: "load-left",
+				Type: domain.TransformationNodeLoad,
+				Load: &domain.EntityTransformationLoadConfig{
+					Alias:      "alpha",
+					EntityType: "left",
+				},
+			},
+			{
+				ID:   loadMiddleID,
+				Name: "load-middle",
+				Type: domain.TransformationNodeLoad,
+				Load: &domain.EntityTransformationLoadConfig{
+					Alias:      "beta",
+					EntityType: "middle",
+				},
+			},
+			{
+				ID:   loadRightID,
+				Name: "load-right",
+				Type: domain.TransformationNodeLoad,
+				Load: &domain.EntityTransformationLoadConfig{
+					Alias:      "gamma",
+					EntityType: "right",
+				},
+			},
+			{
+				ID:     joinFirstID,
+				Name:   "join-left-middle",
+				Type:   domain.TransformationNodeJoin,
+				Inputs: []uuid.UUID{loadLeftID, loadMiddleID},
+				Join: &domain.EntityTransformationJoinConfig{
+					LeftAlias:  "alpha",
+					RightAlias: "beta",
+					OnField:    "",
+				},
+			},
+			{
+				ID:     joinFinalID,
+				Name:   "join-final",
+				Type:   domain.TransformationNodeJoin,
+				Inputs: []uuid.UUID{joinFirstID, loadRightID},
+				Join: &domain.EntityTransformationJoinConfig{
+					LeftAlias:  "beta",
+					RightAlias: "gamma",
+					OnField:    "",
+				},
+			},
+		},
+	}
+
+	opts := domain.EntityTransformationExecutionOptions{Limit: 25, Offset: 50}
+	if expected := leftCount * middleCount * rightCount; expected <= opts.Offset+opts.Limit {
+		t.Fatalf("expected product greater than requested window")
+	}
+
+	result, err := executor.Execute(context.Background(), transformation, opts)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if len(result.Records) != opts.Limit {
+		t.Fatalf("expected %d records, got %d", opts.Limit, len(result.Records))
+	}
+
+	expectedTotal := leftCount * middleCount * rightCount
+	if result.TotalCount != expectedTotal {
+		t.Fatalf("expected total count %d, got %d", expectedTotal, result.TotalCount)
 	}
 }
 
