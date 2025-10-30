@@ -422,11 +422,11 @@ function EntitiesPage() {
     selectedOrgId && organizations.find((org) => org.id === selectedOrgId)
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-8 text-gray-900">
+    <div className="mx-auto w-full max-w-6xl px-6 py-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-semibold">Entities</h1>
-          <p className="mt-1 text-sm text-gray-600">
+          <p className="mt-1 text-sm text-muted">
             Browse, create, and maintain entities for a chosen schema.
           </p>
         </div>

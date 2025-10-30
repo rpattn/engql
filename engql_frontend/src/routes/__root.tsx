@@ -49,9 +49,11 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       <head>
         <HeadContent />
       </head>
-      <body>
+      <body className="app-shell">
         <Header />
-        {children}
+        <main className="relative z-10 flex min-h-[calc(100vh-4rem)] flex-col pb-10 pt-6">
+          {children}
+        </main>
         <TanStackDevtools
           config={{
             position: 'bottom-right',

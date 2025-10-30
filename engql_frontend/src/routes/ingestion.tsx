@@ -464,13 +464,13 @@ function IngestionPage() {
   const hasEntities = parsedEntities.length > 0;
 
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-8 px-4 py-8 text-slate-200">
-      <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6 shadow-xl shadow-slate-950/40">
+    <div className="mx-auto flex max-w-5xl flex-col gap-8 px-4 py-8">
+      <section className="rounded-2xl border border-subtle bg-surface p-6 shadow-sm">
         <header className="mb-6">
-          <h1 className="text-2xl font-semibold text-cyan-300">
+          <h1 className="text-2xl font-semibold text-blue-600">
             Data Ingestion
           </h1>
-          <p className="mt-2 text-sm text-slate-400">
+          <p className="mt-2 text-sm text-muted">
             Upload a CSV or Excel file to detect the schema, validate rows, and
             push entities into the metadata store.
           </p>
@@ -478,45 +478,45 @@ function IngestionPage() {
 
         <div className="grid gap-4 md:grid-cols-2">
           <label className="flex flex-col text-sm">
-            <span className="mb-1 text-slate-300">Organization ID</span>
+            <span className="mb-1 text-muted">Organization ID</span>
             <input
               type="text"
               value={organizationId}
               onChange={(event) => setOrganizationId(event.target.value)}
-              className="rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2 text-slate-100 outline-none focus:border-cyan-400"
+              className="rounded-lg border border-subtle bg-subtle px-3 py-2 text-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
               placeholder="UUID of the organization"
             />
           </label>
 
           <label className="flex flex-col text-sm">
-            <span className="mb-1 text-slate-300">Schema Name</span>
+            <span className="mb-1 text-muted">Schema Name</span>
             <input
               type="text"
               value={schemaName}
               onChange={(event) => setSchemaName(event.target.value)}
-              className="rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2 text-slate-100 outline-none focus:border-cyan-400"
+              className="rounded-lg border border-subtle bg-subtle px-3 py-2 text-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
               placeholder="Entity type name"
             />
           </label>
 
           <label className="md:col-span-2 flex flex-col text-sm">
-            <span className="mb-1 text-slate-300">Description (optional)</span>
+            <span className="mb-1 text-muted">Description (optional)</span>
             <input
               type="text"
               value={description}
               onChange={(event) => setDescription(event.target.value)}
-              className="rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2 text-slate-100 outline-none focus:border-cyan-400"
+              className="rounded-lg border border-subtle bg-subtle px-3 py-2 text-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
               placeholder="Describe this schema"
             />
           </label>
 
           <label className="md:col-span-2 flex flex-col text-sm">
-            <span className="mb-1 text-slate-300">Upload CSV/XLSX</span>
+            <span className="mb-1 text-muted">Upload CSV/XLSX</span>
             <input
               type="file"
               accept=".csv, .xlsx"
               onChange={handleFileChange}
-              className="rounded-lg border border-dashed border-slate-600 bg-slate-950/70 px-3 py-2 text-slate-100 outline-none focus:border-cyan-400"
+              className="rounded-lg border border-dashed border-subtle bg-subtle px-3 py-2 text-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
             />
           </label>
         </div>

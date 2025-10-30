@@ -141,7 +141,7 @@ function IngestionBatchesPage() {
   const stats = overviewQuery.data?.stats;
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100">
+    <main className="bg-app">
       <div className="mx-auto max-w-7xl px-6 py-8">
       <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
