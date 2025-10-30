@@ -2,6 +2,7 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
 
 import {
+  useCancelEntityExportJobMutation,
   EntityExportJobStatus,
   type EntityExportJobsQuery,
   useEntityExportJobsQuery,
@@ -23,6 +24,7 @@ function ExportsPage() {
   const [organizationId, setOrganizationId] = useState('')
   const [limit, setLimit] = useState(50)
   const [offset, setOffset] = useState(0)
+  const [cancelError, setCancelError] = useState<string | null>(null)
 
   const trimmedOrgId = organizationId.trim()
   const enabled = trimmedOrgId.length > 0
@@ -53,6 +55,20 @@ function ExportsPage() {
     },
   )
 
+  const cancelExportJobMutation = useCancelEntityExportJobMutation({
+    onSuccess: () => {
+      setCancelError(null)
+      void exportsQuery.refetch()
+    },
+    onError: (error) => {
+      if (error instanceof Error) {
+        setCancelError(error.message)
+      } else {
+        setCancelError('Unable to cancel export job')
+      }
+    },
+  })
+
   const jobs = exportsQuery.data?.entityExportJobs ?? []
 
   const sortedJobs = useMemo(() => {
@@ -76,7 +92,8 @@ function ExportsPage() {
     () =>
       sortedJobs.filter((job) =>
         job.status === EntityExportJobStatus.Completed ||
-        job.status === EntityExportJobStatus.Failed,
+        job.status === EntityExportJobStatus.Failed ||
+        job.status === EntityExportJobStatus.Cancelled,
       ),
     [sortedJobs],
   )
@@ -88,6 +105,7 @@ function ExportsPage() {
     let pending = 0
     let running = 0
     let completed = 0
+    let cancelled = 0
     let failed = 0
 
     for (const job of jobs) {
@@ -107,6 +125,10 @@ function ExportsPage() {
           completed += 1
           break
         }
+        case EntityExportJobStatus.Cancelled: {
+          cancelled += 1
+          break
+        }
         case EntityExportJobStatus.Failed: {
           failed += 1
           break
@@ -119,6 +141,7 @@ function ExportsPage() {
       pending,
       running,
       completed,
+      cancelled,
       failed,
       rowsExported,
       rowsRequested,
@@ -229,12 +252,19 @@ function ExportsPage() {
           </p>
         ) : null}
 
+        {cancelError ? (
+          <p className="mb-6 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+            {cancelError}
+          </p>
+        ) : null}
+
         {enabled ? (
           <section className="mb-8 grid gap-4 md:grid-cols-3 lg:grid-cols-6">
             <StatCard label="Total jobs" value={stats.total} />
             <StatCard label="Pending" value={stats.pending} />
             <StatCard label="Running" value={stats.running} />
             <StatCard label="Completed" value={stats.completed} />
+            <StatCard label="Cancelled" value={stats.cancelled} />
             <StatCard label="Failed" value={stats.failed} />
             <StatCard label="Rows exported" value={stats.rowsExported} />
           </section>
@@ -260,39 +290,57 @@ function ExportsPage() {
             <p className="text-sm text-slate-500">No pending or running exports.</p>
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
-              {inProgressJobs.map((job) => (
-                <article
-                  key={job.id}
-                  className="rounded-lg border border-slate-800 bg-slate-900/70 p-4 shadow-md shadow-slate-950/40"
-                >
-                  <header className="flex items-center justify-between text-sm text-slate-400">
-                    <span className="font-semibold text-cyan-300">{jobDisplayName(job)}</span>
-                    <StatusBadge status={job.status} />
-                  </header>
-                  <dl className="mt-3 space-y-2 text-xs text-slate-400">
-                    <div className="flex justify-between">
-                      <dt>Job ID</dt>
-                      <dd className="font-mono text-slate-300">{job.id.slice(0, 8)}…</dd>
+              {inProgressJobs.map((job) => {
+                const isCancelling =
+                  cancelExportJobMutation.isPending &&
+                  cancelExportJobMutation.variables?.id === job.id
+                return (
+                  <article
+                    key={job.id}
+                    className="rounded-lg border border-slate-800 bg-slate-900/70 p-4 shadow-md shadow-slate-950/40"
+                  >
+                    <header className="flex items-center justify-between text-sm text-slate-400">
+                      <span className="font-semibold text-cyan-300">{jobDisplayName(job)}</span>
+                      <StatusBadge status={job.status} />
+                    </header>
+                    <dl className="mt-3 space-y-2 text-xs text-slate-400">
+                      <div className="flex justify-between">
+                        <dt>Job ID</dt>
+                        <dd className="font-mono text-slate-300">{job.id.slice(0, 8)}…</dd>
+                      </div>
+                      <div className="flex justify-between">
+                        <dt>Requested rows</dt>
+                        <dd>{job.rowsRequested.toLocaleString()}</dd>
+                      </div>
+                      <div className="flex justify-between">
+                        <dt>Rows exported</dt>
+                        <dd>{job.rowsExported.toLocaleString()}</dd>
+                      </div>
+                      <div className="flex justify-between">
+                        <dt>Started</dt>
+                        <dd>{formatTimestamp(job.startedAt ?? job.enqueuedAt)}</dd>
+                      </div>
+                      <div className="flex justify-between">
+                        <dt>Last update</dt>
+                        <dd>{formatTimestamp(job.updatedAt)}</dd>
+                      </div>
+                    </dl>
+                    <div className="mt-4 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCancelError(null)
+                          cancelExportJobMutation.mutate({ id: job.id })
+                        }}
+                        className="inline-flex items-center rounded-md border border-red-400 px-3 py-1 text-xs font-medium text-red-200 transition hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+                        disabled={cancelExportJobMutation.isPending}
+                      >
+                        {isCancelling ? 'Cancelling…' : 'Cancel job'}
+                      </button>
                     </div>
-                    <div className="flex justify-between">
-                      <dt>Requested rows</dt>
-                      <dd>{job.rowsRequested.toLocaleString()}</dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt>Rows exported</dt>
-                      <dd>{job.rowsExported.toLocaleString()}</dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt>Started</dt>
-                      <dd>{formatTimestamp(job.startedAt ?? job.enqueuedAt)}</dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt>Last update</dt>
-                      <dd>{formatTimestamp(job.updatedAt)}</dd>
-                    </div>
-                  </dl>
-                </article>
-              ))}
+                  </article>
+                )
+              })}
             </div>
           )}
         </section>
@@ -300,9 +348,9 @@ function ExportsPage() {
         <section className="rounded-xl border border-slate-800 bg-slate-950/60 p-5 shadow-lg shadow-slate-950/40">
           <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="text-lg font-semibold text-slate-200">Completed & failed jobs</h2>
+              <h2 className="text-lg font-semibold text-slate-200">Completed, failed, & cancelled jobs</h2>
               <p className="mt-1 text-xs text-slate-500">
-                Download completed files or review errors for failed exports.
+                Download completed files or review errors and cancellation reasons.
               </p>
             </div>
             <span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs text-slate-400">
@@ -447,6 +495,8 @@ function StatusBadge({ status }: { status: EntityExportJobStatus | string }) {
     colorClass = 'text-emerald-200 border-emerald-500/60 bg-emerald-500/10'
   } else if (normalized === 'FAILED') {
     colorClass = 'text-red-200 border-red-500/60 bg-red-500/10'
+  } else if (normalized === 'CANCELLED') {
+    colorClass = 'text-purple-200 border-purple-500/60 bg-purple-500/10'
   } else if (normalized === 'PENDING' || normalized === 'RUNNING') {
     colorClass = 'text-amber-200 border-amber-500/60 bg-amber-500/10'
   }

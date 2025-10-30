@@ -232,6 +232,7 @@ func (h *Handler) handleListJobs(w http.ResponseWriter, r *http.Request) {
 			domain.EntityExportJobStatusPending,
 			domain.EntityExportJobStatusRunning,
 			domain.EntityExportJobStatusCompleted,
+			domain.EntityExportJobStatusCancelled,
 			domain.EntityExportJobStatusFailed,
 		}
 	}
@@ -360,6 +361,7 @@ func parseStatuses(values []string) []domain.EntityExportJobStatus {
 			case domain.EntityExportJobStatusPending,
 				domain.EntityExportJobStatusRunning,
 				domain.EntityExportJobStatusCompleted,
+				domain.EntityExportJobStatusCancelled,
 				domain.EntityExportJobStatusFailed:
 				result = append(result, domain.EntityExportJobStatus(trimmed))
 			}

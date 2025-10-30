@@ -189,10 +189,6 @@ function TransformationResultsRoute() {
           organizationId: transformation.organizationId,
           transformationId,
           filters: exportFilters.length > 0 ? exportFilters : undefined,
-          options: {
-            limit: pageSize,
-            offset: page * pageSize,
-          },
         },
       })
       setExportFeedback({

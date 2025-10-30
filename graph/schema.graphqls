@@ -626,6 +626,7 @@ type Mutation {
   # Entity export mutations
   queueEntityTypeExport(input: QueueEntityTypeExportInput!): EntityExportJob!
   queueTransformationExport(input: QueueTransformationExportInput!): EntityExportJob!
+  cancelEntityExportJob(id: String!): EntityExportJob!
 }
 
 # Entity export types
@@ -638,6 +639,7 @@ enum EntityExportJobStatus {
   PENDING
   RUNNING
   COMPLETED
+  CANCELLED
   FAILED
 }
 

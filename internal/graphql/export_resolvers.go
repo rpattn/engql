@@ -73,6 +73,28 @@ func (r *Resolver) QueueTransformationExport(ctx context.Context, input graph.Qu
 	return toGraphEntityExportJob(job), nil
 }
 
+func (r *Resolver) CancelEntityExportJob(ctx context.Context, id string) (*graph.EntityExportJob, error) {
+	if r.exportService == nil {
+		return nil, fmt.Errorf("export service is not configured")
+	}
+	jobID, err := uuid.Parse(id)
+	if err != nil {
+		return nil, fmt.Errorf("invalid export job id: %w", err)
+	}
+	existing, err := r.exportService.GetJob(ctx, jobID)
+	if err != nil {
+		return nil, err
+	}
+	if err := auth.EnforceOrganizationScope(ctx, existing.OrganizationID); err != nil {
+		return nil, err
+	}
+	job, err := r.exportService.CancelJob(ctx, jobID)
+	if err != nil {
+		return nil, err
+	}
+	return toGraphEntityExportJob(job), nil
+}
+
 func (r *Resolver) ListEntityExportJobs(ctx context.Context, organizationID string, statuses []graph.EntityExportJobStatus, limit *int, offset *int) ([]*graph.EntityExportJob, error) {
 	if r.exportService == nil {
 		return nil, fmt.Errorf("export service is not configured")
@@ -93,6 +115,7 @@ func (r *Resolver) ListEntityExportJobs(ctx context.Context, organizationID stri
 			domain.EntityExportJobStatusPending,
 			domain.EntityExportJobStatusRunning,
 			domain.EntityExportJobStatusCompleted,
+			domain.EntityExportJobStatusCancelled,
 			domain.EntityExportJobStatusFailed,
 		}
 	}

@@ -523,6 +523,7 @@ const (
 	EntityExportJobStatusPending   EntityExportJobStatus = "PENDING"
 	EntityExportJobStatusRunning   EntityExportJobStatus = "RUNNING"
 	EntityExportJobStatusCompleted EntityExportJobStatus = "COMPLETED"
+	EntityExportJobStatusCancelled EntityExportJobStatus = "CANCELLED"
 	EntityExportJobStatusFailed    EntityExportJobStatus = "FAILED"
 )
 
@@ -530,12 +531,13 @@ var AllEntityExportJobStatus = []EntityExportJobStatus{
 	EntityExportJobStatusPending,
 	EntityExportJobStatusRunning,
 	EntityExportJobStatusCompleted,
+	EntityExportJobStatusCancelled,
 	EntityExportJobStatusFailed,
 }
 
 func (e EntityExportJobStatus) IsValid() bool {
 	switch e {
-	case EntityExportJobStatusPending, EntityExportJobStatusRunning, EntityExportJobStatusCompleted, EntityExportJobStatusFailed:
+	case EntityExportJobStatusPending, EntityExportJobStatusRunning, EntityExportJobStatusCompleted, EntityExportJobStatusCancelled, EntityExportJobStatusFailed:
 		return true
 	}
 	return false
