@@ -10,6 +10,7 @@ import (
 
 	"github.com/rpattn/engql/graph"
 	"github.com/rpattn/engql/internal/domain"
+	"github.com/rpattn/engql/internal/export"
 	"github.com/rpattn/engql/internal/repository"
 	"github.com/rpattn/engql/internal/transformations"
 
@@ -25,6 +26,7 @@ type Resolver struct {
 	entityJoinRepo           repository.EntityJoinRepository
 	entityTransformationRepo repository.EntityTransformationRepository
 	transformationExecutor   *transformations.Executor
+	exportService            *export.Service
 	referenceFieldCache      sync.Map
 }
 
@@ -36,6 +38,7 @@ func NewResolver(
 	entityJoinRepo repository.EntityJoinRepository,
 	entityTransformationRepo repository.EntityTransformationRepository,
 	transformationExecutor *transformations.Executor,
+	exportService *export.Service,
 ) *Resolver {
 	return &Resolver{
 		orgRepo:                  orgRepo,
@@ -44,6 +47,7 @@ func NewResolver(
 		entityJoinRepo:           entityJoinRepo,
 		entityTransformationRepo: entityTransformationRepo,
 		transformationExecutor:   transformationExecutor,
+		exportService:            exportService,
 	}
 }
 

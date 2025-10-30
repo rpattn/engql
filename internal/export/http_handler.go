@@ -4,11 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
 
+	"github.com/rpattn/engql/internal/auth"
 	"github.com/rpattn/engql/internal/domain"
 )
 
@@ -22,17 +24,26 @@ func NewHTTPHandler(service *Service) http.Handler {
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch {
+	case r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/files/"):
+		h.handleDownload(w, r)
+		return
+	case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/logs"):
+		h.handleListLogs(w, r)
+		return
 	case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/entity-type"):
 		h.handleQueueEntityType(w, r)
 		return
 	case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/transformation"):
 		h.handleQueueTransformation(w, r)
 		return
-	case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/jobs"):
+	case r.Method == http.MethodPost:
+		h.handleQueue(w, r)
+		return
+	case r.Method == http.MethodGet && (strings.HasSuffix(r.URL.Path, "/jobs") || strings.HasSuffix(r.URL.Path, "/batches") || strings.HasSuffix(r.URL.Path, "/exports")):
 		h.handleListJobs(w, r)
 		return
-	case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/logs"):
-		h.handleListLogs(w, r)
+	case r.Method == http.MethodGet:
+		h.handleListJobs(w, r)
 		return
 	default:
 		http.Error(w, "not found", http.StatusNotFound)
@@ -49,6 +60,15 @@ type entityTypeQueuePayload struct {
 type transformationQueuePayload struct {
 	OrganizationID   string                      `json:"organizationId"`
 	TransformationID string                      `json:"transformationId"`
+	Filters          []propertyFilterInput       `json:"filters"`
+	Options          *transformationOptionsInput `json:"options"`
+}
+
+type queueExportPayload struct {
+	OrganizationID   string                      `json:"organizationId"`
+	JobType          string                      `json:"jobType"`
+	EntityType       *string                     `json:"entityType"`
+	TransformationID *string                     `json:"transformationId"`
 	Filters          []propertyFilterInput       `json:"filters"`
 	Options          *transformationOptionsInput `json:"options"`
 }
@@ -77,6 +97,10 @@ func (h *Handler) handleQueueEntityType(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, fmt.Sprintf("invalid organizationId: %v", err), http.StatusBadRequest)
 		return
 	}
+	if err := auth.EnforceOrganizationScope(r.Context(), orgID); err != nil {
+		http.Error(w, err.Error(), http.StatusForbidden)
+		return
+	}
 	req := EntityTypeExportRequest{
 		OrganizationID: orgID,
 		EntityType:     payload.EntityType,
@@ -102,6 +126,10 @@ func (h *Handler) handleQueueTransformation(w http.ResponseWriter, r *http.Reque
 		http.Error(w, fmt.Sprintf("invalid organizationId: %v", err), http.StatusBadRequest)
 		return
 	}
+	if err := auth.EnforceOrganizationScope(r.Context(), orgID); err != nil {
+		http.Error(w, err.Error(), http.StatusForbidden)
+		return
+	}
 	transformationID, err := uuid.Parse(strings.TrimSpace(payload.TransformationID))
 	if err != nil {
 		http.Error(w, fmt.Sprintf("invalid transformationId: %v", err), http.StatusBadRequest)
@@ -122,6 +150,67 @@ func (h *Handler) handleQueueTransformation(w http.ResponseWriter, r *http.Reque
 	writeJSON(w, http.StatusAccepted, job)
 }
 
+func (h *Handler) handleQueue(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+	var payload queueExportPayload
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		http.Error(w, fmt.Sprintf("invalid payload: %v", err), http.StatusBadRequest)
+		return
+	}
+	orgID, err := uuid.Parse(strings.TrimSpace(payload.OrganizationID))
+	if err != nil {
+		http.Error(w, fmt.Sprintf("invalid organizationId: %v", err), http.StatusBadRequest)
+		return
+	}
+	if err := auth.EnforceOrganizationScope(r.Context(), orgID); err != nil {
+		http.Error(w, err.Error(), http.StatusForbidden)
+		return
+	}
+	jobType := strings.ToUpper(strings.TrimSpace(payload.JobType))
+	switch domain.EntityExportJobType(jobType) {
+	case domain.EntityExportJobTypeEntityType:
+		entityType := ""
+		if payload.EntityType != nil {
+			entityType = *payload.EntityType
+		}
+		req := EntityTypeExportRequest{
+			OrganizationID: orgID,
+			EntityType:     entityType,
+			Filters:        toDomainFilters(payload.Filters),
+		}
+		job, queueErr := h.service.QueueEntityTypeExport(r.Context(), req)
+		if queueErr != nil {
+			http.Error(w, queueErr.Error(), http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, http.StatusAccepted, job)
+	case domain.EntityExportJobTypeTransformation:
+		if payload.TransformationID == nil {
+			http.Error(w, "transformationId is required", http.StatusBadRequest)
+			return
+		}
+		transformationID, err := uuid.Parse(strings.TrimSpace(*payload.TransformationID))
+		if err != nil {
+			http.Error(w, fmt.Sprintf("invalid transformationId: %v", err), http.StatusBadRequest)
+			return
+		}
+		req := TransformationExportRequest{
+			OrganizationID:   orgID,
+			TransformationID: transformationID,
+			Filters:          toDomainFilters(payload.Filters),
+			Options:          toExecutionOptions(payload.Options),
+		}
+		job, queueErr := h.service.QueueTransformationExport(r.Context(), req)
+		if queueErr != nil {
+			http.Error(w, queueErr.Error(), http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, http.StatusAccepted, job)
+	default:
+		http.Error(w, fmt.Sprintf("unsupported jobType %q", payload.JobType), http.StatusBadRequest)
+	}
+}
+
 func (h *Handler) handleListJobs(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	var organizationID *uuid.UUID
@@ -132,6 +221,10 @@ func (h *Handler) handleListJobs(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		organizationID = &id
+		if err := auth.EnforceOrganizationScope(r.Context(), id); err != nil {
+			http.Error(w, err.Error(), http.StatusForbidden)
+			return
+		}
 	}
 	statuses := parseStatuses(query["status"])
 	if len(statuses) == 0 {
@@ -178,6 +271,15 @@ func (h *Handler) handleListLogs(w http.ResponseWriter, r *http.Request) {
 	jobID, err := uuid.Parse(jobIDRaw)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("invalid jobId: %v", err), http.StatusBadRequest)
+		return
+	}
+	job, err := h.service.GetJob(r.Context(), jobID)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("job not found: %v", err), http.StatusNotFound)
+		return
+	}
+	if err := auth.EnforceOrganizationScope(r.Context(), job.OrganizationID); err != nil {
+		http.Error(w, err.Error(), http.StatusForbidden)
 		return
 	}
 	limit := 200
@@ -272,4 +374,54 @@ func writeJSON(w http.ResponseWriter, status int, payload any) {
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
 	_ = enc.Encode(payload)
+}
+
+func (h *Handler) handleDownload(w http.ResponseWriter, r *http.Request) {
+	path := strings.TrimSuffix(r.URL.Path, "/")
+	idx := strings.LastIndex(path, "/")
+	if idx == -1 || idx == len(path)-1 {
+		http.Error(w, "missing export identifier", http.StatusBadRequest)
+		return
+	}
+	idSegment := path[idx+1:]
+	jobID, err := uuid.Parse(idSegment)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("invalid export identifier: %v", err), http.StatusBadRequest)
+		return
+	}
+	job, err := h.service.GetJob(r.Context(), jobID)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("job not found: %v", err), http.StatusNotFound)
+		return
+	}
+	if err := auth.EnforceOrganizationScope(r.Context(), job.OrganizationID); err != nil {
+		http.Error(w, err.Error(), http.StatusForbidden)
+		return
+	}
+	token := strings.TrimSpace(r.URL.Query().Get("token"))
+	if err := h.service.ValidateDownloadToken(jobID, token); err != nil {
+		http.Error(w, err.Error(), http.StatusForbidden)
+		return
+	}
+	file, err := h.service.OpenJobFile(job)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusConflict)
+		return
+	}
+	defer file.Close()
+
+	filename := filepath.Base(strings.TrimSpace(*job.FilePath))
+	if filename == "" {
+		filename = fmt.Sprintf("export-%s.csv", jobID.String())
+	}
+	contentType := "application/octet-stream"
+	if job.FileMimeType != nil && strings.TrimSpace(*job.FileMimeType) != "" {
+		contentType = *job.FileMimeType
+	}
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
+	if job.FileByteSize != nil && *job.FileByteSize > 0 {
+		w.Header().Set("Content-Length", strconv.FormatInt(*job.FileByteSize, 10))
+	}
+	http.ServeContent(w, r, filename, job.UpdatedAt, file)
 }
