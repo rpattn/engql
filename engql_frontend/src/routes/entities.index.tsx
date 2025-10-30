@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import type { Entity, EntityFilter, PropertyFilter as PropertyFilterInput } from '../generated/graphql'
 import { EntitySortField, FieldType, SortDirection } from '../generated/graphql'
@@ -9,6 +9,7 @@ import {
   useEntitiesManagementQuery,
   useEntitySchemasQuery,
   useGetOrganizationsQuery,
+  useQueueEntityTypeExportMutation,
   useUpdateEntityMutation,
 } from '../generated/graphql'
 import EntityTable, {
@@ -26,6 +27,8 @@ import {
   safeParseProperties,
 } from '../features/entities/components/helpers'
 import { loadLastOrganizationId, persistLastOrganizationId } from '../lib/browserStorage'
+
+type FeedbackState = { type: 'success' | 'error'; message: string; context?: 'export' }
 
 type ModalState =
   | { mode: 'create' }
@@ -48,7 +51,7 @@ function EntitiesPage() {
   const [hiddenFieldNames, setHiddenFieldNames] = useState<string[]>([])
   const [modalState, setModalState] = useState<ModalState | null>(null)
   const [modalError, setModalError] = useState<string | null>(null)
-  const [feedback, setFeedback] = useState<string | null>(null)
+  const [feedback, setFeedback] = useState<FeedbackState | null>(null)
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
   const [sortState, setSortState] = useState<SortState | null>(null)
@@ -263,6 +266,7 @@ function EntitiesPage() {
   const createEntityMutation = useCreateEntityMutation()
   const updateEntityMutation = useUpdateEntityMutation()
   const deleteEntityMutation = useDeleteEntityMutation()
+  const queueEntityTypeExportMutation = useQueueEntityTypeExportMutation()
 
   const entitiesQueryKey = useMemo(
     () => (queryVariables ? useEntitiesManagementQuery.getKey(queryVariables) : undefined),
@@ -313,7 +317,7 @@ function EntitiesPage() {
             properties: normalizedProperties,
           },
         })
-        setFeedback('Entity created successfully.')
+        setFeedback({ type: 'success', message: 'Entity created successfully.' })
         setPage(0)
       } else {
         await updateEntityMutation.mutateAsync({
@@ -324,7 +328,7 @@ function EntitiesPage() {
             properties: normalizedProperties,
           },
         })
-        setFeedback('Entity updated successfully.')
+        setFeedback({ type: 'success', message: 'Entity updated successfully.' })
       }
 
       await refetchEntities()
@@ -346,12 +350,47 @@ function EntitiesPage() {
 
     try {
       await deleteEntityMutation.mutateAsync({ id: entity.id })
-      setFeedback('Entity deleted successfully.')
+      setFeedback({ type: 'success', message: 'Entity deleted successfully.' })
       await refetchEntities()
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Failed to delete entity.'
-      setFeedback(message)
+      setFeedback({ type: 'error', message })
+    }
+  }
+
+  const handleQueueEntityExport = async () => {
+    if (!selectedOrgId || !selectedSchema?.name) {
+      return
+    }
+
+    const filters =
+      propertyFilters.length > 0
+        ? propertyFilters.map((filter) => ({
+            key: filter.key,
+            value: filter.value,
+            exists: filter.exists,
+            inArray: filter.inArray,
+          }))
+        : undefined
+
+    try {
+      await queueEntityTypeExportMutation.mutateAsync({
+        input: {
+          organizationId: selectedOrgId,
+          entityType: selectedSchema.name,
+          filters,
+        },
+      })
+      setFeedback({
+        type: 'success',
+        message: `Export queued for ${selectedSchema.name}.`,
+        context: 'export',
+      })
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to queue export.'
+      setFeedback({ type: 'error', message })
     }
   }
 
@@ -391,14 +430,30 @@ function EntitiesPage() {
             Browse, create, and maintain entities for a chosen schema.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setModalState({ mode: 'create' })}
-          disabled={!selectedOrgId || !selectedSchema}
-          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-blue-300"
-        >
-          Add Entity
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setModalState({ mode: 'create' })}
+            disabled={!selectedOrgId || !selectedSchema}
+            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-blue-300"
+          >
+            Add Entity
+          </button>
+          <button
+            type="button"
+            onClick={handleQueueEntityExport}
+            disabled={
+              !selectedOrgId ||
+              !selectedSchema ||
+              queueEntityTypeExportMutation.isPending
+            }
+            className="rounded-md border border-blue-500 px-4 py-2 text-sm font-medium text-blue-700 transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {queueEntityTypeExportMutation.isPending
+              ? 'Queuing export…'
+              : 'Export all rows'}
+          </button>
+        </div>
       </div>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-[2fr,2fr,1fr] sm:items-end">
@@ -461,8 +516,23 @@ function EntitiesPage() {
       </div>
 
       {feedback && (
-        <div className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-700">
-          {feedback}
+        <div
+          className={`mt-4 rounded-md border px-4 py-2 text-sm ${
+            feedback.type === 'success'
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+              : 'border-red-200 bg-red-50 text-red-700'
+          }`}
+        >
+          <p>{feedback.message}</p>
+          {feedback.context === 'export' && feedback.type === 'success' ? (
+            <p className="mt-1 text-xs">
+              Track progress on the{' '}
+              <Link to="/exports" className="font-semibold text-blue-600 underline">
+                Exports page
+              </Link>
+              .
+            </p>
+          ) : null}
         </div>
       )}
 
