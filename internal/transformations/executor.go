@@ -3,7 +3,9 @@ package transformations
 import (
 	"context"
 	"fmt"
+	"math"
 	"sort"
+	"strings"
 
 	"github.com/rpattn/engql/internal/domain"
 
@@ -88,6 +90,31 @@ func requestTotal(req pageRequest) int {
 		return 0
 	}
 	return req.offset + req.limit
+}
+
+func safeProduct(a, b int) int {
+	if a <= 0 || b <= 0 {
+		return 0
+	}
+	product := int64(a) * int64(b)
+	if product > math.MaxInt {
+		return math.MaxInt
+	}
+	return int(product)
+}
+
+func minPositive(a, b int) int {
+	switch {
+	case a <= 0:
+		return b
+	case b <= 0:
+		return a
+	default:
+		if a < b {
+			return a
+		}
+		return b
+	}
 }
 
 // NewExecutor constructs a transformation executor.
@@ -709,9 +736,33 @@ func (e *Executor) executeJoin(
 			}
 		}
 	}
+	leftTotal := totals[node.Inputs[0]]
+	if leftTotal == 0 {
+		leftTotal = len(leftRecords)
+	}
+	rightTotal := totals[node.Inputs[1]]
+	if rightTotal == 0 {
+		rightTotal = len(rightRecords)
+	}
+
+	pageWindow := requestTotal(req)
+	isCartesian := strings.TrimSpace(node.Join.OnField) == ""
+
+	if isCartesian {
+		if product := safeProduct(leftTotal, rightTotal); product > total {
+			total = product
+		}
+	} else if pageWindow > 0 && total == pageWindow {
+		if candidate := minPositive(leftTotal, rightTotal); candidate > total {
+			total = candidate
+		}
+	}
+
+	if (node.Type == domain.TransformationNodeLeftJoin || node.Type == domain.TransformationNodeAntiJoin) && pageWindow > 0 && leftTotal > total {
+		total = leftTotal
+	}
+
 	if total == 0 {
-		leftTotal := totals[node.Inputs[0]]
-		rightTotal := totals[node.Inputs[1]]
 		if leftTotal > 0 && rightTotal > 0 {
 			total = leftTotal
 		}
