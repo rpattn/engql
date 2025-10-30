@@ -2,8 +2,10 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
+	"strings"
 	"time"
 
 	"github.com/rpattn/engql/internal/db"
@@ -16,6 +18,9 @@ import (
 type entityExportRepository struct {
 	queries *db.Queries
 }
+
+// ErrExportJobStatusConflict indicates that a job cannot transition to the requested state.
+var ErrExportJobStatusConflict = errors.New("export job status conflict")
 
 // NewEntityExportRepository wires a repository for managing export jobs.
 func NewEntityExportRepository(queries *db.Queries) EntityExportRepository {
@@ -122,8 +127,12 @@ func (r *entityExportRepository) List(ctx context.Context, organizationID *uuid.
 }
 
 func (r *entityExportRepository) MarkRunning(ctx context.Context, id uuid.UUID) error {
-	if err := r.queries.MarkEntityExportJobRunning(ctx, id); err != nil {
+	affected, err := r.queries.MarkEntityExportJobRunning(ctx, id)
+	if err != nil {
 		return fmt.Errorf("mark export job running: %w", err)
+	}
+	if affected == 0 {
+		return ErrExportJobStatusConflict
 	}
 	return nil
 }
@@ -194,6 +203,24 @@ func (r *entityExportRepository) MarkFailed(ctx context.Context, id uuid.UUID, e
 		ID:           id,
 	}); err != nil {
 		return fmt.Errorf("mark export job failed: %w", err)
+	}
+	return nil
+}
+
+func (r *entityExportRepository) MarkCancelled(ctx context.Context, id uuid.UUID, reason string) error {
+	msg := pgtype.Text{}
+	if strings.TrimSpace(reason) != "" {
+		msg = pgtype.Text{String: reason, Valid: true}
+	}
+	affected, err := r.queries.MarkEntityExportJobCancelled(ctx, db.MarkEntityExportJobCancelledParams{
+		ErrorMessage: msg,
+		ID:           id,
+	})
+	if err != nil {
+		return fmt.Errorf("mark export job cancelled: %w", err)
+	}
+	if affected == 0 {
+		return ErrExportJobStatusConflict
 	}
 	return nil
 }
@@ -308,10 +335,7 @@ func mapEntityExportJob(row db.EntityExportJob) (domain.EntityExportJob, error) 
 		errorMessage = &value
 	}
 
-	bytesWritten := int64(0)
-	if row.BytesWritten.Valid {
-		bytesWritten = row.BytesWritten.Int64
-	}
+	bytesWritten := row.BytesWritten
 
 	return domain.EntityExportJob{
 		ID:                    row.ID,

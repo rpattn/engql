@@ -147,6 +147,7 @@ type EntityExportRepository interface {
 	UpdateProgress(ctx context.Context, id uuid.UUID, rowsExported int, bytesWritten int64, rowsRequested *int) error
 	MarkCompleted(ctx context.Context, id uuid.UUID, result EntityExportResult) error
 	MarkFailed(ctx context.Context, id uuid.UUID, errorMessage string) error
+	MarkCancelled(ctx context.Context, id uuid.UUID, reason string) error
 	RecordLog(ctx context.Context, entry domain.EntityExportLog) error
 	ListLogs(ctx context.Context, jobID uuid.UUID, limit int, offset int) ([]domain.EntityExportLog, error)
 }

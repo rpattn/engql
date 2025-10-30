@@ -60,7 +60,7 @@ type EntityExportJob struct {
 	Filters                  []byte             `json:"filters"`
 	RowsRequested            int32              `json:"rows_requested"`
 	RowsExported             int32              `json:"rows_exported"`
-	BytesWritten             pgtype.Int8        `json:"bytes_written"`
+	BytesWritten             int64              `json:"bytes_written"`
 	FilePath                 pgtype.Text        `json:"file_path"`
 	FileMimeType             pgtype.Text        `json:"file_mime_type"`
 	FileByteSize             pgtype.Int8        `json:"file_byte_size"`

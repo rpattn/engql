@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -27,6 +28,8 @@ import (
 )
 
 type workerFunc func(context.Context, domain.EntityExportJob) error
+
+var errJobNotRunnable = errors.New("export job is no longer runnable")
 
 type Service struct {
 	organizations          repository.OrganizationRepository
@@ -42,6 +45,8 @@ type Service struct {
 	now        func() time.Time
 
 	downloadSigner *downloadSigner
+
+	workerCancels sync.Map // map[uuid.UUID]context.CancelFunc
 }
 
 type Option func(*Service)
@@ -262,14 +267,55 @@ func (s *Service) OpenJobFile(job domain.EntityExportJob) (*os.File, error) {
 	return file, nil
 }
 
-func (s *Service) launchWorker(job domain.EntityExportJob, run workerFunc) {
-	ctx := context.Background()
-	cancel := func() {}
-	if s.jobTimeout > 0 {
-		ctx, cancel = context.WithTimeout(ctx, s.jobTimeout)
+// CancelJob requests cancellation for a pending or running export job.
+func (s *Service) CancelJob(ctx context.Context, id uuid.UUID) (domain.EntityExportJob, error) {
+	if id == uuid.Nil {
+		return domain.EntityExportJob{}, errors.New("job ID is required")
 	}
+	job, err := s.exportRepo.GetByID(ctx, id)
+	if err != nil {
+		return domain.EntityExportJob{}, err
+	}
+	if job.Status != domain.EntityExportJobStatusPending && job.Status != domain.EntityExportJobStatusRunning {
+		return job, fmt.Errorf("export job in status %s cannot be cancelled", job.Status)
+	}
+	reason := "Cancelled by user"
+	if err := s.exportRepo.MarkCancelled(ctx, id, reason); err != nil {
+		if errors.Is(err, repository.ErrExportJobStatusConflict) {
+			updated, getErr := s.exportRepo.GetByID(ctx, id)
+			if getErr != nil {
+				return domain.EntityExportJob{}, getErr
+			}
+			return updated, nil
+		}
+		return domain.EntityExportJob{}, err
+	}
+	if cancel, ok := s.workerCancels.LoadAndDelete(id); ok {
+		if fn, okCast := cancel.(context.CancelFunc); okCast {
+			fn()
+		}
+	}
+	return s.exportRepo.GetByID(ctx, id)
+}
+
+func (s *Service) launchWorker(job domain.EntityExportJob, run workerFunc) {
+	baseCtx, baseCancel := context.WithCancel(context.Background())
+	ctx := baseCtx
+	cancelFunc := baseCancel
+	if s.jobTimeout > 0 {
+		timeoutCtx, timeoutCancel := context.WithTimeout(baseCtx, s.jobTimeout)
+		ctx = timeoutCtx
+		cancelFunc = func() {
+			timeoutCancel()
+			baseCancel()
+		}
+	}
+	s.workerCancels.Store(job.ID, cancelFunc)
 	go func() {
-		defer cancel()
+		defer func() {
+			cancelFunc()
+			s.workerCancels.Delete(job.ID)
+		}()
 		defer func() {
 			if rec := recover(); rec != nil {
 				err := fmt.Errorf("panic: %v", rec)
@@ -278,7 +324,14 @@ func (s *Service) launchWorker(job domain.EntityExportJob, run workerFunc) {
 			}
 		}()
 		if err := run(ctx, job); err != nil {
-			s.failJob(ctx, job.ID, err)
+			switch {
+			case errors.Is(err, context.Canceled):
+				log.Printf("[export] job %s cancelled", job.ID)
+			case errors.Is(err, errJobNotRunnable):
+				log.Printf("[export] job %s not runnable, skipping", job.ID)
+			default:
+				s.failJob(ctx, job.ID, err)
+			}
 		}
 	}()
 }
@@ -303,6 +356,9 @@ func (s *Service) runEntityTypeExport(ctx context.Context, job domain.EntityExpo
 		return errors.New("export job missing entity type")
 	}
 	if err := s.exportRepo.MarkRunning(ctx, job.ID); err != nil {
+		if errors.Is(err, repository.ErrExportJobStatusConflict) {
+			return errJobNotRunnable
+		}
 		return fmt.Errorf("mark export job running: %w", err)
 	}
 	schema, err := s.schemaRepo.GetByName(ctx, job.OrganizationID, *job.EntityType)
@@ -440,6 +496,9 @@ func (s *Service) runEntityTypeExport(ctx context.Context, job domain.EntityExpo
 
 func (s *Service) runTransformationExport(ctx context.Context, job domain.EntityExportJob) error {
 	if err := s.exportRepo.MarkRunning(ctx, job.ID); err != nil {
+		if errors.Is(err, repository.ErrExportJobStatusConflict) {
+			return errJobNotRunnable
+		}
 		return fmt.Errorf("mark export job running: %w", err)
 	}
 	transformation := job.Transformation

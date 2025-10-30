@@ -111,6 +111,7 @@ export type EntityExportJob = {
 };
 
 export enum EntityExportJobStatus {
+  Cancelled = 'CANCELLED',
   Completed = 'COMPLETED',
   Failed = 'FAILED',
   Pending = 'PENDING',
@@ -470,6 +471,7 @@ export enum JoinType {
 export type Mutation = {
   __typename?: 'Mutation';
   addFieldToSchema: EntitySchema;
+  cancelEntityExportJob: EntityExportJob;
   createEntity: Entity;
   createEntityJoinDefinition: EntityJoinDefinition;
   createEntitySchema: EntitySchema;
@@ -495,6 +497,11 @@ export type Mutation = {
 export type MutationAddFieldToSchemaArgs = {
   field: FieldDefinitionInput;
   schemaId: Scalars['String']['input'];
+};
+
+
+export type MutationCancelEntityExportJobArgs = {
+  id: Scalars['String']['input'];
 };
 
 
@@ -1026,6 +1033,13 @@ export type QueueTransformationExportMutationVariables = Exact<{
 
 export type QueueTransformationExportMutation = { __typename?: 'Mutation', queueTransformationExport: { __typename?: 'EntityExportJob', id: string, organizationId: string, jobType: EntityExportJobType, entityType?: string | null, transformationId?: string | null, status: EntityExportJobStatus, rowsRequested: number, rowsExported: number, bytesWritten: number, fileMimeType?: string | null, fileByteSize?: number | null, errorMessage?: string | null, enqueuedAt: string, startedAt?: string | null, completedAt?: string | null, updatedAt: string, downloadUrl?: string | null, filters: Array<{ __typename?: 'PropertyFilterConfig', key: string, value?: string | null, exists?: boolean | null, inArray?: Array<string> | null }>, transformationDefinition?: { __typename?: 'EntityTransformation', id: string, name: string } | null } };
 
+export type CancelEntityExportJobMutationVariables = Exact<{
+  id: Scalars['String']['input'];
+}>;
+
+
+export type CancelEntityExportJobMutation = { __typename?: 'Mutation', cancelEntityExportJob: { __typename?: 'EntityExportJob', id: string, organizationId: string, jobType: EntityExportJobType, entityType?: string | null, transformationId?: string | null, status: EntityExportJobStatus, rowsRequested: number, rowsExported: number, bytesWritten: number, fileMimeType?: string | null, fileByteSize?: number | null, errorMessage?: string | null, enqueuedAt: string, startedAt?: string | null, completedAt?: string | null, updatedAt: string, downloadUrl?: string | null, filters: Array<{ __typename?: 'PropertyFilterConfig', key: string, value?: string | null, exists?: boolean | null, inArray?: Array<string> | null }>, transformationDefinition?: { __typename?: 'EntityTransformation', id: string, name: string } | null } };
+
 export type DeleteEntityMutationVariables = Exact<{
   id: Scalars['String']['input'];
 }>;
@@ -1551,6 +1565,58 @@ useQueueTransformationExportMutation.getKey = () => ['QueueTransformationExport'
 
 
 useQueueTransformationExportMutation.fetcher = (variables: QueueTransformationExportMutationVariables, options?: RequestInit['headers']) => graphqlRequest<QueueTransformationExportMutation, QueueTransformationExportMutationVariables>(QueueTransformationExportDocument, variables, options);
+
+export const CancelEntityExportJobDocument = `
+    mutation CancelEntityExportJob($id: String!) {
+  cancelEntityExportJob(id: $id) {
+    id
+    organizationId
+    jobType
+    entityType
+    transformationId
+    status
+    rowsRequested
+    rowsExported
+    bytesWritten
+    fileMimeType
+    fileByteSize
+    errorMessage
+    filters {
+      key
+      value
+      exists
+      inArray
+    }
+    transformationDefinition {
+      id
+      name
+    }
+    enqueuedAt
+    startedAt
+    completedAt
+    updatedAt
+    downloadUrl
+  }
+}
+    `;
+
+export const useCancelEntityExportJobMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CancelEntityExportJobMutation, TError, CancelEntityExportJobMutationVariables, TContext>) => {
+    
+    return useMutation<CancelEntityExportJobMutation, TError, CancelEntityExportJobMutationVariables, TContext>(
+      {
+    mutationKey: ['CancelEntityExportJob'],
+    mutationFn: (variables?: CancelEntityExportJobMutationVariables) => graphqlRequest<CancelEntityExportJobMutation, CancelEntityExportJobMutationVariables>(CancelEntityExportJobDocument, variables),
+    ...options
+  }
+    )};
+
+useCancelEntityExportJobMutation.getKey = () => ['CancelEntityExportJob'];
+
+
+useCancelEntityExportJobMutation.fetcher = (variables: CancelEntityExportJobMutationVariables, options?: RequestInit['headers']) => graphqlRequest<CancelEntityExportJobMutation, CancelEntityExportJobMutationVariables>(CancelEntityExportJobDocument, variables, options);
 
 export const DeleteEntityDocument = `
     mutation DeleteEntity($id: String!) {

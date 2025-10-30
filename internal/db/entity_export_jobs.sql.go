@@ -12,6 +12,60 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const GetEntityExportJobByID = `-- name: GetEntityExportJobByID :one
+SELECT
+    id,
+    organization_id,
+    job_type,
+    entity_type,
+    transformation_id,
+    filters,
+    rows_requested,
+    rows_exported,
+    bytes_written,
+    file_path,
+    file_mime_type,
+    file_byte_size,
+    status,
+    error_message,
+    enqueued_at,
+    started_at,
+    completed_at,
+    updated_at,
+    transformation_definition,
+    transformation_options
+FROM entity_export_jobs
+WHERE id = $1
+`
+
+func (q *Queries) GetEntityExportJobByID(ctx context.Context, id uuid.UUID) (EntityExportJob, error) {
+	row := q.db.QueryRow(ctx, GetEntityExportJobByID, id)
+	var i EntityExportJob
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.JobType,
+		&i.EntityType,
+		&i.TransformationID,
+		&i.Filters,
+		&i.RowsRequested,
+		&i.RowsExported,
+		&i.BytesWritten,
+		&i.FilePath,
+		&i.FileMimeType,
+		&i.FileByteSize,
+		&i.Status,
+		&i.ErrorMessage,
+		&i.EnqueuedAt,
+		&i.StartedAt,
+		&i.CompletedAt,
+		&i.UpdatedAt,
+		&i.TransformationDefinition,
+		&i.TransformationOptions,
+	)
+	return i, err
+}
+
 const InsertEntityExportJob = `-- name: InsertEntityExportJob :exec
 
 INSERT INTO entity_export_jobs (
@@ -191,17 +245,17 @@ SELECT
 FROM entity_export_logs
 WHERE export_job_id = $1
 ORDER BY created_at ASC
-LIMIT $2 OFFSET $3
+LIMIT $3 OFFSET $2
 `
 
 type ListEntityExportLogsForJobParams struct {
 	ExportJobID uuid.UUID `json:"export_job_id"`
-	PageLimit   int32     `json:"page_limit"`
 	PageOffset  int32     `json:"page_offset"`
+	PageLimit   int32     `json:"page_limit"`
 }
 
 func (q *Queries) ListEntityExportLogsForJob(ctx context.Context, arg ListEntityExportLogsForJobParams) ([]EntityExportLog, error) {
-	rows, err := q.db.Query(ctx, ListEntityExportLogsForJob, arg.ExportJobID, arg.PageLimit, arg.PageOffset)
+	rows, err := q.db.Query(ctx, ListEntityExportLogsForJob, arg.ExportJobID, arg.PageOffset, arg.PageLimit)
 	if err != nil {
 		return nil, err
 	}
@@ -225,6 +279,29 @@ func (q *Queries) ListEntityExportLogsForJob(ctx context.Context, arg ListEntity
 		return nil, err
 	}
 	return items, nil
+}
+
+const MarkEntityExportJobCancelled = `-- name: MarkEntityExportJobCancelled :execrows
+UPDATE entity_export_jobs
+SET status = 'CANCELLED',
+    error_message = $1,
+    completed_at = NOW(),
+    updated_at = NOW()
+WHERE id = $2
+  AND status IN ('PENDING', 'RUNNING')
+`
+
+type MarkEntityExportJobCancelledParams struct {
+	ErrorMessage pgtype.Text `json:"error_message"`
+	ID           uuid.UUID   `json:"id"`
+}
+
+func (q *Queries) MarkEntityExportJobCancelled(ctx context.Context, arg MarkEntityExportJobCancelledParams) (int64, error) {
+	result, err := q.db.Exec(ctx, MarkEntityExportJobCancelled, arg.ErrorMessage, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const MarkEntityExportJobCompleted = `-- name: MarkEntityExportJobCompleted :exec
@@ -282,77 +359,31 @@ func (q *Queries) MarkEntityExportJobFailed(ctx context.Context, arg MarkEntityE
 	return err
 }
 
-const GetEntityExportJobByID = `-- name: GetEntityExportJobByID :one
-SELECT
-    id,
-    organization_id,
-    job_type,
-    entity_type,
-    transformation_id,
-    filters,
-    rows_requested,
-    rows_exported,
-    bytes_written,
-    file_path,
-    file_mime_type,
-    file_byte_size,
-    status,
-    error_message,
-    enqueued_at,
-    started_at,
-    completed_at,
-    updated_at,
-    transformation_definition,
-    transformation_options
-FROM entity_export_jobs
-WHERE id = $1
-`
-
-func (q *Queries) GetEntityExportJobByID(ctx context.Context, id uuid.UUID) (EntityExportJob, error) {
-	row := q.db.QueryRow(ctx, GetEntityExportJobByID, id)
-	var i EntityExportJob
-	err := row.Scan(
-		&i.ID,
-		&i.OrganizationID,
-		&i.JobType,
-		&i.EntityType,
-		&i.TransformationID,
-		&i.Filters,
-		&i.RowsRequested,
-		&i.RowsExported,
-		&i.BytesWritten,
-		&i.FilePath,
-		&i.FileMimeType,
-		&i.FileByteSize,
-		&i.Status,
-		&i.ErrorMessage,
-		&i.EnqueuedAt,
-		&i.StartedAt,
-		&i.CompletedAt,
-		&i.UpdatedAt,
-		&i.TransformationDefinition,
-		&i.TransformationOptions,
-	)
-	return i, err
-}
-
-const MarkEntityExportJobRunning = `-- name: MarkEntityExportJobRunning :exec
+const MarkEntityExportJobRunning = `-- name: MarkEntityExportJobRunning :execrows
 UPDATE entity_export_jobs
 SET status = 'RUNNING',
-    started_at = NOW(),
+    started_at = COALESCE(started_at, NOW()),
     updated_at = NOW()
 WHERE id = $1
+  AND status = 'PENDING'
 `
 
-func (q *Queries) MarkEntityExportJobRunning(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.Exec(ctx, MarkEntityExportJobRunning, id)
-	return err
+func (q *Queries) MarkEntityExportJobRunning(ctx context.Context, id uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, MarkEntityExportJobRunning, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const UpdateEntityExportJobProgress = `-- name: UpdateEntityExportJobProgress :exec
 UPDATE entity_export_jobs
 SET rows_exported = $1,
-    rows_requested = GREATEST(rows_requested, $1, COALESCE($2::integer, rows_requested)),
+    rows_requested = GREATEST(
+        rows_requested,
+        $1,
+        COALESCE($2::INTEGER, rows_requested)
+    ),
     bytes_written = $3,
     updated_at = NOW()
 WHERE id = $4
@@ -366,6 +397,11 @@ type UpdateEntityExportJobProgressParams struct {
 }
 
 func (q *Queries) UpdateEntityExportJobProgress(ctx context.Context, arg UpdateEntityExportJobProgressParams) error {
-	_, err := q.db.Exec(ctx, UpdateEntityExportJobProgress, arg.RowsExported, arg.RowsRequested, arg.BytesWritten, arg.ID)
+	_, err := q.db.Exec(ctx, UpdateEntityExportJobProgress,
+		arg.RowsExported,
+		arg.RowsRequested,
+		arg.BytesWritten,
+		arg.ID,
+	)
 	return err
 }

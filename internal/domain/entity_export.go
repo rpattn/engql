@@ -23,6 +23,7 @@ const (
 	EntityExportJobStatusRunning   EntityExportJobStatus = "RUNNING"
 	EntityExportJobStatusCompleted EntityExportJobStatus = "COMPLETED"
 	EntityExportJobStatusFailed    EntityExportJobStatus = "FAILED"
+	EntityExportJobStatusCancelled EntityExportJobStatus = "CANCELLED"
 )
 
 // EntityExportJob mirrors persisted export job metadata for dashboards and workers.

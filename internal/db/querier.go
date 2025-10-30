@@ -32,6 +32,7 @@ type Querier interface {
 	GetEntityCount(ctx context.Context, organizationID uuid.UUID) (int64, error)
 	GetEntityCountByType(ctx context.Context, arg GetEntityCountByTypeParams) (int64, error)
 	GetEntityDescendants(ctx context.Context, arg GetEntityDescendantsParams) ([]GetEntityDescendantsRow, error)
+	GetEntityExportJobByID(ctx context.Context, id uuid.UUID) (EntityExportJob, error)
 	GetEntityHistoryByVersion(ctx context.Context, arg GetEntityHistoryByVersionParams) (EntitiesHistory, error)
 	GetEntityJoin(ctx context.Context, id uuid.UUID) (GetEntityJoinRow, error)
 	GetEntitySchema(ctx context.Context, id uuid.UUID) (GetEntitySchemaRow, error)
@@ -43,17 +44,16 @@ type Querier interface {
 	GetOrganization(ctx context.Context, id uuid.UUID) (Organization, error)
 	GetOrganizationByName(ctx context.Context, name string) (Organization, error)
 	// Track background export jobs for entities.
-        InsertEntityExportJob(ctx context.Context, arg InsertEntityExportJobParams) error
-        InsertEntityExportLog(ctx context.Context, arg InsertEntityExportLogParams) error
+	InsertEntityExportJob(ctx context.Context, arg InsertEntityExportJobParams) error
+	InsertEntityExportLog(ctx context.Context, arg InsertEntityExportLogParams) error
 	InsertEntityHistoryRecord(ctx context.Context, arg InsertEntityHistoryRecordParams) error
 	// Track background flush batches for staged entity ingestion.
 	InsertEntityIngestBatch(ctx context.Context, arg InsertEntityIngestBatchParams) error
 	ListEntities(ctx context.Context, arg ListEntitiesParams) ([]ListEntitiesRow, error)
 	ListEntitiesByReferences(ctx context.Context, arg ListEntitiesByReferencesParams) ([]ListEntitiesByReferencesRow, error)
 	ListEntitiesByType(ctx context.Context, arg ListEntitiesByTypeParams) ([]ListEntitiesByTypeRow, error)
-        GetEntityExportJobByID(ctx context.Context, id uuid.UUID) (EntityExportJob, error)
-        ListEntityExportJobsByStatus(ctx context.Context, arg ListEntityExportJobsByStatusParams) ([]EntityExportJob, error)
-        ListEntityExportLogsForJob(ctx context.Context, arg ListEntityExportLogsForJobParams) ([]EntityExportLog, error)
+	ListEntityExportJobsByStatus(ctx context.Context, arg ListEntityExportJobsByStatusParams) ([]EntityExportJob, error)
+	ListEntityExportLogsForJob(ctx context.Context, arg ListEntityExportLogsForJobParams) ([]EntityExportLog, error)
 	ListEntityHistory(ctx context.Context, entityID uuid.UUID) ([]EntitiesHistory, error)
 	ListEntityIngestBatchesByStatus(ctx context.Context, arg ListEntityIngestBatchesByStatusParams) ([]EntityIngestBatch, error)
 	ListEntityJoinsByOrganization(ctx context.Context, organizationID uuid.UUID) ([]ListEntityJoinsByOrganizationRow, error)
@@ -61,9 +61,10 @@ type Querier interface {
 	ListEntitySchemas(ctx context.Context, organizationID uuid.UUID) ([]ListEntitySchemasRow, error)
 	ListEntityTransformationsByOrganization(ctx context.Context, organizationID uuid.UUID) ([]EntityTransformation, error)
 	ListOrganizations(ctx context.Context) ([]Organization, error)
+	MarkEntityExportJobCancelled(ctx context.Context, arg MarkEntityExportJobCancelledParams) (int64, error)
 	MarkEntityExportJobCompleted(ctx context.Context, arg MarkEntityExportJobCompletedParams) error
 	MarkEntityExportJobFailed(ctx context.Context, arg MarkEntityExportJobFailedParams) error
-	MarkEntityExportJobRunning(ctx context.Context, id uuid.UUID) error
+	MarkEntityExportJobRunning(ctx context.Context, id uuid.UUID) (int64, error)
 	MarkEntityIngestBatchCompleted(ctx context.Context, arg MarkEntityIngestBatchCompletedParams) error
 	MarkEntityIngestBatchFailed(ctx context.Context, arg MarkEntityIngestBatchFailedParams) error
 	MarkEntityIngestBatchFlushing(ctx context.Context, id uuid.UUID) error

@@ -25,12 +25,13 @@ INSERT INTO entity_export_jobs (
     sqlc.arg(transformation_options)
 );
 
--- name: MarkEntityExportJobRunning :exec
+-- name: MarkEntityExportJobRunning :execrows
 UPDATE entity_export_jobs
 SET status = 'RUNNING',
-    started_at = NOW(),
+    started_at = COALESCE(started_at, NOW()),
     updated_at = NOW()
-WHERE id = sqlc.arg(id);
+WHERE id = sqlc.arg(id)
+  AND status = 'PENDING';
 
 -- name: UpdateEntityExportJobProgress :exec
 UPDATE entity_export_jobs
@@ -65,6 +66,15 @@ SET status = 'FAILED',
     completed_at = NOW(),
     updated_at = NOW()
 WHERE id = sqlc.arg(id);
+
+-- name: MarkEntityExportJobCancelled :execrows
+UPDATE entity_export_jobs
+SET status = 'CANCELLED',
+    error_message = sqlc.arg(error_message),
+    completed_at = NOW(),
+    updated_at = NOW()
+WHERE id = sqlc.arg(id)
+  AND status IN ('PENDING', 'RUNNING');
 
 -- name: GetEntityExportJobByID :one
 SELECT

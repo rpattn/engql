@@ -127,6 +127,38 @@ mutation QueueTransformationExport($input: QueueTransformationExportInput!) {
   }
 }
 
+mutation CancelEntityExportJob($id: String!) {
+  cancelEntityExportJob(id: $id) {
+    id
+    organizationId
+    jobType
+    entityType
+    transformationId
+    status
+    rowsRequested
+    rowsExported
+    bytesWritten
+    fileMimeType
+    fileByteSize
+    errorMessage
+    filters {
+      key
+      value
+      exists
+      inArray
+    }
+    transformationDefinition {
+      id
+      name
+    }
+    enqueuedAt
+    startedAt
+    completedAt
+    updatedAt
+    downloadUrl
+  }
+}
+
 # --- Delete Entity ---
 mutation DeleteEntity($id: String!) {
   deleteEntity(id: $id)

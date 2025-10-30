@@ -157,6 +157,11 @@ func (r *mutationResolver) QueueTransformationExport(ctx context.Context, input 
 	return r.Resolver.QueueTransformationExport(ctx, input)
 }
 
+// CancelEntityExportJob is the resolver for the cancelEntityExportJob field.
+func (r *mutationResolver) CancelEntityExportJob(ctx context.Context, id string) (*graph.EntityExportJob, error) {
+	return r.Resolver.CancelEntityExportJob(ctx, id)
+}
+
 // Organizations is the resolver for the organizations field.
 func (r *queryResolver) Organizations(ctx context.Context) ([]*graph.Organization, error) {
 	return r.Resolver.Organizations(ctx)
