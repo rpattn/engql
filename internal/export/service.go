@@ -686,15 +686,23 @@ func buildMaterializeColumns(config *domain.EntityTransformationMaterializeConfi
 	}
 	columns := make([]materializeColumn, 0)
 	for _, output := range config.Outputs {
+		alias := strings.TrimSpace(output.Alias)
+		if alias == "" {
+			continue
+		}
 		for _, field := range output.Fields {
-			alias := strings.TrimSpace(output.Alias)
-			header := field.OutputField
-			if alias != "" && field.OutputField != "" {
-				header = fmt.Sprintf("%s.%s", alias, field.OutputField)
+			targetField := strings.TrimSpace(field.OutputField)
+			if targetField == "" {
+				continue
+			}
+
+			header := targetField
+			if alias != "" {
+				header = fmt.Sprintf("%s.%s", alias, targetField)
 			}
 			columns = append(columns, materializeColumn{
-				alias:  field.SourceAlias,
-				field:  field.SourceField,
+				alias:  alias,
+				field:  targetField,
 				header: header,
 			})
 		}
