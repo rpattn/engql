@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as TransformationsRouteImport } from './routes/transformations'
 import { Route as JoinTestingRouteImport } from './routes/join-testing'
 import { Route as IngestionRouteImport } from './routes/ingestion'
+import { Route as ExportsRouteImport } from './routes/exports'
 import { Route as EntitySchemasRouteImport } from './routes/entity-schemas'
 import { Route as EntitiesRouteImport } from './routes/entities'
 import { Route as IndexRouteImport } from './routes/index'
@@ -50,6 +51,11 @@ const JoinTestingRoute = JoinTestingRouteImport.update({
 const IngestionRoute = IngestionRouteImport.update({
   id: '/ingestion',
   path: '/ingestion',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ExportsRoute = ExportsRouteImport.update({
+  id: '/exports',
+  path: '/exports',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EntitySchemasRoute = EntitySchemasRouteImport.update({
@@ -182,6 +188,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/entities': typeof EntitiesRouteWithChildren
   '/entity-schemas': typeof EntitySchemasRoute
+  '/exports': typeof ExportsRoute
   '/ingestion': typeof IngestionRouteWithChildren
   '/join-testing': typeof JoinTestingRoute
   '/transformations': typeof TransformationsRouteWithChildren
@@ -210,6 +217,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/entity-schemas': typeof EntitySchemasRoute
+  '/exports': typeof ExportsRoute
   '/ingestion': typeof IngestionRouteWithChildren
   '/join-testing': typeof JoinTestingRoute
   '/demo/table': typeof DemoTableRoute
@@ -238,6 +246,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/entities': typeof EntitiesRouteWithChildren
   '/entity-schemas': typeof EntitySchemasRoute
+  '/exports': typeof ExportsRoute
   '/ingestion': typeof IngestionRouteWithChildren
   '/join-testing': typeof JoinTestingRoute
   '/transformations': typeof TransformationsRouteWithChildren
@@ -269,6 +278,7 @@ export interface FileRouteTypes {
     | '/'
     | '/entities'
     | '/entity-schemas'
+    | '/exports'
     | '/ingestion'
     | '/join-testing'
     | '/transformations'
@@ -297,6 +307,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/entity-schemas'
+    | '/exports'
     | '/ingestion'
     | '/join-testing'
     | '/demo/table'
@@ -324,6 +335,7 @@ export interface FileRouteTypes {
     | '/'
     | '/entities'
     | '/entity-schemas'
+    | '/exports'
     | '/ingestion'
     | '/join-testing'
     | '/transformations'
@@ -354,6 +366,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   EntitiesRoute: typeof EntitiesRouteWithChildren
   EntitySchemasRoute: typeof EntitySchemasRoute
+  ExportsRoute: typeof ExportsRoute
   IngestionRoute: typeof IngestionRouteWithChildren
   JoinTestingRoute: typeof JoinTestingRoute
   TransformationsRoute: typeof TransformationsRouteWithChildren
@@ -393,6 +406,13 @@ declare module '@tanstack/react-router' {
       path: '/ingestion'
       fullPath: '/ingestion'
       preLoaderRoute: typeof IngestionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/exports': {
+      id: '/exports'
+      path: '/exports'
+      fullPath: '/exports'
+      preLoaderRoute: typeof ExportsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/entity-schemas': {
@@ -632,6 +652,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   EntitiesRoute: EntitiesRouteWithChildren,
   EntitySchemasRoute: EntitySchemasRoute,
+  ExportsRoute: ExportsRoute,
   IngestionRoute: IngestionRouteWithChildren,
   JoinTestingRoute: JoinTestingRoute,
   TransformationsRoute: TransformationsRouteWithChildren,

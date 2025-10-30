@@ -24,6 +24,8 @@ type TransformationResultsTableProps = {
   isLoading: boolean
   isFetching: boolean
   onRefresh?: () => void
+  onExportResults?: () => void
+  isExporting?: boolean
 }
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
@@ -43,6 +45,8 @@ export function TransformationResultsTable({
   isLoading,
   isFetching,
   onRefresh,
+  onExportResults,
+  isExporting,
 }: TransformationResultsTableProps) {
   const [activeFilterKey, setActiveFilterKey] = useState<string | null>(null)
 
@@ -142,15 +146,27 @@ export function TransformationResultsTable({
               Next
             </button>
           </div>
-          {onRefresh ? (
-            <button
-              type="button"
-              onClick={onRefresh}
-              className="rounded border border-slate-300 px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100"
-            >
-              Refresh
-            </button>
-          ) : null}
+          <div className="flex items-center gap-2">
+            {onExportResults ? (
+              <button
+                type="button"
+                onClick={onExportResults}
+                disabled={isExporting}
+                className="rounded border border-blue-500 px-2 py-1 text-xs font-medium text-blue-600 transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isExporting ? 'Exporting…' : 'Export results'}
+              </button>
+            ) : null}
+            {onRefresh ? (
+              <button
+                type="button"
+                onClick={onRefresh}
+                className="rounded border border-slate-300 px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100"
+              >
+                Refresh
+              </button>
+            ) : null}
+          </div>
         </div>
       </div>
       <div className="overflow-x-auto">
