@@ -32,6 +32,16 @@ func (r *entityExportRepository) Create(ctx context.Context, job domain.EntityEx
 		return domain.EntityExportJob{}, fmt.Errorf("marshal export filters: %w", err)
 	}
 
+	transformationJSON, err := job.TransformationToJSON()
+	if err != nil {
+		return domain.EntityExportJob{}, fmt.Errorf("marshal transformation snapshot: %w", err)
+	}
+
+	optionsJSON, err := job.TransformationOptionsToJSON()
+	if err != nil {
+		return domain.EntityExportJob{}, fmt.Errorf("marshal transformation options: %w", err)
+	}
+
 	entityType := pgtype.Text{}
 	if job.EntityType != nil && *job.EntityType != "" {
 		entityType = pgtype.Text{String: *job.EntityType, Valid: true}
@@ -49,13 +59,15 @@ func (r *entityExportRepository) Create(ctx context.Context, job domain.EntityEx
 	}
 
 	if err := r.queries.InsertEntityExportJob(ctx, db.InsertEntityExportJobParams{
-		ID:               job.ID,
-		OrganizationID:   job.OrganizationID,
-		JobType:          string(job.JobType),
-		EntityType:       entityType,
-		TransformationID: transformationID,
-		Filters:          filtersJSON,
-		RowsRequested:    int32(rowsRequested),
+		ID:                       job.ID,
+		OrganizationID:           job.OrganizationID,
+		JobType:                  string(job.JobType),
+		EntityType:               entityType,
+		TransformationID:         transformationID,
+		Filters:                  filtersJSON,
+		RowsRequested:            int32(rowsRequested),
+		TransformationDefinition: transformationJSON,
+		TransformationOptions:    optionsJSON,
 	}); err != nil {
 		return domain.EntityExportJob{}, fmt.Errorf("insert export job: %w", err)
 	}
@@ -230,6 +242,16 @@ func mapEntityExportJob(row db.EntityExportJob) (domain.EntityExportJob, error) 
 		return domain.EntityExportJob{}, fmt.Errorf("unmarshal export filters: %w", err)
 	}
 
+	transformation, err := domain.TransformationFromJSON(row.TransformationDefinition)
+	if err != nil {
+		return domain.EntityExportJob{}, fmt.Errorf("unmarshal transformation snapshot: %w", err)
+	}
+
+	options, err := domain.TransformationOptionsFromJSON(row.TransformationOptions)
+	if err != nil {
+		return domain.EntityExportJob{}, fmt.Errorf("unmarshal transformation options: %w", err)
+	}
+
 	var entityType *string
 	if row.EntityType.Valid {
 		value := row.EntityType.String
@@ -292,24 +314,26 @@ func mapEntityExportJob(row db.EntityExportJob) (domain.EntityExportJob, error) 
 	}
 
 	return domain.EntityExportJob{
-		ID:               row.ID,
-		OrganizationID:   row.OrganizationID,
-		JobType:          domain.EntityExportJobType(row.JobType),
-		EntityType:       entityType,
-		TransformationID: transformationID,
-		Filters:          filters,
-		RowsRequested:    int(row.RowsRequested),
-		RowsExported:     int(row.RowsExported),
-		BytesWritten:     bytesWritten,
-		FilePath:         filePath,
-		FileMimeType:     fileMime,
-		FileByteSize:     fileSize,
-		Status:           domain.EntityExportJobStatus(row.Status),
-		ErrorMessage:     errorMessage,
-		EnqueuedAt:       enqueuedAt,
-		StartedAt:        startedAt,
-		CompletedAt:      completedAt,
-		UpdatedAt:        row.UpdatedAt,
+		ID:                    row.ID,
+		OrganizationID:        row.OrganizationID,
+		JobType:               domain.EntityExportJobType(row.JobType),
+		EntityType:            entityType,
+		TransformationID:      transformationID,
+		Filters:               filters,
+		RowsRequested:         int(row.RowsRequested),
+		RowsExported:          int(row.RowsExported),
+		BytesWritten:          bytesWritten,
+		FilePath:              filePath,
+		FileMimeType:          fileMime,
+		FileByteSize:          fileSize,
+		Status:                domain.EntityExportJobStatus(row.Status),
+		ErrorMessage:          errorMessage,
+		EnqueuedAt:            enqueuedAt,
+		StartedAt:             startedAt,
+		CompletedAt:           completedAt,
+		UpdatedAt:             row.UpdatedAt,
+		Transformation:        transformation,
+		TransformationOptions: options,
 	}, nil
 }
 

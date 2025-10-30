@@ -52,24 +52,26 @@ type Entity struct {
 }
 
 type EntityExportJob struct {
-	ID               uuid.UUID          `json:"id"`
-	OrganizationID   uuid.UUID          `json:"organization_id"`
-	JobType          string             `json:"job_type"`
-	EntityType       pgtype.Text        `json:"entity_type"`
-	TransformationID pgtype.UUID        `json:"transformation_id"`
-	Filters          []byte             `json:"filters"`
-	RowsRequested    int32              `json:"rows_requested"`
-        RowsExported     int32              `json:"rows_exported"`
-        BytesWritten     pgtype.Int8        `json:"bytes_written"`
-        FilePath         pgtype.Text        `json:"file_path"`
-	FileMimeType     pgtype.Text        `json:"file_mime_type"`
-	FileByteSize     pgtype.Int8        `json:"file_byte_size"`
-	Status           string             `json:"status"`
-	ErrorMessage     pgtype.Text        `json:"error_message"`
-	EnqueuedAt       pgtype.Timestamptz `json:"enqueued_at"`
-	StartedAt        pgtype.Timestamptz `json:"started_at"`
-	CompletedAt      pgtype.Timestamptz `json:"completed_at"`
-	UpdatedAt        time.Time          `json:"updated_at"`
+	ID                       uuid.UUID          `json:"id"`
+	OrganizationID           uuid.UUID          `json:"organization_id"`
+	JobType                  string             `json:"job_type"`
+	EntityType               pgtype.Text        `json:"entity_type"`
+	TransformationID         pgtype.UUID        `json:"transformation_id"`
+	Filters                  []byte             `json:"filters"`
+	RowsRequested            int32              `json:"rows_requested"`
+	RowsExported             int32              `json:"rows_exported"`
+	BytesWritten             pgtype.Int8        `json:"bytes_written"`
+	FilePath                 pgtype.Text        `json:"file_path"`
+	FileMimeType             pgtype.Text        `json:"file_mime_type"`
+	FileByteSize             pgtype.Int8        `json:"file_byte_size"`
+	Status                   string             `json:"status"`
+	ErrorMessage             pgtype.Text        `json:"error_message"`
+	EnqueuedAt               pgtype.Timestamptz `json:"enqueued_at"`
+	StartedAt                pgtype.Timestamptz `json:"started_at"`
+	CompletedAt              pgtype.Timestamptz `json:"completed_at"`
+	UpdatedAt                time.Time          `json:"updated_at"`
+	TransformationDefinition []byte             `json:"transformation_definition"`
+	TransformationOptions    []byte             `json:"transformation_options"`
 }
 
 type EntityExportLog struct {

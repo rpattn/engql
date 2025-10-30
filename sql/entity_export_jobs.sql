@@ -9,7 +9,9 @@ INSERT INTO entity_export_jobs (
     transformation_id,
     filters,
     rows_requested,
-    status
+    status,
+    transformation_definition,
+    transformation_options
 ) VALUES (
     sqlc.arg(id),
     sqlc.arg(organization_id),
@@ -18,7 +20,9 @@ INSERT INTO entity_export_jobs (
     sqlc.arg(transformation_id),
     sqlc.arg(filters),
     sqlc.arg(rows_requested),
-    'PENDING'
+    'PENDING',
+    sqlc.arg(transformation_definition),
+    sqlc.arg(transformation_options)
 );
 
 -- name: MarkEntityExportJobRunning :exec
@@ -81,7 +85,9 @@ SELECT
     enqueued_at,
     started_at,
     completed_at,
-    updated_at
+    updated_at,
+    transformation_definition,
+    transformation_options
 FROM entity_export_jobs
 WHERE id = sqlc.arg(id);
 
@@ -104,7 +110,9 @@ SELECT
     enqueued_at,
     started_at,
     completed_at,
-    updated_at
+    updated_at,
+    transformation_definition,
+    transformation_options
 FROM entity_export_jobs
 WHERE status = ANY(sqlc.arg(statuses)::text[])
   AND (sqlc.narg(organization_id)::uuid IS NULL OR organization_id = sqlc.narg(organization_id))
