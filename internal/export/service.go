@@ -3,13 +3,19 @@ package export
 import (
 	"bufio"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/csv"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -33,6 +39,9 @@ type Service struct {
 	exportDir  string
 	jobTimeout time.Duration
 	pageSize   int
+	now        func() time.Time
+
+	downloadSigner *downloadSigner
 }
 
 type Option func(*Service)
@@ -61,6 +70,15 @@ func WithPageSize(size int) Option {
 	}
 }
 
+// WithDownloadTokenTTL customizes the TTL for generated download links.
+func WithDownloadTokenTTL(ttl time.Duration) Option {
+	return func(s *Service) {
+		if ttl > 0 {
+			s.downloadSigner = newDownloadSigner(ttl)
+		}
+	}
+}
+
 func NewService(
 	organizations repository.OrganizationRepository,
 	schemaRepo repository.EntitySchemaRepository,
@@ -79,6 +97,7 @@ func NewService(
 		exportDir:              filepath.Join(os.TempDir(), "engql-exports"),
 		jobTimeout:             30 * time.Minute,
 		pageSize:               1000,
+		now:                    time.Now,
 	}
 	for _, opt := range opts {
 		opt(service)
@@ -91,6 +110,12 @@ func NewService(
 	}
 	if strings.TrimSpace(service.exportDir) == "" {
 		service.exportDir = filepath.Join(os.TempDir(), "engql-exports")
+	}
+	if service.downloadSigner == nil {
+		service.downloadSigner = newDownloadSigner(5 * time.Minute)
+	}
+	if service.now == nil {
+		service.now = time.Now
 	}
 	return service
 }
@@ -186,6 +211,55 @@ func (s *Service) ListJobs(ctx context.Context, organizationID *uuid.UUID, statu
 
 func (s *Service) ListLogs(ctx context.Context, jobID uuid.UUID, limit, offset int) ([]domain.EntityExportLog, error) {
 	return s.exportRepo.ListLogs(ctx, jobID, limit, offset)
+}
+
+// GetJob returns the metadata for a single export job.
+func (s *Service) GetJob(ctx context.Context, id uuid.UUID) (domain.EntityExportJob, error) {
+	if id == uuid.Nil {
+		return domain.EntityExportJob{}, errors.New("job ID is required")
+	}
+	return s.exportRepo.GetByID(ctx, id)
+}
+
+// BuildDownloadURL signs a short-lived download URL for completed export files.
+func (s *Service) BuildDownloadURL(job domain.EntityExportJob) (*string, error) {
+	if job.Status != domain.EntityExportJobStatusCompleted {
+		return nil, nil
+	}
+	if job.FilePath == nil || strings.TrimSpace(*job.FilePath) == "" {
+		return nil, nil
+	}
+	if s.downloadSigner == nil {
+		return nil, errors.New("download signer not configured")
+	}
+	token := s.downloadSigner.Sign(job.ID, s.now())
+	values := url.Values{}
+	values.Set("token", token)
+	download := fmt.Sprintf("/exports/files/%s?%s", job.ID.String(), values.Encode())
+	return &download, nil
+}
+
+// ValidateDownloadToken ensures the token is valid for the given job.
+func (s *Service) ValidateDownloadToken(jobID uuid.UUID, token string) error {
+	if s.downloadSigner == nil {
+		return errors.New("download signer not configured")
+	}
+	return s.downloadSigner.Verify(jobID, token, s.now())
+}
+
+// OpenJobFile opens the completed export file for streaming to the client.
+func (s *Service) OpenJobFile(job domain.EntityExportJob) (*os.File, error) {
+	if job.Status != domain.EntityExportJobStatusCompleted {
+		return nil, errors.New("export is not completed")
+	}
+	if job.FilePath == nil || strings.TrimSpace(*job.FilePath) == "" {
+		return nil, errors.New("export file is unavailable")
+	}
+	file, err := os.Open(*job.FilePath)
+	if err != nil {
+		return nil, fmt.Errorf("open export file: %w", err)
+	}
+	return file, nil
 }
 
 func (s *Service) launchWorker(job domain.EntityExportJob, run workerFunc) {
@@ -715,4 +789,63 @@ func truncateError(err error) string {
 		return msg[:maxLen]
 	}
 	return msg
+}
+
+type downloadSigner struct {
+	secret []byte
+	ttl    time.Duration
+}
+
+func newDownloadSigner(ttl time.Duration) *downloadSigner {
+	if ttl <= 0 {
+		ttl = 5 * time.Minute
+	}
+	return &downloadSigner{secret: []byte(uuid.New().String()), ttl: ttl}
+}
+
+func (s *downloadSigner) Sign(jobID uuid.UUID, now time.Time) string {
+	expires := now.Add(s.ttl).Unix()
+	payload := fmt.Sprintf("%s:%d", jobID.String(), expires)
+	mac := hmac.New(sha256.New, s.secret)
+	mac.Write([]byte(payload))
+	signature := hex.EncodeToString(mac.Sum(nil))
+	raw := fmt.Sprintf("%s:%s", payload, signature)
+	return base64.RawURLEncoding.EncodeToString([]byte(raw))
+}
+
+func (s *downloadSigner) Verify(jobID uuid.UUID, token string, now time.Time) error {
+	token = strings.TrimSpace(token)
+	if token == "" {
+		return errors.New("missing download token")
+	}
+	decoded, err := base64.RawURLEncoding.DecodeString(token)
+	if err != nil {
+		return fmt.Errorf("decode token: %w", err)
+	}
+	parts := strings.Split(string(decoded), ":")
+	if len(parts) != 3 {
+		return errors.New("invalid token format")
+	}
+	if parts[0] != jobID.String() {
+		return errors.New("token does not match export job")
+	}
+	expires, err := strconv.ParseInt(parts[1], 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid token expiration: %w", err)
+	}
+	if now.Unix() > expires {
+		return errors.New("download token expired")
+	}
+	payload := fmt.Sprintf("%s:%s", parts[0], parts[1])
+	mac := hmac.New(sha256.New, s.secret)
+	mac.Write([]byte(payload))
+	expected := mac.Sum(nil)
+	provided, err := hex.DecodeString(parts[2])
+	if err != nil {
+		return fmt.Errorf("invalid token signature: %w", err)
+	}
+	if !hmac.Equal(expected, provided) {
+		return errors.New("invalid download token")
+	}
+	return nil
 }

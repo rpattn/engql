@@ -77,6 +77,37 @@ type EntityDiffResult struct {
 	UnifiedDiff *string             `json:"unifiedDiff,omitempty"`
 }
 
+type EntityExportJob struct {
+	ID                       string                  `json:"id"`
+	OrganizationID           string                  `json:"organizationId"`
+	JobType                  EntityExportJobType     `json:"jobType"`
+	EntityType               *string                 `json:"entityType,omitempty"`
+	TransformationID         *string                 `json:"transformationId,omitempty"`
+	Status                   EntityExportJobStatus   `json:"status"`
+	RowsRequested            int                     `json:"rowsRequested"`
+	RowsExported             int                     `json:"rowsExported"`
+	BytesWritten             int                     `json:"bytesWritten"`
+	FileMimeType             *string                 `json:"fileMimeType,omitempty"`
+	FileByteSize             *int                    `json:"fileByteSize,omitempty"`
+	ErrorMessage             *string                 `json:"errorMessage,omitempty"`
+	Filters                  []*PropertyFilterConfig `json:"filters"`
+	TransformationDefinition *EntityTransformation   `json:"transformationDefinition,omitempty"`
+	EnqueuedAt               string                  `json:"enqueuedAt"`
+	StartedAt                *string                 `json:"startedAt,omitempty"`
+	CompletedAt              *string                 `json:"completedAt,omitempty"`
+	UpdatedAt                string                  `json:"updatedAt"`
+	DownloadURL              *string                 `json:"downloadUrl,omitempty"`
+}
+
+type EntityExportLog struct {
+	ID             string  `json:"id"`
+	ExportJobID    string  `json:"exportJobId"`
+	OrganizationID string  `json:"organizationId"`
+	RowIdentifier  *string `json:"rowIdentifier,omitempty"`
+	ErrorMessage   string  `json:"errorMessage"`
+	CreatedAt      string  `json:"createdAt"`
+}
+
 type EntityFilter struct {
 	EntityType      *string           `json:"entityType,omitempty"`
 	PropertyFilters []*PropertyFilter `json:"propertyFilters,omitempty"`
@@ -384,6 +415,19 @@ type PropertyFilterConfig struct {
 type Query struct {
 }
 
+type QueueEntityTypeExportInput struct {
+	OrganizationID string            `json:"organizationId"`
+	EntityType     string            `json:"entityType"`
+	Filters        []*PropertyFilter `json:"filters,omitempty"`
+}
+
+type QueueTransformationExportInput struct {
+	OrganizationID   string                               `json:"organizationId"`
+	TransformationID string                               `json:"transformationId"`
+	Filters          []*PropertyFilter                    `json:"filters,omitempty"`
+	Options          *TransformationExecutionOptionsInput `json:"options,omitempty"`
+}
+
 type TransformationExecutionColumn struct {
 	Key         string `json:"key"`
 	Alias       string `json:"alias"`
@@ -405,6 +449,11 @@ type TransformationExecutionFilterInput struct {
 	Value   *string  `json:"value,omitempty"`
 	Exists  *bool    `json:"exists,omitempty"`
 	InArray []string `json:"inArray,omitempty"`
+}
+
+type TransformationExecutionOptionsInput struct {
+	Limit  *int `json:"limit,omitempty"`
+	Offset *int `json:"offset,omitempty"`
 }
 
 type TransformationExecutionRow struct {
@@ -466,6 +515,120 @@ type ValidationResult struct {
 	IsValid  bool     `json:"isValid"`
 	Errors   []string `json:"errors"`
 	Warnings []string `json:"warnings"`
+}
+
+type EntityExportJobStatus string
+
+const (
+	EntityExportJobStatusPending   EntityExportJobStatus = "PENDING"
+	EntityExportJobStatusRunning   EntityExportJobStatus = "RUNNING"
+	EntityExportJobStatusCompleted EntityExportJobStatus = "COMPLETED"
+	EntityExportJobStatusFailed    EntityExportJobStatus = "FAILED"
+)
+
+var AllEntityExportJobStatus = []EntityExportJobStatus{
+	EntityExportJobStatusPending,
+	EntityExportJobStatusRunning,
+	EntityExportJobStatusCompleted,
+	EntityExportJobStatusFailed,
+}
+
+func (e EntityExportJobStatus) IsValid() bool {
+	switch e {
+	case EntityExportJobStatusPending, EntityExportJobStatusRunning, EntityExportJobStatusCompleted, EntityExportJobStatusFailed:
+		return true
+	}
+	return false
+}
+
+func (e EntityExportJobStatus) String() string {
+	return string(e)
+}
+
+func (e *EntityExportJobStatus) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = EntityExportJobStatus(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid EntityExportJobStatus", str)
+	}
+	return nil
+}
+
+func (e EntityExportJobStatus) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *EntityExportJobStatus) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e EntityExportJobStatus) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type EntityExportJobType string
+
+const (
+	EntityExportJobTypeEntityType     EntityExportJobType = "ENTITY_TYPE"
+	EntityExportJobTypeTransformation EntityExportJobType = "TRANSFORMATION"
+)
+
+var AllEntityExportJobType = []EntityExportJobType{
+	EntityExportJobTypeEntityType,
+	EntityExportJobTypeTransformation,
+}
+
+func (e EntityExportJobType) IsValid() bool {
+	switch e {
+	case EntityExportJobTypeEntityType, EntityExportJobTypeTransformation:
+		return true
+	}
+	return false
+}
+
+func (e EntityExportJobType) String() string {
+	return string(e)
+}
+
+func (e *EntityExportJobType) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = EntityExportJobType(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid EntityExportJobType", str)
+	}
+	return nil
+}
+
+func (e EntityExportJobType) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *EntityExportJobType) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e EntityExportJobType) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
 }
 
 type EntitySortField string

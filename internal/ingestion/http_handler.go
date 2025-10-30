@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/rpattn/engql/internal/auth"
 	"github.com/rpattn/engql/internal/domain"
 )
 
@@ -62,6 +63,11 @@ func (h *Handler) handleIngest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := auth.EnforceOrganizationScope(r.Context(), payload.organizationID); err != nil {
+		http.Error(w, err.Error(), http.StatusForbidden)
+		return
+	}
+
 	req := Request{
 		OrganizationID:       payload.organizationID,
 		SchemaName:           payload.schemaName,
@@ -86,6 +92,11 @@ func (h *Handler) handlePreview(w http.ResponseWriter, r *http.Request) {
 	payload, err := parseUploadPayload(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := auth.EnforceOrganizationScope(r.Context(), payload.organizationID); err != nil {
+		http.Error(w, err.Error(), http.StatusForbidden)
 		return
 	}
 
@@ -129,6 +140,10 @@ func (h *Handler) handleBatches(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		organizationID = &id
+		if err := auth.EnforceOrganizationScope(r.Context(), id); err != nil {
+			http.Error(w, err.Error(), http.StatusForbidden)
+			return
+		}
 	}
 
 	limit := 20
@@ -170,6 +185,11 @@ func (h *Handler) handleLogs(w http.ResponseWriter, r *http.Request) {
 	organizationID, err := uuid.Parse(orgRaw)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("invalid organizationId: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	if err := auth.EnforceOrganizationScope(r.Context(), organizationID); err != nil {
+		http.Error(w, err.Error(), http.StatusForbidden)
 		return
 	}
 
