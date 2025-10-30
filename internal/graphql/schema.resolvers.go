@@ -17,6 +17,11 @@ func (r *entityResolver) LinkedEntities(ctx context.Context, obj *graph.Entity) 
 	return r.Resolver.LinkedEntities(ctx, obj)
 }
 
+// DownloadURL is the resolver for the downloadUrl field.
+func (r *entityExportJobResolver) DownloadURL(ctx context.Context, obj *graph.EntityExportJob) (*string, error) {
+	return r.Resolver.ResolveEntityExportJobDownloadURL(ctx, obj)
+}
+
 // CreateOrganization is the resolver for the createOrganization field.
 func (r *mutationResolver) CreateOrganization(ctx context.Context, input graph.CreateOrganizationInput) (*graph.Organization, error) {
 	return r.Resolver.CreateOrganization(ctx, input)
@@ -140,6 +145,21 @@ func (r *mutationResolver) DeleteEntityTransformation(ctx context.Context, id st
 		return false, nil
 	}
 	return *res, nil
+}
+
+// QueueEntityTypeExport is the resolver for the queueEntityTypeExport field.
+func (r *mutationResolver) QueueEntityTypeExport(ctx context.Context, input graph.QueueEntityTypeExportInput) (*graph.EntityExportJob, error) {
+	return r.Resolver.QueueEntityTypeExport(ctx, input)
+}
+
+// QueueTransformationExport is the resolver for the queueTransformationExport field.
+func (r *mutationResolver) QueueTransformationExport(ctx context.Context, input graph.QueueTransformationExportInput) (*graph.EntityExportJob, error) {
+	return r.Resolver.QueueTransformationExport(ctx, input)
+}
+
+// CancelEntityExportJob is the resolver for the cancelEntityExportJob field.
+func (r *mutationResolver) CancelEntityExportJob(ctx context.Context, id string) (*graph.EntityExportJob, error) {
+	return r.Resolver.CancelEntityExportJob(ctx, id)
 }
 
 // Organizations is the resolver for the organizations field.
@@ -301,11 +321,26 @@ func (r *queryResolver) ExecuteEntityTransformation(ctx context.Context, input g
 
 // TransformationExecution is the resolver for the transformationExecution field.
 func (r *queryResolver) TransformationExecution(ctx context.Context, transformationID string, filters []*graph.TransformationExecutionFilterInput, sort *graph.TransformationExecutionSortInput, pagination *graph.PaginationInput) (*graph.TransformationExecutionConnection, error) {
-return r.Resolver.TransformationExecution(ctx, transformationID, filters, sort, pagination)
+	return r.Resolver.TransformationExecution(ctx, transformationID, filters, sort, pagination)
+}
+
+// EntityExportJob is the resolver for the entityExportJob field.
+func (r *queryResolver) EntityExportJob(ctx context.Context, id string) (*graph.EntityExportJob, error) {
+	return r.Resolver.GetEntityExportJob(ctx, id)
+}
+
+// EntityExportJobs is the resolver for the entityExportJobs field.
+func (r *queryResolver) EntityExportJobs(ctx context.Context, organizationID string, statuses []graph.EntityExportJobStatus, limit *int, offset *int) ([]*graph.EntityExportJob, error) {
+	return r.Resolver.ListEntityExportJobs(ctx, organizationID, statuses, limit, offset)
 }
 
 // Entity returns graph.EntityResolver implementation.
 func (r *Resolver) Entity() graph.EntityResolver { return &entityResolver{r} }
+
+// EntityExportJob returns graph.EntityExportJobResolver implementation.
+func (r *Resolver) EntityExportJob() graph.EntityExportJobResolver {
+	return &entityExportJobResolver{r}
+}
 
 // Mutation returns graph.MutationResolver implementation.
 func (r *Resolver) Mutation() graph.MutationResolver { return &mutationResolver{r} }
@@ -314,5 +349,6 @@ func (r *Resolver) Mutation() graph.MutationResolver { return &mutationResolver{
 func (r *Resolver) Query() graph.QueryResolver { return &queryResolver{r} }
 
 type entityResolver struct{ *Resolver }
+type entityExportJobResolver struct{ *Resolver }
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }

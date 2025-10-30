@@ -524,6 +524,15 @@ type Query {
     sort: TransformationExecutionSortInput
     pagination: PaginationInput
   ): TransformationExecutionConnection!
+
+  # Entity export queries
+  entityExportJob(id: String!): EntityExportJob
+  entityExportJobs(
+    organizationId: String!
+    statuses: [EntityExportJobStatus!]
+    limit: Int
+    offset: Int
+  ): [EntityExportJob!]!
 }
 
 type EntityConnection {
@@ -613,4 +622,72 @@ type Mutation {
   createEntityTransformation(input: CreateEntityTransformationInput!): EntityTransformation!
   updateEntityTransformation(input: UpdateEntityTransformationInput!): EntityTransformation!
   deleteEntityTransformation(id: String!): Boolean!
+
+  # Entity export mutations
+  queueEntityTypeExport(input: QueueEntityTypeExportInput!): EntityExportJob!
+  queueTransformationExport(input: QueueTransformationExportInput!): EntityExportJob!
+  cancelEntityExportJob(id: String!): EntityExportJob!
+}
+
+# Entity export types
+enum EntityExportJobType {
+  ENTITY_TYPE
+  TRANSFORMATION
+}
+
+enum EntityExportJobStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  CANCELLED
+  FAILED
+}
+
+type EntityExportJob {
+  id: String!
+  organizationId: String!
+  jobType: EntityExportJobType!
+  entityType: String
+  transformationId: String
+  status: EntityExportJobStatus!
+  rowsRequested: Int!
+  rowsExported: Int!
+  bytesWritten: Int!
+  fileMimeType: String
+  fileByteSize: Int
+  errorMessage: String
+  filters: [PropertyFilterConfig!]!
+  transformationDefinition: EntityTransformation
+  enqueuedAt: String!
+  startedAt: String
+  completedAt: String
+  updatedAt: String!
+  downloadUrl: String @goField(forceResolver: true)
+}
+
+type EntityExportLog {
+  id: String!
+  exportJobId: String!
+  organizationId: String!
+  rowIdentifier: String
+  errorMessage: String!
+  createdAt: String!
+}
+
+input QueueEntityTypeExportInput {
+  organizationId: String!
+  entityType: String!
+  filters: [PropertyFilter!]
+}
+
+input QueueTransformationExportInput {
+  organizationId: String!
+  transformationId: String!
+  filters: [PropertyFilter!]
+  options: TransformationExecutionOptionsInput
+}
+
+input TransformationExecutionOptionsInput {
+  limit: Int
+  offset: Int
 }

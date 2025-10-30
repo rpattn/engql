@@ -7,7 +7,6 @@ package db
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"time"
 
@@ -265,6 +264,56 @@ func (q *Queries) GetEntityAncestors(ctx context.Context, arg GetEntityAncestors
 		return nil, err
 	}
 	return items, nil
+}
+
+const GetEntityByReference = `-- name: GetEntityByReference :one
+SELECT id, organization_id, schema_id, entity_type, path, properties, version, created_at, updated_at
+FROM entities
+WHERE organization_id = $1
+  AND entity_type = $2
+  AND properties ->> $3::text = $4::text
+LIMIT 1
+`
+
+type GetEntityByReferenceParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	EntityType     string    `json:"entity_type"`
+	FieldName      string    `json:"field_name"`
+	ReferenceValue string    `json:"reference_value"`
+}
+
+type GetEntityByReferenceRow struct {
+	ID             uuid.UUID       `json:"id"`
+	OrganizationID uuid.UUID       `json:"organization_id"`
+	SchemaID       uuid.UUID       `json:"schema_id"`
+	EntityType     string          `json:"entity_type"`
+	Path           string          `json:"path"`
+	Properties     json.RawMessage `json:"properties"`
+	Version        int64           `json:"version"`
+	CreatedAt      time.Time       `json:"created_at"`
+	UpdatedAt      time.Time       `json:"updated_at"`
+}
+
+func (q *Queries) GetEntityByReference(ctx context.Context, arg GetEntityByReferenceParams) (GetEntityByReferenceRow, error) {
+	row := q.db.QueryRow(ctx, GetEntityByReference,
+		arg.OrganizationID,
+		arg.EntityType,
+		arg.FieldName,
+		arg.ReferenceValue,
+	)
+	var i GetEntityByReferenceRow
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.SchemaID,
+		&i.EntityType,
+		&i.Path,
+		&i.Properties,
+		&i.Version,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const GetEntityChildren = `-- name: GetEntityChildren :many
@@ -588,68 +637,75 @@ WHERE organization_id = $1
     )
 ORDER BY
     CASE
-        WHEN $6::text = 'created_at' AND $7::text = 'ASC'
+        WHEN $6::text = 'created_at' AND $7::text = 'asc'
             THEN created_at
     END ASC,
     CASE
-        WHEN $6::text = 'created_at' AND $7::text = 'DESC'
+        WHEN $6::text = 'created_at' AND $7::text = 'desc'
             THEN created_at
     END DESC,
     CASE
-        WHEN $6::text = 'updated_at' AND $7::text = 'ASC'
+        WHEN $6::text = 'updated_at' AND $7::text = 'asc'
             THEN updated_at
     END ASC,
     CASE
-        WHEN $6::text = 'updated_at' AND $7::text = 'DESC'
+        WHEN $6::text = 'updated_at' AND $7::text = 'desc'
             THEN updated_at
     END DESC,
     CASE
-        WHEN $6::text = 'entity_type' AND $7::text = 'ASC'
+        WHEN $6::text = 'entity_type' AND $7::text = 'asc'
             THEN LOWER(entity_type)
     END ASC,
     CASE
-        WHEN $6::text = 'entity_type' AND $7::text = 'DESC'
+        WHEN $6::text = 'entity_type' AND $7::text = 'desc'
             THEN LOWER(entity_type)
     END DESC,
     CASE
-        WHEN $6::text = 'path' AND $7::text = 'ASC'
+        WHEN $6::text = 'path' AND $7::text = 'asc'
             THEN path::text
     END ASC,
     CASE
-        WHEN $6::text = 'path' AND $7::text = 'DESC'
+        WHEN $6::text = 'path' AND $7::text = 'desc'
             THEN path::text
     END DESC,
     CASE
-        WHEN $6::text = 'version' AND $7::text = 'ASC'
+        WHEN $6::text = 'version' AND $7::text = 'asc'
             THEN version
     END ASC,
     CASE
-        WHEN $6::text = 'version' AND $7::text = 'DESC'
+        WHEN $6::text = 'version' AND $7::text = 'desc'
             THEN version
     END DESC,
     CASE
-        WHEN $6::text = 'property' AND $7::text = 'ASC'
-            THEN LOWER(COALESCE(properties ->> $8::text, ''))
+        WHEN $6::text = 'property'
+            THEN CASE
+                WHEN BTRIM(COALESCE(properties ->> $8::text, '')) = '' THEN 1
+                ELSE 0
+            END
     END ASC,
     CASE
-        WHEN $6::text = 'property' AND $7::text = 'DESC'
-            THEN LOWER(COALESCE(properties ->> $8::text, ''))
+        WHEN $6::text = 'property' AND $7::text = 'asc'
+            THEN LOWER(BTRIM(COALESCE(properties ->> $8::text, '')))
+    END ASC,
+    CASE
+        WHEN $6::text = 'property' AND $7::text = 'desc'
+            THEN LOWER(BTRIM(COALESCE(properties ->> $8::text, '')))
     END DESC,
     created_at DESC
-LIMIT $9 OFFSET $10
+LIMIT $10 OFFSET $9
 `
 
 type ListEntitiesParams struct {
-	OrganizationID uuid.UUID      `json:"organization_id"`
-	EntityType     string         `json:"entity_type"`
-	PropertyKeys   []string       `json:"property_keys"`
-	PropertyValues []string       `json:"property_values"`
-	TextSearch     string         `json:"text_search"`
-	SortField      string         `json:"sort_field"`
-	SortDirection  string         `json:"sort_direction"`
-	SortProperty   sql.NullString `json:"sort_property"`
-	PageLimit      int32          `json:"page_limit"`
-	PageOffset     int32          `json:"page_offset"`
+	OrganizationID uuid.UUID `json:"organization_id"`
+	EntityType     string    `json:"entity_type"`
+	PropertyKeys   []string  `json:"property_keys"`
+	PropertyValues []string  `json:"property_values"`
+	TextSearch     string    `json:"text_search"`
+	SortField      string    `json:"sort_field"`
+	SortDirection  string    `json:"sort_direction"`
+	SortProperty   string    `json:"sort_property"`
+	PageOffset     int32     `json:"page_offset"`
+	PageLimit      int32     `json:"page_limit"`
 }
 
 type ListEntitiesRow struct {
@@ -675,8 +731,8 @@ func (q *Queries) ListEntities(ctx context.Context, arg ListEntitiesParams) ([]L
 		arg.SortField,
 		arg.SortDirection,
 		arg.SortProperty,
-		arg.PageLimit,
 		arg.PageOffset,
+		arg.PageLimit,
 	)
 	if err != nil {
 		return nil, err
@@ -707,116 +763,12 @@ func (q *Queries) ListEntities(ctx context.Context, arg ListEntitiesParams) ([]L
 	return items, nil
 }
 
-const ListEntitiesByType = `-- name: ListEntitiesByType :many
-SELECT id, organization_id, schema_id, entity_type, path, properties, version, created_at, updated_at
-FROM entities
-WHERE organization_id = $1 AND entity_type = $2
-ORDER BY created_at DESC
-`
-
-type ListEntitiesByTypeParams struct {
-	OrganizationID uuid.UUID `json:"organization_id"`
-	EntityType     string    `json:"entity_type"`
-}
-
-type ListEntitiesByTypeRow struct {
-	ID             uuid.UUID       `json:"id"`
-	OrganizationID uuid.UUID       `json:"organization_id"`
-	SchemaID       uuid.UUID       `json:"schema_id"`
-	EntityType     string          `json:"entity_type"`
-	Path           string          `json:"path"`
-	Properties     json.RawMessage `json:"properties"`
-	Version        int64           `json:"version"`
-	CreatedAt      time.Time       `json:"created_at"`
-	UpdatedAt      time.Time       `json:"updated_at"`
-}
-
-func (q *Queries) ListEntitiesByType(ctx context.Context, arg ListEntitiesByTypeParams) ([]ListEntitiesByTypeRow, error) {
-	rows, err := q.db.Query(ctx, ListEntitiesByType, arg.OrganizationID, arg.EntityType)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ListEntitiesByTypeRow{}
-	for rows.Next() {
-		var i ListEntitiesByTypeRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.OrganizationID,
-			&i.SchemaID,
-			&i.EntityType,
-			&i.Path,
-			&i.Properties,
-			&i.Version,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const GetEntityByReference = `-- name: GetEntityByReference :one
-SELECT id, organization_id, schema_id, entity_type, path, properties, version, created_at, updated_at
-FROM entities
-WHERE organization_id = $1
-  AND entity_type = $2
-  AND properties ->> $3 = $4
-LIMIT 1
-`
-
-type GetEntityByReferenceParams struct {
-	OrganizationID uuid.UUID `json:"organization_id"`
-	EntityType     string    `json:"entity_type"`
-	FieldName      string    `json:"field_name"`
-	ReferenceValue string    `json:"reference_value"`
-}
-
-type GetEntityByReferenceRow struct {
-	ID             uuid.UUID       `json:"id"`
-	OrganizationID uuid.UUID       `json:"organization_id"`
-	SchemaID       uuid.UUID       `json:"schema_id"`
-	EntityType     string          `json:"entity_type"`
-	Path           string          `json:"path"`
-	Properties     json.RawMessage `json:"properties"`
-	Version        int64           `json:"version"`
-	CreatedAt      time.Time       `json:"created_at"`
-	UpdatedAt      time.Time       `json:"updated_at"`
-}
-
-func (q *Queries) GetEntityByReference(ctx context.Context, arg GetEntityByReferenceParams) (GetEntityByReferenceRow, error) {
-	row := q.db.QueryRow(ctx, GetEntityByReference,
-		arg.OrganizationID,
-		arg.EntityType,
-		arg.FieldName,
-		arg.ReferenceValue,
-	)
-	var i GetEntityByReferenceRow
-	err := row.Scan(
-		&i.ID,
-		&i.OrganizationID,
-		&i.SchemaID,
-		&i.EntityType,
-		&i.Path,
-		&i.Properties,
-		&i.Version,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
 const ListEntitiesByReferences = `-- name: ListEntitiesByReferences :many
 SELECT id, organization_id, schema_id, entity_type, path, properties, version, created_at, updated_at
 FROM entities
 WHERE organization_id = $1
   AND entity_type = $2
-  AND properties ->> $3 = ANY($4::text[])
+  AND properties ->> $3::text = ANY($4::text[])
 `
 
 type ListEntitiesByReferencesParams struct {
@@ -852,6 +804,70 @@ func (q *Queries) ListEntitiesByReferences(ctx context.Context, arg ListEntities
 	items := []ListEntitiesByReferencesRow{}
 	for rows.Next() {
 		var i ListEntitiesByReferencesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrganizationID,
+			&i.SchemaID,
+			&i.EntityType,
+			&i.Path,
+			&i.Properties,
+			&i.Version,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const ListEntitiesByType = `-- name: ListEntitiesByType :many
+SELECT
+    id,
+    organization_id,
+    schema_id,
+    entity_type,
+    path,
+    properties,
+    version,
+    created_at,
+    updated_at
+FROM entities
+WHERE organization_id = $1
+  AND entity_type = $2
+ORDER BY created_at DESC
+`
+
+type ListEntitiesByTypeParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	EntityType     string    `json:"entity_type"`
+}
+
+type ListEntitiesByTypeRow struct {
+	ID             uuid.UUID       `json:"id"`
+	OrganizationID uuid.UUID       `json:"organization_id"`
+	SchemaID       uuid.UUID       `json:"schema_id"`
+	EntityType     string          `json:"entity_type"`
+	Path           string          `json:"path"`
+	Properties     json.RawMessage `json:"properties"`
+	Version        int64           `json:"version"`
+	CreatedAt      time.Time       `json:"created_at"`
+	UpdatedAt      time.Time       `json:"updated_at"`
+}
+
+func (q *Queries) ListEntitiesByType(ctx context.Context, arg ListEntitiesByTypeParams) ([]ListEntitiesByTypeRow, error) {
+	rows, err := q.db.Query(ctx, ListEntitiesByType, arg.OrganizationID, arg.EntityType)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListEntitiesByTypeRow{}
+	for rows.Next() {
+		var i ListEntitiesByTypeRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.OrganizationID,

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   SortDirection,
   useEntityTransformationQuery,
+  useQueueTransformationExportMutation,
   useTransformationExecutionQuery,
 } from '@/generated/graphql'
 import TransformationResultsTable, {
@@ -28,11 +29,16 @@ function TransformationResultsRoute() {
   const [columnMetadata, setColumnMetadata] = useState<
     Record<string, { alias: string; field: string }>
   >({})
+  const queueTransformationExportMutation = useQueueTransformationExportMutation()
+  const [exportFeedback, setExportFeedback] = useState<
+    { type: 'success' | 'error'; message: string } | null
+  >(null)
 
   useEffect(() => {
     setPage(0)
     setFilters({})
     setSortState(null)
+    setExportFeedback(null)
   }, [transformationId])
 
   const paginationInput = useMemo(
@@ -154,6 +160,48 @@ function TransformationResultsRoute() {
     setPageSize(nextSize)
   }
 
+  const handleQueueExport = async () => {
+    if (!transformation?.organizationId) {
+      setExportFeedback({
+        type: 'error',
+        message: 'Transformation organization is unavailable for export.',
+      })
+      return
+    }
+
+    const exportFilters = Object.entries(filters)
+      .map(([columnKey, rawValue]) => {
+        const column = columnMetadata[columnKey]
+        if (!column) {
+          return null
+        }
+        const trimmed = rawValue.trim()
+        if (trimmed.length === 0) {
+          return null
+        }
+        return { key: columnKey, value: trimmed }
+      })
+      .filter((item): item is { key: string; value: string } => Boolean(item))
+
+    try {
+      await queueTransformationExportMutation.mutateAsync({
+        input: {
+          organizationId: transformation.organizationId,
+          transformationId,
+          filters: exportFilters.length > 0 ? exportFilters : undefined,
+        },
+      })
+      setExportFeedback({
+        type: 'success',
+        message: 'Export queued. Monitor progress on the Exports page.',
+      })
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to queue export.'
+      setExportFeedback({ type: 'error', message })
+    }
+  }
+
   const errorMessage = executionQuery.error
     ? (executionQuery.error as Error).message
     : null
@@ -207,6 +255,27 @@ function TransformationResultsRoute() {
         </div>
       ) : null}
 
+      {exportFeedback ? (
+        <div
+          className={`rounded border px-4 py-3 text-sm ${
+            exportFeedback.type === 'success'
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+              : 'border-red-200 bg-red-50 text-red-700'
+          }`}
+        >
+          <p>{exportFeedback.message}</p>
+          {exportFeedback.type === 'success' ? (
+            <p className="mt-1 text-xs">
+              Track progress on the{' '}
+              <Link to="/exports" className="font-semibold text-blue-600 underline">
+                Exports page
+              </Link>
+              .
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
       <TransformationResultsTable
         columns={columns}
         rows={rows}
@@ -222,6 +291,10 @@ function TransformationResultsRoute() {
         isLoading={executionQuery.isLoading}
         isFetching={executionQuery.isFetching}
         onRefresh={() => executionQuery.refetch()}
+        onExportResults={
+          transformation?.organizationId ? handleQueueExport : undefined
+        }
+        isExporting={queueTransformationExportMutation.isPending}
       />
     </div>
   )

@@ -6,11 +6,10 @@
 package db
 
 import (
-        "context"
-        "time"
+	"context"
 
-        "github.com/google/uuid"
-        "github.com/jackc/pgx/v5/pgtype"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const CreateEntityTransformation = `-- name: CreateEntityTransformation :one
@@ -33,42 +32,42 @@ RETURNING
 `
 
 type CreateEntityTransformationParams struct {
-        ID             uuid.UUID   `json:"id"`
-        OrganizationID uuid.UUID   `json:"organization_id"`
-        Name           string      `json:"name"`
-        Description    pgtype.Text `json:"description"`
-        Nodes          []byte      `json:"nodes"`
+	ID             uuid.UUID   `json:"id"`
+	OrganizationID uuid.UUID   `json:"organization_id"`
+	Name           string      `json:"name"`
+	Description    pgtype.Text `json:"description"`
+	Nodes          []byte      `json:"nodes"`
 }
 
-type CreateEntityTransformationRow struct {
-        ID             uuid.UUID   `json:"id"`
-        OrganizationID uuid.UUID   `json:"organization_id"`
-        Name           string      `json:"name"`
-        Description    pgtype.Text `json:"description"`
-        Nodes          []byte      `json:"nodes"`
-        CreatedAt      time.Time   `json:"created_at"`
-        UpdatedAt      time.Time   `json:"updated_at"`
+func (q *Queries) CreateEntityTransformation(ctx context.Context, arg CreateEntityTransformationParams) (EntityTransformation, error) {
+	row := q.db.QueryRow(ctx, CreateEntityTransformation,
+		arg.ID,
+		arg.OrganizationID,
+		arg.Name,
+		arg.Description,
+		arg.Nodes,
+	)
+	var i EntityTransformation
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.Name,
+		&i.Description,
+		&i.Nodes,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
-func (q *Queries) CreateEntityTransformation(ctx context.Context, arg CreateEntityTransformationParams) (CreateEntityTransformationRow, error) {
-        row := q.db.QueryRow(ctx, CreateEntityTransformation,
-                arg.ID,
-                arg.OrganizationID,
-                arg.Name,
-                arg.Description,
-                arg.Nodes,
-        )
-        var i CreateEntityTransformationRow
-        err := row.Scan(
-                &i.ID,
-                &i.OrganizationID,
-                &i.Name,
-                &i.Description,
-                &i.Nodes,
-                &i.CreatedAt,
-                &i.UpdatedAt,
-        )
-        return i, err
+const DeleteEntityTransformation = `-- name: DeleteEntityTransformation :exec
+DELETE FROM entity_transformations
+WHERE id = $1
+`
+
+func (q *Queries) DeleteEntityTransformation(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, DeleteEntityTransformation, id)
+	return err
 }
 
 const GetEntityTransformation = `-- name: GetEntityTransformation :one
@@ -84,29 +83,19 @@ FROM entity_transformations
 WHERE id = $1
 `
 
-type GetEntityTransformationRow struct {
-        ID             uuid.UUID   `json:"id"`
-        OrganizationID uuid.UUID   `json:"organization_id"`
-        Name           string      `json:"name"`
-        Description    pgtype.Text `json:"description"`
-        Nodes          []byte      `json:"nodes"`
-        CreatedAt      time.Time   `json:"created_at"`
-        UpdatedAt      time.Time   `json:"updated_at"`
-}
-
-func (q *Queries) GetEntityTransformation(ctx context.Context, id uuid.UUID) (GetEntityTransformationRow, error) {
-        row := q.db.QueryRow(ctx, GetEntityTransformation, id)
-        var i GetEntityTransformationRow
-        err := row.Scan(
-                &i.ID,
-                &i.OrganizationID,
-                &i.Name,
-                &i.Description,
-                &i.Nodes,
-                &i.CreatedAt,
-                &i.UpdatedAt,
-        )
-        return i, err
+func (q *Queries) GetEntityTransformation(ctx context.Context, id uuid.UUID) (EntityTransformation, error) {
+	row := q.db.QueryRow(ctx, GetEntityTransformation, id)
+	var i EntityTransformation
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.Name,
+		&i.Description,
+		&i.Nodes,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const ListEntityTransformationsByOrganization = `-- name: ListEntityTransformationsByOrganization :many
@@ -123,52 +112,42 @@ WHERE organization_id = $1
 ORDER BY created_at DESC
 `
 
-type ListEntityTransformationsByOrganizationRow struct {
-        ID             uuid.UUID   `json:"id"`
-        OrganizationID uuid.UUID   `json:"organization_id"`
-        Name           string      `json:"name"`
-        Description    pgtype.Text `json:"description"`
-        Nodes          []byte      `json:"nodes"`
-        CreatedAt      time.Time   `json:"created_at"`
-        UpdatedAt      time.Time   `json:"updated_at"`
-}
-
-func (q *Queries) ListEntityTransformationsByOrganization(ctx context.Context, organizationID uuid.UUID) ([]ListEntityTransformationsByOrganizationRow, error) {
-        rows, err := q.db.Query(ctx, ListEntityTransformationsByOrganization, organizationID)
-        if err != nil {
-                return nil, err
-        }
-        defer rows.Close()
-        var items []ListEntityTransformationsByOrganizationRow
-        for rows.Next() {
-                var i ListEntityTransformationsByOrganizationRow
-                if err := rows.Scan(
-                        &i.ID,
-                        &i.OrganizationID,
-                        &i.Name,
-                        &i.Description,
-                        &i.Nodes,
-                        &i.CreatedAt,
-                        &i.UpdatedAt,
-                ); err != nil {
-                        return nil, err
-                }
-                items = append(items, i)
-        }
-        if err := rows.Err(); err != nil {
-                return nil, err
-        }
-        return items, nil
+func (q *Queries) ListEntityTransformationsByOrganization(ctx context.Context, organizationID uuid.UUID) ([]EntityTransformation, error) {
+	rows, err := q.db.Query(ctx, ListEntityTransformationsByOrganization, organizationID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []EntityTransformation{}
+	for rows.Next() {
+		var i EntityTransformation
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrganizationID,
+			&i.Name,
+			&i.Description,
+			&i.Nodes,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const UpdateEntityTransformation = `-- name: UpdateEntityTransformation :one
 UPDATE entity_transformations
 SET
-    name = COALESCE($2, name),
-    description = COALESCE($3, description),
-    nodes = COALESCE($4, nodes),
+    name = COALESCE($1, name),
+    description = COALESCE($2, description),
+    nodes = COALESCE($3, nodes),
     updated_at = NOW()
-WHERE id = $1
+WHERE id = $4
 RETURNING
     id,
     organization_id,
@@ -180,48 +159,28 @@ RETURNING
 `
 
 type UpdateEntityTransformationParams struct {
-        ID          uuid.UUID   `json:"id"`
-        Name        *string     `json:"name"`
-        Description pgtype.Text `json:"description"`
-        Nodes       []byte      `json:"nodes"`
+	Name        pgtype.Text `json:"name"`
+	Description pgtype.Text `json:"description"`
+	Nodes       []byte      `json:"nodes"`
+	ID          uuid.UUID   `json:"id"`
 }
 
-type UpdateEntityTransformationRow struct {
-        ID             uuid.UUID   `json:"id"`
-        OrganizationID uuid.UUID   `json:"organization_id"`
-        Name           string      `json:"name"`
-        Description    pgtype.Text `json:"description"`
-        Nodes          []byte      `json:"nodes"`
-        CreatedAt      time.Time   `json:"created_at"`
-        UpdatedAt      time.Time   `json:"updated_at"`
-}
-
-func (q *Queries) UpdateEntityTransformation(ctx context.Context, arg UpdateEntityTransformationParams) (UpdateEntityTransformationRow, error) {
-        row := q.db.QueryRow(ctx, UpdateEntityTransformation,
-                arg.ID,
-                arg.Name,
-                arg.Description,
-                arg.Nodes,
-        )
-        var i UpdateEntityTransformationRow
-        err := row.Scan(
-                &i.ID,
-                &i.OrganizationID,
-                &i.Name,
-                &i.Description,
-                &i.Nodes,
-                &i.CreatedAt,
-                &i.UpdatedAt,
-        )
-        return i, err
-}
-
-const DeleteEntityTransformation = `-- name: DeleteEntityTransformation :exec
-DELETE FROM entity_transformations
-WHERE id = $1
-`
-
-func (q *Queries) DeleteEntityTransformation(ctx context.Context, id uuid.UUID) error {
-        _, err := q.db.Exec(ctx, DeleteEntityTransformation, id)
-        return err
+func (q *Queries) UpdateEntityTransformation(ctx context.Context, arg UpdateEntityTransformationParams) (EntityTransformation, error) {
+	row := q.db.QueryRow(ctx, UpdateEntityTransformation,
+		arg.Name,
+		arg.Description,
+		arg.Nodes,
+		arg.ID,
+	)
+	var i EntityTransformation
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.Name,
+		&i.Description,
+		&i.Nodes,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }

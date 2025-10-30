@@ -12,6 +12,7 @@ import (
 	"github.com/rpattn/engql/graph"
 	"github.com/rpattn/engql/internal/config"
 	"github.com/rpattn/engql/internal/db"
+	"github.com/rpattn/engql/internal/export"
 	"github.com/rpattn/engql/internal/graphql"
 	"github.com/rpattn/engql/internal/ingestion"
 	"github.com/rpattn/engql/internal/middleware"
@@ -55,12 +56,14 @@ func main() {
 	entityRepo := repository.NewEntityRepository(queries, conn.Pool)
 	entityJoinRepo := repository.NewEntityJoinRepository(queries, conn.Pool)
 	entityTransformationRepo := repository.NewEntityTransformationRepository(queries, conn.Pool)
+	exportRepo := repository.NewEntityExportRepository(queries)
 	transformationExecutor := transformations.NewExecutor(entityRepo, entitySchemaRepo)
 	ingestionLogRepo := repository.NewIngestionLogRepository(conn.Pool)
 	ingestionService := ingestion.NewService(entitySchemaRepo, entityRepo, ingestionLogRepo)
+	exportService := export.NewService(orgRepo, entitySchemaRepo, entityRepo, exportRepo, entityTransformationRepo)
 
 	// Create GraphQL resolver
-	resolver := graphql.NewResolver(orgRepo, entitySchemaRepo, entityRepo, entityJoinRepo, entityTransformationRepo, transformationExecutor)
+	resolver := graphql.NewResolver(orgRepo, entitySchemaRepo, entityRepo, entityJoinRepo, entityTransformationRepo, transformationExecutor, exportService)
 
 	// Create GraphQL server
 	srv := handler.NewDefaultServer(graph.NewExecutableSchema(graph.Config{Resolvers: resolver}))
@@ -82,12 +85,19 @@ func main() {
 	ingestionHandler := middleware.LoggingMiddleware(
 		ingestion.NewHTTPHandler(ingestionService),
 	)
+	exportHandler := middleware.LoggingMiddleware(
+		export.NewHTTPHandler(exportService),
+	)
 
 	http.Handle("/query", corsHandler.Handler(graphqlHandler))
 	http.Handle("/ingestion", corsHandler.Handler(ingestionHandler))
 	http.Handle("/ingestion/preview", corsHandler.Handler(ingestionHandler))
 	http.Handle("/ingestion/batches", corsHandler.Handler(ingestionHandler))
 	http.Handle("/ingestion/logs", corsHandler.Handler(ingestionHandler))
+	http.Handle("/exports", corsHandler.Handler(exportHandler))
+	http.Handle("/exports/batches", corsHandler.Handler(exportHandler))
+	http.Handle("/exports/logs", corsHandler.Handler(exportHandler))
+	http.Handle("/exports/files/", corsHandler.Handler(exportHandler))
 	http.Handle("/", corsHandler.Handler(middleware.LoggingMiddleware(playground.Handler("GraphQL playground", "/query"))))
 
 	// Create HTTP server

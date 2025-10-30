@@ -39,6 +39,7 @@ type Config struct {
 
 type ResolverRoot interface {
 	Entity() EntityResolver
+	EntityExportJob() EntityExportJobResolver
 	Mutation() MutationResolver
 	Query() QueryResolver
 }
@@ -70,6 +71,37 @@ type ComplexityRoot struct {
 		Base        func(childComplexity int) int
 		Target      func(childComplexity int) int
 		UnifiedDiff func(childComplexity int) int
+	}
+
+	EntityExportJob struct {
+		BytesWritten             func(childComplexity int) int
+		CompletedAt              func(childComplexity int) int
+		DownloadURL              func(childComplexity int) int
+		EnqueuedAt               func(childComplexity int) int
+		EntityType               func(childComplexity int) int
+		ErrorMessage             func(childComplexity int) int
+		FileByteSize             func(childComplexity int) int
+		FileMimeType             func(childComplexity int) int
+		Filters                  func(childComplexity int) int
+		ID                       func(childComplexity int) int
+		JobType                  func(childComplexity int) int
+		OrganizationID           func(childComplexity int) int
+		RowsExported             func(childComplexity int) int
+		RowsRequested            func(childComplexity int) int
+		StartedAt                func(childComplexity int) int
+		Status                   func(childComplexity int) int
+		TransformationDefinition func(childComplexity int) int
+		TransformationID         func(childComplexity int) int
+		UpdatedAt                func(childComplexity int) int
+	}
+
+	EntityExportLog struct {
+		CreatedAt      func(childComplexity int) int
+		ErrorMessage   func(childComplexity int) int
+		ExportJobID    func(childComplexity int) int
+		ID             func(childComplexity int) int
+		OrganizationID func(childComplexity int) int
+		RowIdentifier  func(childComplexity int) int
 	}
 
 	EntityHierarchy struct {
@@ -231,6 +263,7 @@ type ComplexityRoot struct {
 
 	Mutation struct {
 		AddFieldToSchema           func(childComplexity int, schemaID string, field FieldDefinitionInput) int
+		CancelEntityExportJob      func(childComplexity int, id string) int
 		CreateEntity               func(childComplexity int, input CreateEntityInput) int
 		CreateEntityJoinDefinition func(childComplexity int, input CreateEntityJoinDefinitionInput) int
 		CreateEntitySchema         func(childComplexity int, input CreateEntitySchemaInput) int
@@ -241,6 +274,8 @@ type ComplexityRoot struct {
 		DeleteEntitySchema         func(childComplexity int, id string) int
 		DeleteEntityTransformation func(childComplexity int, id string) int
 		DeleteOrganization         func(childComplexity int, id string) int
+		QueueEntityTypeExport      func(childComplexity int, input QueueEntityTypeExportInput) int
+		QueueTransformationExport  func(childComplexity int, input QueueTransformationExportInput) int
 		RemoveFieldFromSchema      func(childComplexity int, schemaID string, fieldName string) int
 		RollbackEntity             func(childComplexity int, id string, toVersion int, reason *string) int
 		UpdateEntity               func(childComplexity int, input UpdateEntityInput) int
@@ -277,6 +312,8 @@ type ComplexityRoot struct {
 		EntitiesByType                     func(childComplexity int, organizationID string, entityType string) int
 		Entity                             func(childComplexity int, id string) int
 		EntityDiff                         func(childComplexity int, id string, baseVersion int, targetVersion int) int
+		EntityExportJob                    func(childComplexity int, id string) int
+		EntityExportJobs                   func(childComplexity int, organizationID string, statuses []EntityExportJobStatus, limit *int, offset *int) int
 		EntityHistory                      func(childComplexity int, id string) int
 		EntityJoinDefinition               func(childComplexity int, id string) int
 		EntityJoinDefinitions              func(childComplexity int, organizationID string) int
@@ -339,6 +376,9 @@ type ComplexityRoot struct {
 type EntityResolver interface {
 	LinkedEntities(ctx context.Context, obj *Entity) ([]*Entity, error)
 }
+type EntityExportJobResolver interface {
+	DownloadURL(ctx context.Context, obj *EntityExportJob) (*string, error)
+}
 type MutationResolver interface {
 	CreateOrganization(ctx context.Context, input CreateOrganizationInput) (*Organization, error)
 	UpdateOrganization(ctx context.Context, input UpdateOrganizationInput) (*Organization, error)
@@ -358,6 +398,9 @@ type MutationResolver interface {
 	CreateEntityTransformation(ctx context.Context, input CreateEntityTransformationInput) (*EntityTransformation, error)
 	UpdateEntityTransformation(ctx context.Context, input UpdateEntityTransformationInput) (*EntityTransformation, error)
 	DeleteEntityTransformation(ctx context.Context, id string) (bool, error)
+	QueueEntityTypeExport(ctx context.Context, input QueueEntityTypeExportInput) (*EntityExportJob, error)
+	QueueTransformationExport(ctx context.Context, input QueueTransformationExportInput) (*EntityExportJob, error)
+	CancelEntityExportJob(ctx context.Context, id string) (*EntityExportJob, error)
 }
 type QueryResolver interface {
 	Organizations(ctx context.Context) ([]*Organization, error)
@@ -391,6 +434,8 @@ type QueryResolver interface {
 	EntityTransformations(ctx context.Context, organizationID string) ([]*EntityTransformation, error)
 	ExecuteEntityTransformation(ctx context.Context, input ExecuteEntityTransformationInput) (*EntityTransformationConnection, error)
 	TransformationExecution(ctx context.Context, transformationID string, filters []*TransformationExecutionFilterInput, sort *TransformationExecutionSortInput, pagination *PaginationInput) (*TransformationExecutionConnection, error)
+	EntityExportJob(ctx context.Context, id string) (*EntityExportJob, error)
+	EntityExportJobs(ctx context.Context, organizationID string, statuses []EntityExportJobStatus, limit *int, offset *int) ([]*EntityExportJob, error)
 }
 
 type executableSchema struct {
@@ -510,6 +555,158 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.EntityDiffResult.UnifiedDiff(childComplexity), true
+
+	case "EntityExportJob.bytesWritten":
+		if e.complexity.EntityExportJob.BytesWritten == nil {
+			break
+		}
+
+		return e.complexity.EntityExportJob.BytesWritten(childComplexity), true
+	case "EntityExportJob.completedAt":
+		if e.complexity.EntityExportJob.CompletedAt == nil {
+			break
+		}
+
+		return e.complexity.EntityExportJob.CompletedAt(childComplexity), true
+	case "EntityExportJob.downloadUrl":
+		if e.complexity.EntityExportJob.DownloadURL == nil {
+			break
+		}
+
+		return e.complexity.EntityExportJob.DownloadURL(childComplexity), true
+	case "EntityExportJob.enqueuedAt":
+		if e.complexity.EntityExportJob.EnqueuedAt == nil {
+			break
+		}
+
+		return e.complexity.EntityExportJob.EnqueuedAt(childComplexity), true
+	case "EntityExportJob.entityType":
+		if e.complexity.EntityExportJob.EntityType == nil {
+			break
+		}
+
+		return e.complexity.EntityExportJob.EntityType(childComplexity), true
+	case "EntityExportJob.errorMessage":
+		if e.complexity.EntityExportJob.ErrorMessage == nil {
+			break
+		}
+
+		return e.complexity.EntityExportJob.ErrorMessage(childComplexity), true
+	case "EntityExportJob.fileByteSize":
+		if e.complexity.EntityExportJob.FileByteSize == nil {
+			break
+		}
+
+		return e.complexity.EntityExportJob.FileByteSize(childComplexity), true
+	case "EntityExportJob.fileMimeType":
+		if e.complexity.EntityExportJob.FileMimeType == nil {
+			break
+		}
+
+		return e.complexity.EntityExportJob.FileMimeType(childComplexity), true
+	case "EntityExportJob.filters":
+		if e.complexity.EntityExportJob.Filters == nil {
+			break
+		}
+
+		return e.complexity.EntityExportJob.Filters(childComplexity), true
+	case "EntityExportJob.id":
+		if e.complexity.EntityExportJob.ID == nil {
+			break
+		}
+
+		return e.complexity.EntityExportJob.ID(childComplexity), true
+	case "EntityExportJob.jobType":
+		if e.complexity.EntityExportJob.JobType == nil {
+			break
+		}
+
+		return e.complexity.EntityExportJob.JobType(childComplexity), true
+	case "EntityExportJob.organizationId":
+		if e.complexity.EntityExportJob.OrganizationID == nil {
+			break
+		}
+
+		return e.complexity.EntityExportJob.OrganizationID(childComplexity), true
+	case "EntityExportJob.rowsExported":
+		if e.complexity.EntityExportJob.RowsExported == nil {
+			break
+		}
+
+		return e.complexity.EntityExportJob.RowsExported(childComplexity), true
+	case "EntityExportJob.rowsRequested":
+		if e.complexity.EntityExportJob.RowsRequested == nil {
+			break
+		}
+
+		return e.complexity.EntityExportJob.RowsRequested(childComplexity), true
+	case "EntityExportJob.startedAt":
+		if e.complexity.EntityExportJob.StartedAt == nil {
+			break
+		}
+
+		return e.complexity.EntityExportJob.StartedAt(childComplexity), true
+	case "EntityExportJob.status":
+		if e.complexity.EntityExportJob.Status == nil {
+			break
+		}
+
+		return e.complexity.EntityExportJob.Status(childComplexity), true
+	case "EntityExportJob.transformationDefinition":
+		if e.complexity.EntityExportJob.TransformationDefinition == nil {
+			break
+		}
+
+		return e.complexity.EntityExportJob.TransformationDefinition(childComplexity), true
+	case "EntityExportJob.transformationId":
+		if e.complexity.EntityExportJob.TransformationID == nil {
+			break
+		}
+
+		return e.complexity.EntityExportJob.TransformationID(childComplexity), true
+	case "EntityExportJob.updatedAt":
+		if e.complexity.EntityExportJob.UpdatedAt == nil {
+			break
+		}
+
+		return e.complexity.EntityExportJob.UpdatedAt(childComplexity), true
+
+	case "EntityExportLog.createdAt":
+		if e.complexity.EntityExportLog.CreatedAt == nil {
+			break
+		}
+
+		return e.complexity.EntityExportLog.CreatedAt(childComplexity), true
+	case "EntityExportLog.errorMessage":
+		if e.complexity.EntityExportLog.ErrorMessage == nil {
+			break
+		}
+
+		return e.complexity.EntityExportLog.ErrorMessage(childComplexity), true
+	case "EntityExportLog.exportJobId":
+		if e.complexity.EntityExportLog.ExportJobID == nil {
+			break
+		}
+
+		return e.complexity.EntityExportLog.ExportJobID(childComplexity), true
+	case "EntityExportLog.id":
+		if e.complexity.EntityExportLog.ID == nil {
+			break
+		}
+
+		return e.complexity.EntityExportLog.ID(childComplexity), true
+	case "EntityExportLog.organizationId":
+		if e.complexity.EntityExportLog.OrganizationID == nil {
+			break
+		}
+
+		return e.complexity.EntityExportLog.OrganizationID(childComplexity), true
+	case "EntityExportLog.rowIdentifier":
+		if e.complexity.EntityExportLog.RowIdentifier == nil {
+			break
+		}
+
+		return e.complexity.EntityExportLog.RowIdentifier(childComplexity), true
 
 	case "EntityHierarchy.ancestors":
 		if e.complexity.EntityHierarchy.Ancestors == nil {
@@ -1090,6 +1287,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Mutation.AddFieldToSchema(childComplexity, args["schemaId"].(string), args["field"].(FieldDefinitionInput)), true
+	case "Mutation.cancelEntityExportJob":
+		if e.complexity.Mutation.CancelEntityExportJob == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_cancelEntityExportJob_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.CancelEntityExportJob(childComplexity, args["id"].(string)), true
 	case "Mutation.createEntity":
 		if e.complexity.Mutation.CreateEntity == nil {
 			break
@@ -1200,6 +1408,28 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Mutation.DeleteOrganization(childComplexity, args["id"].(string)), true
+	case "Mutation.queueEntityTypeExport":
+		if e.complexity.Mutation.QueueEntityTypeExport == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_queueEntityTypeExport_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.QueueEntityTypeExport(childComplexity, args["input"].(QueueEntityTypeExportInput)), true
+	case "Mutation.queueTransformationExport":
+		if e.complexity.Mutation.QueueTransformationExport == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_queueTransformationExport_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.QueueTransformationExport(childComplexity, args["input"].(QueueTransformationExportInput)), true
 	case "Mutation.removeFieldFromSchema":
 		if e.complexity.Mutation.RemoveFieldFromSchema == nil {
 			break
@@ -1408,6 +1638,28 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Query.EntityDiff(childComplexity, args["id"].(string), args["baseVersion"].(int), args["targetVersion"].(int)), true
+	case "Query.entityExportJob":
+		if e.complexity.Query.EntityExportJob == nil {
+			break
+		}
+
+		args, err := ec.field_Query_entityExportJob_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.EntityExportJob(childComplexity, args["id"].(string)), true
+	case "Query.entityExportJobs":
+		if e.complexity.Query.EntityExportJobs == nil {
+			break
+		}
+
+		args, err := ec.field_Query_entityExportJobs_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.EntityExportJobs(childComplexity, args["organizationId"].(string), args["statuses"].([]EntityExportJobStatus), args["limit"].(*int), args["offset"].(*int)), true
 	case "Query.entityHistory":
 		if e.complexity.Query.EntityHistory == nil {
 			break
@@ -1817,7 +2069,10 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputPaginationInput,
 		ec.unmarshalInputPathFilter,
 		ec.unmarshalInputPropertyFilter,
+		ec.unmarshalInputQueueEntityTypeExportInput,
+		ec.unmarshalInputQueueTransformationExportInput,
 		ec.unmarshalInputTransformationExecutionFilterInput,
+		ec.unmarshalInputTransformationExecutionOptionsInput,
 		ec.unmarshalInputTransformationExecutionSortInput,
 		ec.unmarshalInputUpdateEntityInput,
 		ec.unmarshalInputUpdateEntityJoinDefinitionInput,
@@ -1956,6 +2211,17 @@ func (ec *executionContext) field_Mutation_addFieldToSchema_args(ctx context.Con
 	return args, nil
 }
 
+func (ec *executionContext) field_Mutation_cancelEntityExportJob_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id", ec.unmarshalNString2string)
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_createEntityJoinDefinition_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -2063,6 +2329,28 @@ func (ec *executionContext) field_Mutation_deleteOrganization_args(ctx context.C
 		return nil, err
 	}
 	args["id"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_queueEntityTypeExport_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNQueueEntityTypeExportInput2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐQueueEntityTypeExportInput)
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_queueTransformationExport_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNQueueTransformationExportInput2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐQueueTransformationExportInput)
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
 	return args, nil
 }
 
@@ -2240,6 +2528,43 @@ func (ec *executionContext) field_Query_entityDiff_args(ctx context.Context, raw
 		return nil, err
 	}
 	args["targetVersion"] = arg2
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_entityExportJob_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id", ec.unmarshalNString2string)
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_entityExportJobs_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "organizationId", ec.unmarshalNString2string)
+	if err != nil {
+		return nil, err
+	}
+	args["organizationId"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "statuses", ec.unmarshalOEntityExportJobStatus2ᚕgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityExportJobStatusᚄ)
+	if err != nil {
+		return nil, err
+	}
+	args["statuses"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "limit", ec.unmarshalOInt2ᚖint)
+	if err != nil {
+		return nil, err
+	}
+	args["limit"] = arg2
+	arg3, err := graphql.ProcessArgField(ctx, rawArgs, "offset", ec.unmarshalOInt2ᚖint)
+	if err != nil {
+		return nil, err
+	}
+	args["offset"] = arg3
 	return args, nil
 }
 
@@ -3185,6 +3510,757 @@ func (ec *executionContext) _EntityDiffResult_unifiedDiff(ctx context.Context, f
 func (ec *executionContext) fieldContext_EntityDiffResult_unifiedDiff(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "EntityDiffResult",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityExportJob_id(ctx context.Context, field graphql.CollectedField, obj *EntityExportJob) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityExportJob_id,
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityExportJob_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityExportJob",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityExportJob_organizationId(ctx context.Context, field graphql.CollectedField, obj *EntityExportJob) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityExportJob_organizationId,
+		func(ctx context.Context) (any, error) {
+			return obj.OrganizationID, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityExportJob_organizationId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityExportJob",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityExportJob_jobType(ctx context.Context, field graphql.CollectedField, obj *EntityExportJob) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityExportJob_jobType,
+		func(ctx context.Context) (any, error) {
+			return obj.JobType, nil
+		},
+		nil,
+		ec.marshalNEntityExportJobType2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityExportJobType,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityExportJob_jobType(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityExportJob",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type EntityExportJobType does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityExportJob_entityType(ctx context.Context, field graphql.CollectedField, obj *EntityExportJob) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityExportJob_entityType,
+		func(ctx context.Context) (any, error) {
+			return obj.EntityType, nil
+		},
+		nil,
+		ec.marshalOString2ᚖstring,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityExportJob_entityType(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityExportJob",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityExportJob_transformationId(ctx context.Context, field graphql.CollectedField, obj *EntityExportJob) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityExportJob_transformationId,
+		func(ctx context.Context) (any, error) {
+			return obj.TransformationID, nil
+		},
+		nil,
+		ec.marshalOString2ᚖstring,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityExportJob_transformationId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityExportJob",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityExportJob_status(ctx context.Context, field graphql.CollectedField, obj *EntityExportJob) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityExportJob_status,
+		func(ctx context.Context) (any, error) {
+			return obj.Status, nil
+		},
+		nil,
+		ec.marshalNEntityExportJobStatus2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityExportJobStatus,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityExportJob_status(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityExportJob",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type EntityExportJobStatus does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityExportJob_rowsRequested(ctx context.Context, field graphql.CollectedField, obj *EntityExportJob) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityExportJob_rowsRequested,
+		func(ctx context.Context) (any, error) {
+			return obj.RowsRequested, nil
+		},
+		nil,
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityExportJob_rowsRequested(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityExportJob",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityExportJob_rowsExported(ctx context.Context, field graphql.CollectedField, obj *EntityExportJob) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityExportJob_rowsExported,
+		func(ctx context.Context) (any, error) {
+			return obj.RowsExported, nil
+		},
+		nil,
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityExportJob_rowsExported(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityExportJob",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityExportJob_bytesWritten(ctx context.Context, field graphql.CollectedField, obj *EntityExportJob) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityExportJob_bytesWritten,
+		func(ctx context.Context) (any, error) {
+			return obj.BytesWritten, nil
+		},
+		nil,
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityExportJob_bytesWritten(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityExportJob",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityExportJob_fileMimeType(ctx context.Context, field graphql.CollectedField, obj *EntityExportJob) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityExportJob_fileMimeType,
+		func(ctx context.Context) (any, error) {
+			return obj.FileMimeType, nil
+		},
+		nil,
+		ec.marshalOString2ᚖstring,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityExportJob_fileMimeType(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityExportJob",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityExportJob_fileByteSize(ctx context.Context, field graphql.CollectedField, obj *EntityExportJob) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityExportJob_fileByteSize,
+		func(ctx context.Context) (any, error) {
+			return obj.FileByteSize, nil
+		},
+		nil,
+		ec.marshalOInt2ᚖint,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityExportJob_fileByteSize(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityExportJob",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityExportJob_errorMessage(ctx context.Context, field graphql.CollectedField, obj *EntityExportJob) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityExportJob_errorMessage,
+		func(ctx context.Context) (any, error) {
+			return obj.ErrorMessage, nil
+		},
+		nil,
+		ec.marshalOString2ᚖstring,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityExportJob_errorMessage(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityExportJob",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityExportJob_filters(ctx context.Context, field graphql.CollectedField, obj *EntityExportJob) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityExportJob_filters,
+		func(ctx context.Context) (any, error) {
+			return obj.Filters, nil
+		},
+		nil,
+		ec.marshalNPropertyFilterConfig2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐPropertyFilterConfigᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityExportJob_filters(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityExportJob",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "key":
+				return ec.fieldContext_PropertyFilterConfig_key(ctx, field)
+			case "value":
+				return ec.fieldContext_PropertyFilterConfig_value(ctx, field)
+			case "exists":
+				return ec.fieldContext_PropertyFilterConfig_exists(ctx, field)
+			case "inArray":
+				return ec.fieldContext_PropertyFilterConfig_inArray(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type PropertyFilterConfig", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityExportJob_transformationDefinition(ctx context.Context, field graphql.CollectedField, obj *EntityExportJob) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityExportJob_transformationDefinition,
+		func(ctx context.Context) (any, error) {
+			return obj.TransformationDefinition, nil
+		},
+		nil,
+		ec.marshalOEntityTransformation2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityTransformation,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityExportJob_transformationDefinition(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityExportJob",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_EntityTransformation_id(ctx, field)
+			case "organizationId":
+				return ec.fieldContext_EntityTransformation_organizationId(ctx, field)
+			case "name":
+				return ec.fieldContext_EntityTransformation_name(ctx, field)
+			case "description":
+				return ec.fieldContext_EntityTransformation_description(ctx, field)
+			case "nodes":
+				return ec.fieldContext_EntityTransformation_nodes(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_EntityTransformation_createdAt(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_EntityTransformation_updatedAt(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type EntityTransformation", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityExportJob_enqueuedAt(ctx context.Context, field graphql.CollectedField, obj *EntityExportJob) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityExportJob_enqueuedAt,
+		func(ctx context.Context) (any, error) {
+			return obj.EnqueuedAt, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityExportJob_enqueuedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityExportJob",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityExportJob_startedAt(ctx context.Context, field graphql.CollectedField, obj *EntityExportJob) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityExportJob_startedAt,
+		func(ctx context.Context) (any, error) {
+			return obj.StartedAt, nil
+		},
+		nil,
+		ec.marshalOString2ᚖstring,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityExportJob_startedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityExportJob",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityExportJob_completedAt(ctx context.Context, field graphql.CollectedField, obj *EntityExportJob) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityExportJob_completedAt,
+		func(ctx context.Context) (any, error) {
+			return obj.CompletedAt, nil
+		},
+		nil,
+		ec.marshalOString2ᚖstring,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityExportJob_completedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityExportJob",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityExportJob_updatedAt(ctx context.Context, field graphql.CollectedField, obj *EntityExportJob) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityExportJob_updatedAt,
+		func(ctx context.Context) (any, error) {
+			return obj.UpdatedAt, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityExportJob_updatedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityExportJob",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityExportJob_downloadUrl(ctx context.Context, field graphql.CollectedField, obj *EntityExportJob) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityExportJob_downloadUrl,
+		func(ctx context.Context) (any, error) {
+			return ec.resolvers.EntityExportJob().DownloadURL(ctx, obj)
+		},
+		nil,
+		ec.marshalOString2ᚖstring,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityExportJob_downloadUrl(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityExportJob",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityExportLog_id(ctx context.Context, field graphql.CollectedField, obj *EntityExportLog) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityExportLog_id,
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityExportLog_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityExportLog",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityExportLog_exportJobId(ctx context.Context, field graphql.CollectedField, obj *EntityExportLog) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityExportLog_exportJobId,
+		func(ctx context.Context) (any, error) {
+			return obj.ExportJobID, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityExportLog_exportJobId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityExportLog",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityExportLog_organizationId(ctx context.Context, field graphql.CollectedField, obj *EntityExportLog) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityExportLog_organizationId,
+		func(ctx context.Context) (any, error) {
+			return obj.OrganizationID, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityExportLog_organizationId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityExportLog",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityExportLog_rowIdentifier(ctx context.Context, field graphql.CollectedField, obj *EntityExportLog) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityExportLog_rowIdentifier,
+		func(ctx context.Context) (any, error) {
+			return obj.RowIdentifier, nil
+		},
+		nil,
+		ec.marshalOString2ᚖstring,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityExportLog_rowIdentifier(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityExportLog",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityExportLog_errorMessage(ctx context.Context, field graphql.CollectedField, obj *EntityExportLog) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityExportLog_errorMessage,
+		func(ctx context.Context) (any, error) {
+			return obj.ErrorMessage, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityExportLog_errorMessage(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityExportLog",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntityExportLog_createdAt(ctx context.Context, field graphql.CollectedField, obj *EntityExportLog) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_EntityExportLog_createdAt,
+		func(ctx context.Context) (any, error) {
+			return obj.CreatedAt, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_EntityExportLog_createdAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntityExportLog",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
@@ -7196,6 +8272,249 @@ func (ec *executionContext) fieldContext_Mutation_deleteEntityTransformation(ctx
 	return fc, nil
 }
 
+func (ec *executionContext) _Mutation_queueEntityTypeExport(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Mutation_queueEntityTypeExport,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Mutation().QueueEntityTypeExport(ctx, fc.Args["input"].(QueueEntityTypeExportInput))
+		},
+		nil,
+		ec.marshalNEntityExportJob2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityExportJob,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Mutation_queueEntityTypeExport(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_EntityExportJob_id(ctx, field)
+			case "organizationId":
+				return ec.fieldContext_EntityExportJob_organizationId(ctx, field)
+			case "jobType":
+				return ec.fieldContext_EntityExportJob_jobType(ctx, field)
+			case "entityType":
+				return ec.fieldContext_EntityExportJob_entityType(ctx, field)
+			case "transformationId":
+				return ec.fieldContext_EntityExportJob_transformationId(ctx, field)
+			case "status":
+				return ec.fieldContext_EntityExportJob_status(ctx, field)
+			case "rowsRequested":
+				return ec.fieldContext_EntityExportJob_rowsRequested(ctx, field)
+			case "rowsExported":
+				return ec.fieldContext_EntityExportJob_rowsExported(ctx, field)
+			case "bytesWritten":
+				return ec.fieldContext_EntityExportJob_bytesWritten(ctx, field)
+			case "fileMimeType":
+				return ec.fieldContext_EntityExportJob_fileMimeType(ctx, field)
+			case "fileByteSize":
+				return ec.fieldContext_EntityExportJob_fileByteSize(ctx, field)
+			case "errorMessage":
+				return ec.fieldContext_EntityExportJob_errorMessage(ctx, field)
+			case "filters":
+				return ec.fieldContext_EntityExportJob_filters(ctx, field)
+			case "transformationDefinition":
+				return ec.fieldContext_EntityExportJob_transformationDefinition(ctx, field)
+			case "enqueuedAt":
+				return ec.fieldContext_EntityExportJob_enqueuedAt(ctx, field)
+			case "startedAt":
+				return ec.fieldContext_EntityExportJob_startedAt(ctx, field)
+			case "completedAt":
+				return ec.fieldContext_EntityExportJob_completedAt(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_EntityExportJob_updatedAt(ctx, field)
+			case "downloadUrl":
+				return ec.fieldContext_EntityExportJob_downloadUrl(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type EntityExportJob", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_queueEntityTypeExport_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_queueTransformationExport(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Mutation_queueTransformationExport,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Mutation().QueueTransformationExport(ctx, fc.Args["input"].(QueueTransformationExportInput))
+		},
+		nil,
+		ec.marshalNEntityExportJob2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityExportJob,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Mutation_queueTransformationExport(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_EntityExportJob_id(ctx, field)
+			case "organizationId":
+				return ec.fieldContext_EntityExportJob_organizationId(ctx, field)
+			case "jobType":
+				return ec.fieldContext_EntityExportJob_jobType(ctx, field)
+			case "entityType":
+				return ec.fieldContext_EntityExportJob_entityType(ctx, field)
+			case "transformationId":
+				return ec.fieldContext_EntityExportJob_transformationId(ctx, field)
+			case "status":
+				return ec.fieldContext_EntityExportJob_status(ctx, field)
+			case "rowsRequested":
+				return ec.fieldContext_EntityExportJob_rowsRequested(ctx, field)
+			case "rowsExported":
+				return ec.fieldContext_EntityExportJob_rowsExported(ctx, field)
+			case "bytesWritten":
+				return ec.fieldContext_EntityExportJob_bytesWritten(ctx, field)
+			case "fileMimeType":
+				return ec.fieldContext_EntityExportJob_fileMimeType(ctx, field)
+			case "fileByteSize":
+				return ec.fieldContext_EntityExportJob_fileByteSize(ctx, field)
+			case "errorMessage":
+				return ec.fieldContext_EntityExportJob_errorMessage(ctx, field)
+			case "filters":
+				return ec.fieldContext_EntityExportJob_filters(ctx, field)
+			case "transformationDefinition":
+				return ec.fieldContext_EntityExportJob_transformationDefinition(ctx, field)
+			case "enqueuedAt":
+				return ec.fieldContext_EntityExportJob_enqueuedAt(ctx, field)
+			case "startedAt":
+				return ec.fieldContext_EntityExportJob_startedAt(ctx, field)
+			case "completedAt":
+				return ec.fieldContext_EntityExportJob_completedAt(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_EntityExportJob_updatedAt(ctx, field)
+			case "downloadUrl":
+				return ec.fieldContext_EntityExportJob_downloadUrl(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type EntityExportJob", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_queueTransformationExport_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_cancelEntityExportJob(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Mutation_cancelEntityExportJob,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Mutation().CancelEntityExportJob(ctx, fc.Args["id"].(string))
+		},
+		nil,
+		ec.marshalNEntityExportJob2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityExportJob,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Mutation_cancelEntityExportJob(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_EntityExportJob_id(ctx, field)
+			case "organizationId":
+				return ec.fieldContext_EntityExportJob_organizationId(ctx, field)
+			case "jobType":
+				return ec.fieldContext_EntityExportJob_jobType(ctx, field)
+			case "entityType":
+				return ec.fieldContext_EntityExportJob_entityType(ctx, field)
+			case "transformationId":
+				return ec.fieldContext_EntityExportJob_transformationId(ctx, field)
+			case "status":
+				return ec.fieldContext_EntityExportJob_status(ctx, field)
+			case "rowsRequested":
+				return ec.fieldContext_EntityExportJob_rowsRequested(ctx, field)
+			case "rowsExported":
+				return ec.fieldContext_EntityExportJob_rowsExported(ctx, field)
+			case "bytesWritten":
+				return ec.fieldContext_EntityExportJob_bytesWritten(ctx, field)
+			case "fileMimeType":
+				return ec.fieldContext_EntityExportJob_fileMimeType(ctx, field)
+			case "fileByteSize":
+				return ec.fieldContext_EntityExportJob_fileByteSize(ctx, field)
+			case "errorMessage":
+				return ec.fieldContext_EntityExportJob_errorMessage(ctx, field)
+			case "filters":
+				return ec.fieldContext_EntityExportJob_filters(ctx, field)
+			case "transformationDefinition":
+				return ec.fieldContext_EntityExportJob_transformationDefinition(ctx, field)
+			case "enqueuedAt":
+				return ec.fieldContext_EntityExportJob_enqueuedAt(ctx, field)
+			case "startedAt":
+				return ec.fieldContext_EntityExportJob_startedAt(ctx, field)
+			case "completedAt":
+				return ec.fieldContext_EntityExportJob_completedAt(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_EntityExportJob_updatedAt(ctx, field)
+			case "downloadUrl":
+				return ec.fieldContext_EntityExportJob_downloadUrl(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type EntityExportJob", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_cancelEntityExportJob_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Organization_id(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -9365,6 +10684,168 @@ func (ec *executionContext) fieldContext_Query_transformationExecution(ctx conte
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Query_transformationExecution_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_entityExportJob(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Query_entityExportJob,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Query().EntityExportJob(ctx, fc.Args["id"].(string))
+		},
+		nil,
+		ec.marshalOEntityExportJob2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityExportJob,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_Query_entityExportJob(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_EntityExportJob_id(ctx, field)
+			case "organizationId":
+				return ec.fieldContext_EntityExportJob_organizationId(ctx, field)
+			case "jobType":
+				return ec.fieldContext_EntityExportJob_jobType(ctx, field)
+			case "entityType":
+				return ec.fieldContext_EntityExportJob_entityType(ctx, field)
+			case "transformationId":
+				return ec.fieldContext_EntityExportJob_transformationId(ctx, field)
+			case "status":
+				return ec.fieldContext_EntityExportJob_status(ctx, field)
+			case "rowsRequested":
+				return ec.fieldContext_EntityExportJob_rowsRequested(ctx, field)
+			case "rowsExported":
+				return ec.fieldContext_EntityExportJob_rowsExported(ctx, field)
+			case "bytesWritten":
+				return ec.fieldContext_EntityExportJob_bytesWritten(ctx, field)
+			case "fileMimeType":
+				return ec.fieldContext_EntityExportJob_fileMimeType(ctx, field)
+			case "fileByteSize":
+				return ec.fieldContext_EntityExportJob_fileByteSize(ctx, field)
+			case "errorMessage":
+				return ec.fieldContext_EntityExportJob_errorMessage(ctx, field)
+			case "filters":
+				return ec.fieldContext_EntityExportJob_filters(ctx, field)
+			case "transformationDefinition":
+				return ec.fieldContext_EntityExportJob_transformationDefinition(ctx, field)
+			case "enqueuedAt":
+				return ec.fieldContext_EntityExportJob_enqueuedAt(ctx, field)
+			case "startedAt":
+				return ec.fieldContext_EntityExportJob_startedAt(ctx, field)
+			case "completedAt":
+				return ec.fieldContext_EntityExportJob_completedAt(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_EntityExportJob_updatedAt(ctx, field)
+			case "downloadUrl":
+				return ec.fieldContext_EntityExportJob_downloadUrl(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type EntityExportJob", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_entityExportJob_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_entityExportJobs(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Query_entityExportJobs,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Query().EntityExportJobs(ctx, fc.Args["organizationId"].(string), fc.Args["statuses"].([]EntityExportJobStatus), fc.Args["limit"].(*int), fc.Args["offset"].(*int))
+		},
+		nil,
+		ec.marshalNEntityExportJob2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityExportJobᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Query_entityExportJobs(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_EntityExportJob_id(ctx, field)
+			case "organizationId":
+				return ec.fieldContext_EntityExportJob_organizationId(ctx, field)
+			case "jobType":
+				return ec.fieldContext_EntityExportJob_jobType(ctx, field)
+			case "entityType":
+				return ec.fieldContext_EntityExportJob_entityType(ctx, field)
+			case "transformationId":
+				return ec.fieldContext_EntityExportJob_transformationId(ctx, field)
+			case "status":
+				return ec.fieldContext_EntityExportJob_status(ctx, field)
+			case "rowsRequested":
+				return ec.fieldContext_EntityExportJob_rowsRequested(ctx, field)
+			case "rowsExported":
+				return ec.fieldContext_EntityExportJob_rowsExported(ctx, field)
+			case "bytesWritten":
+				return ec.fieldContext_EntityExportJob_bytesWritten(ctx, field)
+			case "fileMimeType":
+				return ec.fieldContext_EntityExportJob_fileMimeType(ctx, field)
+			case "fileByteSize":
+				return ec.fieldContext_EntityExportJob_fileByteSize(ctx, field)
+			case "errorMessage":
+				return ec.fieldContext_EntityExportJob_errorMessage(ctx, field)
+			case "filters":
+				return ec.fieldContext_EntityExportJob_filters(ctx, field)
+			case "transformationDefinition":
+				return ec.fieldContext_EntityExportJob_transformationDefinition(ctx, field)
+			case "enqueuedAt":
+				return ec.fieldContext_EntityExportJob_enqueuedAt(ctx, field)
+			case "startedAt":
+				return ec.fieldContext_EntityExportJob_startedAt(ctx, field)
+			case "completedAt":
+				return ec.fieldContext_EntityExportJob_completedAt(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_EntityExportJob_updatedAt(ctx, field)
+			case "downloadUrl":
+				return ec.fieldContext_EntityExportJob_downloadUrl(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type EntityExportJob", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_entityExportJobs_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -12553,6 +14034,95 @@ func (ec *executionContext) unmarshalInputPropertyFilter(ctx context.Context, ob
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputQueueEntityTypeExportInput(ctx context.Context, obj any) (QueueEntityTypeExportInput, error) {
+	var it QueueEntityTypeExportInput
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"organizationId", "entityType", "filters"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "organizationId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("organizationId"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.OrganizationID = data
+		case "entityType":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("entityType"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.EntityType = data
+		case "filters":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("filters"))
+			data, err := ec.unmarshalOPropertyFilter2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐPropertyFilterᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Filters = data
+		}
+	}
+
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputQueueTransformationExportInput(ctx context.Context, obj any) (QueueTransformationExportInput, error) {
+	var it QueueTransformationExportInput
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"organizationId", "transformationId", "filters", "options"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "organizationId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("organizationId"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.OrganizationID = data
+		case "transformationId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("transformationId"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.TransformationID = data
+		case "filters":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("filters"))
+			data, err := ec.unmarshalOPropertyFilter2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐPropertyFilterᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Filters = data
+		case "options":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("options"))
+			data, err := ec.unmarshalOTransformationExecutionOptionsInput2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐTransformationExecutionOptionsInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Options = data
+		}
+	}
+
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputTransformationExecutionFilterInput(ctx context.Context, obj any) (TransformationExecutionFilterInput, error) {
 	var it TransformationExecutionFilterInput
 	asMap := map[string]any{}
@@ -12602,6 +14172,40 @@ func (ec *executionContext) unmarshalInputTransformationExecutionFilterInput(ctx
 				return it, err
 			}
 			it.InArray = data
+		}
+	}
+
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputTransformationExecutionOptionsInput(ctx context.Context, obj any) (TransformationExecutionOptionsInput, error) {
+	var it TransformationExecutionOptionsInput
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"limit", "offset"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "limit":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("limit"))
+			data, err := ec.unmarshalOInt2ᚖint(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Limit = data
+		case "offset":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("offset"))
+			data, err := ec.unmarshalOInt2ᚖint(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Offset = data
 		}
 	}
 
@@ -13114,6 +14718,200 @@ func (ec *executionContext) _EntityDiffResult(ctx context.Context, sel ast.Selec
 			out.Values[i] = ec._EntityDiffResult_target(ctx, field, obj)
 		case "unifiedDiff":
 			out.Values[i] = ec._EntityDiffResult_unifiedDiff(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var entityExportJobImplementors = []string{"EntityExportJob"}
+
+func (ec *executionContext) _EntityExportJob(ctx context.Context, sel ast.SelectionSet, obj *EntityExportJob) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, entityExportJobImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("EntityExportJob")
+		case "id":
+			out.Values[i] = ec._EntityExportJob_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "organizationId":
+			out.Values[i] = ec._EntityExportJob_organizationId(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "jobType":
+			out.Values[i] = ec._EntityExportJob_jobType(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "entityType":
+			out.Values[i] = ec._EntityExportJob_entityType(ctx, field, obj)
+		case "transformationId":
+			out.Values[i] = ec._EntityExportJob_transformationId(ctx, field, obj)
+		case "status":
+			out.Values[i] = ec._EntityExportJob_status(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "rowsRequested":
+			out.Values[i] = ec._EntityExportJob_rowsRequested(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "rowsExported":
+			out.Values[i] = ec._EntityExportJob_rowsExported(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "bytesWritten":
+			out.Values[i] = ec._EntityExportJob_bytesWritten(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "fileMimeType":
+			out.Values[i] = ec._EntityExportJob_fileMimeType(ctx, field, obj)
+		case "fileByteSize":
+			out.Values[i] = ec._EntityExportJob_fileByteSize(ctx, field, obj)
+		case "errorMessage":
+			out.Values[i] = ec._EntityExportJob_errorMessage(ctx, field, obj)
+		case "filters":
+			out.Values[i] = ec._EntityExportJob_filters(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "transformationDefinition":
+			out.Values[i] = ec._EntityExportJob_transformationDefinition(ctx, field, obj)
+		case "enqueuedAt":
+			out.Values[i] = ec._EntityExportJob_enqueuedAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "startedAt":
+			out.Values[i] = ec._EntityExportJob_startedAt(ctx, field, obj)
+		case "completedAt":
+			out.Values[i] = ec._EntityExportJob_completedAt(ctx, field, obj)
+		case "updatedAt":
+			out.Values[i] = ec._EntityExportJob_updatedAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "downloadUrl":
+			field := field
+
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._EntityExportJob_downloadUrl(ctx, field, obj)
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var entityExportLogImplementors = []string{"EntityExportLog"}
+
+func (ec *executionContext) _EntityExportLog(ctx context.Context, sel ast.SelectionSet, obj *EntityExportLog) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, entityExportLogImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("EntityExportLog")
+		case "id":
+			out.Values[i] = ec._EntityExportLog_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "exportJobId":
+			out.Values[i] = ec._EntityExportLog_exportJobId(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "organizationId":
+			out.Values[i] = ec._EntityExportLog_organizationId(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "rowIdentifier":
+			out.Values[i] = ec._EntityExportLog_rowIdentifier(ctx, field, obj)
+		case "errorMessage":
+			out.Values[i] = ec._EntityExportLog_errorMessage(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "createdAt":
+			out.Values[i] = ec._EntityExportLog_createdAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -14425,6 +16223,27 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "queueEntityTypeExport":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_queueEntityTypeExport(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "queueTransformationExport":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_queueTransformationExport(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "cancelEntityExportJob":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_cancelEntityExportJob(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -15275,6 +17094,47 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "entityExportJob":
+			field := field
+
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_entityExportJob(ctx, field)
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "entityExportJobs":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_entityExportJobs(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
 		case "__type":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Query___type(ctx, field)
@@ -15994,6 +17854,84 @@ func (ec *executionContext) marshalNEntityConnection2ᚖgithubᚗcomᚋrpattnᚋ
 		return graphql.Null
 	}
 	return ec._EntityConnection(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNEntityExportJob2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityExportJob(ctx context.Context, sel ast.SelectionSet, v EntityExportJob) graphql.Marshaler {
+	return ec._EntityExportJob(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNEntityExportJob2ᚕᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityExportJobᚄ(ctx context.Context, sel ast.SelectionSet, v []*EntityExportJob) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNEntityExportJob2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityExportJob(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNEntityExportJob2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityExportJob(ctx context.Context, sel ast.SelectionSet, v *EntityExportJob) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._EntityExportJob(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNEntityExportJobStatus2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityExportJobStatus(ctx context.Context, v any) (EntityExportJobStatus, error) {
+	var res EntityExportJobStatus
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNEntityExportJobStatus2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityExportJobStatus(ctx context.Context, sel ast.SelectionSet, v EntityExportJobStatus) graphql.Marshaler {
+	return v
+}
+
+func (ec *executionContext) unmarshalNEntityExportJobType2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityExportJobType(ctx context.Context, v any) (EntityExportJobType, error) {
+	var res EntityExportJobType
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNEntityExportJobType2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityExportJobType(ctx context.Context, sel ast.SelectionSet, v EntityExportJobType) graphql.Marshaler {
+	return v
 }
 
 func (ec *executionContext) marshalNEntityHierarchy2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityHierarchy(ctx context.Context, sel ast.SelectionSet, v EntityHierarchy) graphql.Marshaler {
@@ -17001,6 +18939,16 @@ func (ec *executionContext) marshalNPropertyFilterConfig2ᚖgithubᚗcomᚋrpatt
 	return ec._PropertyFilterConfig(ctx, sel, v)
 }
 
+func (ec *executionContext) unmarshalNQueueEntityTypeExportInput2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐQueueEntityTypeExportInput(ctx context.Context, v any) (QueueEntityTypeExportInput, error) {
+	res, err := ec.unmarshalInputQueueEntityTypeExportInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNQueueTransformationExportInput2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐQueueTransformationExportInput(ctx context.Context, v any) (QueueTransformationExportInput, error) {
+	res, err := ec.unmarshalInputQueueTransformationExportInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
 func (ec *executionContext) unmarshalNSchemaStatus2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐSchemaStatus(ctx context.Context, v any) (SchemaStatus, error) {
 	var res SchemaStatus
 	err := res.UnmarshalGQL(v)
@@ -17574,6 +19522,78 @@ func (ec *executionContext) marshalOEntityDiffResult2ᚖgithubᚗcomᚋrpattnᚋ
 	return ec._EntityDiffResult(ctx, sel, v)
 }
 
+func (ec *executionContext) marshalOEntityExportJob2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityExportJob(ctx context.Context, sel ast.SelectionSet, v *EntityExportJob) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._EntityExportJob(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalOEntityExportJobStatus2ᚕgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityExportJobStatusᚄ(ctx context.Context, v any) ([]EntityExportJobStatus, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]EntityExportJobStatus, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNEntityExportJobStatus2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityExportJobStatus(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalOEntityExportJobStatus2ᚕgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityExportJobStatusᚄ(ctx context.Context, sel ast.SelectionSet, v []EntityExportJobStatus) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNEntityExportJobStatus2githubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityExportJobStatus(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
 func (ec *executionContext) unmarshalOEntityFilter2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐEntityFilter(ctx context.Context, v any) (*EntityFilter, error) {
 	if v == nil {
 		return nil, nil
@@ -17987,6 +20007,14 @@ func (ec *executionContext) unmarshalOTransformationExecutionFilterInput2ᚕᚖg
 		}
 	}
 	return res, nil
+}
+
+func (ec *executionContext) unmarshalOTransformationExecutionOptionsInput2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐTransformationExecutionOptionsInput(ctx context.Context, v any) (*TransformationExecutionOptionsInput, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputTransformationExecutionOptionsInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
 func (ec *executionContext) unmarshalOTransformationExecutionSortInput2ᚖgithubᚗcomᚋrpattnᚋengqlᚋgraphᚐTransformationExecutionSortInput(ctx context.Context, v any) (*TransformationExecutionSortInput, error) {

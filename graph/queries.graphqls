@@ -63,6 +63,102 @@ mutation UpdateEntity($input: UpdateEntityInput!) {
   }
 }
 
+mutation QueueEntityTypeExport($input: QueueEntityTypeExportInput!) {
+  queueEntityTypeExport(input: $input) {
+    id
+    organizationId
+    jobType
+    entityType
+    transformationId
+    status
+    rowsRequested
+    rowsExported
+    bytesWritten
+    fileMimeType
+    fileByteSize
+    errorMessage
+    filters {
+      key
+      value
+      exists
+      inArray
+    }
+    transformationDefinition {
+      id
+      name
+    }
+    enqueuedAt
+    startedAt
+    completedAt
+    updatedAt
+    downloadUrl
+  }
+}
+
+mutation QueueTransformationExport($input: QueueTransformationExportInput!) {
+  queueTransformationExport(input: $input) {
+    id
+    organizationId
+    jobType
+    entityType
+    transformationId
+    status
+    rowsRequested
+    rowsExported
+    bytesWritten
+    fileMimeType
+    fileByteSize
+    errorMessage
+    filters {
+      key
+      value
+      exists
+      inArray
+    }
+    transformationDefinition {
+      id
+      name
+    }
+    enqueuedAt
+    startedAt
+    completedAt
+    updatedAt
+    downloadUrl
+  }
+}
+
+mutation CancelEntityExportJob($id: String!) {
+  cancelEntityExportJob(id: $id) {
+    id
+    organizationId
+    jobType
+    entityType
+    transformationId
+    status
+    rowsRequested
+    rowsExported
+    bytesWritten
+    fileMimeType
+    fileByteSize
+    errorMessage
+    filters {
+      key
+      value
+      exists
+      inArray
+    }
+    transformationDefinition {
+      id
+      name
+    }
+    enqueuedAt
+    startedAt
+    completedAt
+    updatedAt
+    downloadUrl
+  }
+}
+
 # --- Delete Entity ---
 mutation DeleteEntity($id: String!) {
   deleteEntity(id: $id)
@@ -542,5 +638,47 @@ query TransformationExecution(
       hasNextPage
       hasPreviousPage
     }
+  }
+}
+
+query EntityExportJobs(
+  $organizationId: String!
+  $statuses: [EntityExportJobStatus!]
+  $limit: Int
+  $offset: Int
+) {
+  entityExportJobs(
+    organizationId: $organizationId
+    statuses: $statuses
+    limit: $limit
+    offset: $offset
+  ) {
+    id
+    organizationId
+    jobType
+    entityType
+    transformationId
+    status
+    rowsRequested
+    rowsExported
+    bytesWritten
+    fileMimeType
+    fileByteSize
+    errorMessage
+    filters {
+      key
+      value
+      exists
+      inArray
+    }
+    transformationDefinition {
+      id
+      name
+    }
+    enqueuedAt
+    startedAt
+    completedAt
+    updatedAt
+    downloadUrl
   }
 }
