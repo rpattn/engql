@@ -556,12 +556,13 @@ func (r *Resolver) TransformationExecution(
 
 	columns := buildExecutionColumns(materializeConfig)
 
-	options := domain.EntityTransformationExecutionOptions{}
+	const defaultTransformationPageSize = 25
+	options := domain.EntityTransformationExecutionOptions{Limit: defaultTransformationPageSize}
 	if pagination != nil {
-		if pagination.Limit != nil {
+		if pagination.Limit != nil && *pagination.Limit > 0 {
 			options.Limit = *pagination.Limit
 		}
-		if pagination.Offset != nil {
+		if pagination.Offset != nil && *pagination.Offset >= 0 {
 			options.Offset = *pagination.Offset
 		}
 	}

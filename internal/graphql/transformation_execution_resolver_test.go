@@ -152,3 +152,90 @@ func TestTransformationExecutionUsesExecutorPagination(t *testing.T) {
 		t.Fatalf("expected row value Bob, got %v", value)
 	}
 }
+
+func TestTransformationExecutionAppliesDefaultPagination(t *testing.T) {
+	orgID := uuid.New()
+	loadID := uuid.New()
+	materializeID := uuid.New()
+
+	transformation := domain.EntityTransformation{
+		ID:             uuid.New(),
+		OrganizationID: orgID,
+		Nodes: []domain.EntityTransformationNode{
+			{
+				ID:   loadID,
+				Name: "load",
+				Type: domain.TransformationNodeLoad,
+				Load: &domain.EntityTransformationLoadConfig{
+					Alias:      "users",
+					EntityType: "User",
+				},
+			},
+			{
+				ID:     materializeID,
+				Name:   "materialize",
+				Type:   domain.TransformationNodeMaterialize,
+				Inputs: []uuid.UUID{loadID},
+				Materialize: &domain.EntityTransformationMaterializeConfig{
+					Outputs: []domain.EntityTransformationMaterializeOutput{
+						{
+							Alias: "table",
+							Fields: []domain.EntityTransformationMaterializeFieldMapping{
+								{SourceAlias: "users", SourceField: "name", OutputField: "name"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	repo := &trackingTransformationRepository{transformation: transformation}
+
+	const defaultPageSize = 25
+	entityRecords := make([]domain.Entity, 0, defaultPageSize+5)
+	for i := 0; i < cap(entityRecords); i++ {
+		entityRecords = append(entityRecords, domain.Entity{
+			ID:             uuid.New(),
+			OrganizationID: orgID,
+			EntityType:     "User",
+			Properties:     map[string]any{"name": fmt.Sprintf("User-%d", i)},
+		})
+	}
+
+	entityRepo := &trackingEntityRepo{records: entityRecords}
+	executor := transformations.NewExecutor(entityRepo, stubSchemaProvider{})
+
+	resolver := &Resolver{
+		entityTransformationRepo: repo,
+		transformationExecutor:   executor,
+	}
+
+	conn, err := resolver.TransformationExecution(
+		context.Background(),
+		transformation.ID.String(),
+		nil,
+		nil,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("resolver error: %v", err)
+	}
+
+	if entityRepo.lastLimit != defaultPageSize {
+		t.Fatalf("expected repo limit %d, got %d", defaultPageSize, entityRepo.lastLimit)
+	}
+	if entityRepo.lastOffset != 0 {
+		t.Fatalf("expected repo offset 0, got %d", entityRepo.lastOffset)
+	}
+	if entityRepo.calls != 1 {
+		t.Fatalf("expected single repo call, got %d", entityRepo.calls)
+	}
+
+	if conn == nil {
+		t.Fatalf("expected non-nil connection result")
+	}
+	if len(conn.Rows) != defaultPageSize {
+		t.Fatalf("expected %d rows from resolver, got %d", defaultPageSize, len(conn.Rows))
+	}
+}
