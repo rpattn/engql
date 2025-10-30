@@ -7,6 +7,7 @@ CREATE TABLE entity_export_jobs (
     filters JSONB DEFAULT '[]'::jsonb NOT NULL,
     rows_requested INTEGER DEFAULT 0 NOT NULL,
     rows_exported INTEGER DEFAULT 0 NOT NULL,
+    bytes_written BIGINT DEFAULT 0 NOT NULL,
     file_path TEXT,
     file_mime_type TEXT,
     file_byte_size BIGINT,

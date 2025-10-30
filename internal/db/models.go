@@ -59,8 +59,9 @@ type EntityExportJob struct {
 	TransformationID pgtype.UUID        `json:"transformation_id"`
 	Filters          []byte             `json:"filters"`
 	RowsRequested    int32              `json:"rows_requested"`
-	RowsExported     int32              `json:"rows_exported"`
-	FilePath         pgtype.Text        `json:"file_path"`
+        RowsExported     int32              `json:"rows_exported"`
+        BytesWritten     pgtype.Int8        `json:"bytes_written"`
+        FilePath         pgtype.Text        `json:"file_path"`
 	FileMimeType     pgtype.Text        `json:"file_mime_type"`
 	FileByteSize     pgtype.Int8        `json:"file_byte_size"`
 	Status           string             `json:"status"`

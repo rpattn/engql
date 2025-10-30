@@ -31,7 +31,12 @@ WHERE id = sqlc.arg(id);
 -- name: UpdateEntityExportJobProgress :exec
 UPDATE entity_export_jobs
 SET rows_exported = sqlc.arg(rows_exported),
-    rows_requested = sqlc.arg(rows_requested),
+    rows_requested = GREATEST(
+        rows_requested,
+        sqlc.arg(rows_exported),
+        COALESCE(sqlc.narg(rows_requested)::INTEGER, rows_requested)
+    ),
+    bytes_written = sqlc.arg(bytes_written),
     updated_at = NOW()
 WHERE id = sqlc.arg(id);
 
@@ -39,9 +44,11 @@ WHERE id = sqlc.arg(id);
 UPDATE entity_export_jobs
 SET status = 'COMPLETED',
     rows_exported = sqlc.arg(rows_exported),
+    bytes_written = sqlc.arg(bytes_written),
     file_path = sqlc.arg(file_path),
     file_mime_type = sqlc.arg(file_mime_type),
     file_byte_size = sqlc.arg(file_byte_size),
+    rows_requested = GREATEST(rows_requested, sqlc.arg(rows_exported)),
     completed_at = NOW(),
     updated_at = NOW(),
     error_message = NULL
@@ -55,6 +62,29 @@ SET status = 'FAILED',
     updated_at = NOW()
 WHERE id = sqlc.arg(id);
 
+-- name: GetEntityExportJobByID :one
+SELECT
+    id,
+    organization_id,
+    job_type,
+    entity_type,
+    transformation_id,
+    filters,
+    rows_requested,
+    rows_exported,
+    bytes_written,
+    file_path,
+    file_mime_type,
+    file_byte_size,
+    status,
+    error_message,
+    enqueued_at,
+    started_at,
+    completed_at,
+    updated_at
+FROM entity_export_jobs
+WHERE id = sqlc.arg(id);
+
 -- name: ListEntityExportJobsByStatus :many
 SELECT
     id,
@@ -65,6 +95,7 @@ SELECT
     filters,
     rows_requested,
     rows_exported,
+    bytes_written,
     file_path,
     file_mime_type,
     file_byte_size,
@@ -103,4 +134,5 @@ SELECT
     created_at
 FROM entity_export_logs
 WHERE export_job_id = sqlc.arg(export_job_id)
-ORDER BY created_at ASC;
+ORDER BY created_at ASC
+LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);

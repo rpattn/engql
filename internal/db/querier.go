@@ -43,16 +43,17 @@ type Querier interface {
 	GetOrganization(ctx context.Context, id uuid.UUID) (Organization, error)
 	GetOrganizationByName(ctx context.Context, name string) (Organization, error)
 	// Track background export jobs for entities.
-	InsertEntityExportJob(ctx context.Context, arg InsertEntityExportJobParams) error
-	InsertEntityExportLog(ctx context.Context, arg InsertEntityExportLogParams) error
+        InsertEntityExportJob(ctx context.Context, arg InsertEntityExportJobParams) error
+        InsertEntityExportLog(ctx context.Context, arg InsertEntityExportLogParams) error
 	InsertEntityHistoryRecord(ctx context.Context, arg InsertEntityHistoryRecordParams) error
 	// Track background flush batches for staged entity ingestion.
 	InsertEntityIngestBatch(ctx context.Context, arg InsertEntityIngestBatchParams) error
 	ListEntities(ctx context.Context, arg ListEntitiesParams) ([]ListEntitiesRow, error)
 	ListEntitiesByReferences(ctx context.Context, arg ListEntitiesByReferencesParams) ([]ListEntitiesByReferencesRow, error)
 	ListEntitiesByType(ctx context.Context, arg ListEntitiesByTypeParams) ([]ListEntitiesByTypeRow, error)
-	ListEntityExportJobsByStatus(ctx context.Context, arg ListEntityExportJobsByStatusParams) ([]EntityExportJob, error)
-	ListEntityExportLogsForJob(ctx context.Context, exportJobID uuid.UUID) ([]EntityExportLog, error)
+        GetEntityExportJobByID(ctx context.Context, id uuid.UUID) (EntityExportJob, error)
+        ListEntityExportJobsByStatus(ctx context.Context, arg ListEntityExportJobsByStatusParams) ([]EntityExportJob, error)
+        ListEntityExportLogsForJob(ctx context.Context, arg ListEntityExportLogsForJobParams) ([]EntityExportLog, error)
 	ListEntityHistory(ctx context.Context, entityID uuid.UUID) ([]EntitiesHistory, error)
 	ListEntityIngestBatchesByStatus(ctx context.Context, arg ListEntityIngestBatchesByStatusParams) ([]EntityIngestBatch, error)
 	ListEntityJoinsByOrganization(ctx context.Context, organizationID uuid.UUID) ([]ListEntityJoinsByOrganizationRow, error)
