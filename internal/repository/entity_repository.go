@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -531,7 +530,7 @@ func (r *entityRepository) List(
 		PageOffset:     int32(offset),
 		SortField:      string(domain.EntitySortFieldCreatedAt),
 		SortDirection:  strings.ToUpper(string(domain.SortDirectionDesc)),
-		SortProperty:   sql.NullString{},
+		SortProperty:   "",
 	}
 
 	if filter != nil {
@@ -563,7 +562,7 @@ func (r *entityRepository) List(
 		case domain.EntitySortFieldProperty:
 			if sort.PropertyKey != "" {
 				params.SortField = string(sort.Field)
-				params.SortProperty = sql.NullString{String: sort.PropertyKey, Valid: true}
+				params.SortProperty = sort.PropertyKey
 			}
 		}
 

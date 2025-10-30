@@ -87,18 +87,29 @@ ORDER BY
     END DESC,
     CASE
         WHEN sqlc.arg(sort_field)::text = 'property' AND sqlc.arg(sort_direction)::text = 'asc'
-            THEN LOWER(COALESCE(properties ->> sqlc.arg(sort_property), ''))
+            THEN LOWER(COALESCE(properties ->> sqlc.arg(sort_property)::text, ''))
     END ASC,
     CASE
         WHEN sqlc.arg(sort_field)::text = 'property' AND sqlc.arg(sort_direction)::text = 'desc'
-            THEN LOWER(COALESCE(properties ->> sqlc.arg(sort_property), ''))
+            THEN LOWER(COALESCE(properties ->> sqlc.arg(sort_property)::text, ''))
     END DESC,
     created_at DESC
 LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
 
-SELECT id, organization_id, schema_id, entity_type, path, properties, version, created_at, updated_at
+-- name: ListEntitiesByType :many
+SELECT
+    id,
+    organization_id,
+    schema_id,
+    entity_type,
+    path,
+    properties,
+    version,
+    created_at,
+    updated_at
 FROM entities
-WHERE organization_id = $1 AND entity_type = $2
+WHERE organization_id = sqlc.arg(organization_id)
+  AND entity_type = sqlc.arg(entity_type)
 ORDER BY created_at DESC;
 
 -- name: GetEntityByReference :one
@@ -106,7 +117,7 @@ SELECT id, organization_id, schema_id, entity_type, path, properties, version, c
 FROM entities
 WHERE organization_id = $1
   AND entity_type = $2
-  AND properties ->> sqlc.arg(field_name) = sqlc.arg(reference_value)
+  AND properties ->> sqlc.arg(field_name)::text = sqlc.arg(reference_value)::text
 LIMIT 1;
 
 -- name: ListEntitiesByReferences :many
@@ -114,7 +125,7 @@ SELECT id, organization_id, schema_id, entity_type, path, properties, version, c
 FROM entities
 WHERE organization_id = $1
   AND entity_type = $2
-  AND properties ->> sqlc.arg(field_name) = ANY(sqlc.arg(reference_values)::text[]);
+  AND properties ->> sqlc.arg(field_name)::text = ANY(sqlc.arg(reference_values)::text[]);
 
 -- name: UpdateEntity :one
 UPDATE entities
