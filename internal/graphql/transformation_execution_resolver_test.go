@@ -102,9 +102,9 @@ func TestTransformationExecutionSortsBeforePaginating(t *testing.T) {
 	repo := &trackingTransformationRepository{transformation: transformation}
 
 	entityRecords := []domain.Entity{
-		{ID: uuid.New(), OrganizationID: orgID, EntityType: "User", Properties: map[string]any{"name": "Alice"}},
-		{ID: uuid.New(), OrganizationID: orgID, EntityType: "User", Properties: map[string]any{"name": "Bob"}},
 		{ID: uuid.New(), OrganizationID: orgID, EntityType: "User", Properties: map[string]any{"name": "Charlie"}},
+		{ID: uuid.New(), OrganizationID: orgID, EntityType: "User", Properties: map[string]any{"name": "Bob"}},
+		{ID: uuid.New(), OrganizationID: orgID, EntityType: "User", Properties: map[string]any{"name": "Alice"}},
 	}
 	entityRepo := &trackingEntityRepo{records: entityRecords}
 	executor := transformations.NewExecutor(entityRepo, stubSchemaProvider{})
@@ -134,8 +134,8 @@ func TestTransformationExecutionSortsBeforePaginating(t *testing.T) {
 	if entityRepo.lastOffset != 0 {
 		t.Fatalf("expected repo offset 0, got %d", entityRepo.lastOffset)
 	}
-	if entityRepo.lastLimit < len(entityRecords) {
-		t.Fatalf("expected repo limit to cover all records, got %d", entityRepo.lastLimit)
+	if entityRepo.lastLimit != limit+offset {
+		t.Fatalf("expected repo limit %d, got %d", limit+offset, entityRepo.lastLimit)
 	}
 
 	if conn == nil {
@@ -157,6 +157,9 @@ func TestTransformationExecutionSortsBeforePaginating(t *testing.T) {
 	}
 	if conn.PageInfo.TotalCount != len(entityRecords) {
 		t.Fatalf("expected total count %d, got %d", len(entityRecords), conn.PageInfo.TotalCount)
+	}
+	if conn.PageInfo.TotalCount == len(conn.Rows) {
+		t.Fatalf("expected total count to differ from returned rows")
 	}
 	if !conn.PageInfo.HasNextPage {
 		t.Fatalf("expected next page to be available")
@@ -203,9 +206,9 @@ func TestTransformationExecutionAppliesFiltersBeforePagination(t *testing.T) {
 	repo := &trackingTransformationRepository{transformation: transformation}
 
 	entityRecords := []domain.Entity{
+		{ID: uuid.New(), OrganizationID: orgID, EntityType: "User", Properties: map[string]any{"name": "Charlie"}},
 		{ID: uuid.New(), OrganizationID: orgID, EntityType: "User", Properties: map[string]any{"name": "Alice"}},
 		{ID: uuid.New(), OrganizationID: orgID, EntityType: "User", Properties: map[string]any{"name": "Bob"}},
-		{ID: uuid.New(), OrganizationID: orgID, EntityType: "User", Properties: map[string]any{"name": "Charlie"}},
 	}
 	entityRepo := &trackingEntityRepo{records: entityRecords}
 	executor := transformations.NewExecutor(entityRepo, stubSchemaProvider{})
@@ -237,8 +240,8 @@ func TestTransformationExecutionAppliesFiltersBeforePagination(t *testing.T) {
 		t.Fatalf("resolver error: %v", err)
 	}
 
-	if entityRepo.lastLimit < len(entityRecords) {
-		t.Fatalf("expected repository limit to cover all records, got %d", entityRepo.lastLimit)
+	if entityRepo.lastLimit != limit+offset {
+		t.Fatalf("expected repository limit %d, got %d", limit+offset, entityRepo.lastLimit)
 	}
 
 	if conn == nil {

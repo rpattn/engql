@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -569,27 +570,90 @@ func (r *Resolver) TransformationExecution(
 
 	aliasFilters := filtersByAlias(filters)
 
-	options := domain.EntityTransformationExecutionOptions{}
+	runtimeTransformation := cloneTransformation(transformation)
 
-	execResult, err := r.transformationExecutor.Execute(ctx, transformation, options)
+	finalNodeID, err := finalNodeID(runtimeTransformation)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute transformation: %w", err)
+		return nil, err
 	}
 
-	filteredRecords := applyTransformationFilters(execResult.Records, aliasFilters)
+	currentOutput := finalNodeID
+
+	if len(aliasFilters) > 0 {
+		aliases := make([]string, 0, len(aliasFilters))
+		for alias := range aliasFilters {
+			aliases = append(aliases, alias)
+		}
+		sort.Strings(aliases)
+		for _, alias := range aliases {
+			filters := aliasFilters[alias]
+			if len(filters) == 0 {
+				continue
+			}
+			filterNodeID := uuid.New()
+			filterConfig := &domain.EntityTransformationFilterConfig{
+				Alias:   alias,
+				Filters: clonePropertyFilters(filters),
+			}
+			runtimeTransformation.Nodes = append(runtimeTransformation.Nodes, domain.EntityTransformationNode{
+				ID:     filterNodeID,
+				Name:   fmt.Sprintf("runtime-filter-%s", alias),
+				Type:   domain.TransformationNodeFilter,
+				Inputs: []uuid.UUID{currentOutput},
+				Filter: filterConfig,
+			})
+			currentOutput = filterNodeID
+		}
+	}
 
 	if sortInput != nil && strings.TrimSpace(sortInput.Alias) != "" && strings.TrimSpace(sortInput.Field) != "" {
 		direction := domain.JoinSortAsc
 		if sortInput.Direction != nil && *sortInput.Direction == graph.SortDirectionDesc {
 			direction = domain.JoinSortDesc
 		}
-		domain.SortRecords(filteredRecords, sortInput.Alias, sortInput.Field, direction)
+		sortNodeID := uuid.New()
+		runtimeTransformation.Nodes = append(runtimeTransformation.Nodes, domain.EntityTransformationNode{
+			ID:     sortNodeID,
+			Name:   fmt.Sprintf("runtime-sort-%s-%s", sortInput.Alias, sortInput.Field),
+			Type:   domain.TransformationNodeSort,
+			Inputs: []uuid.UUID{currentOutput},
+			Sort: &domain.EntityTransformationSortConfig{
+				Alias:     sortInput.Alias,
+				Field:     sortInput.Field,
+				Direction: direction,
+			},
+		})
+		currentOutput = sortNodeID
 	}
 
-	totalCount := len(filteredRecords)
-	rowsRecords := domain.PaginateRecords(filteredRecords, limit, offset)
+	if limit > 0 || offset > 0 {
+		paginateNodeID := uuid.New()
+		runtimeTransformation.Nodes = append(runtimeTransformation.Nodes, domain.EntityTransformationNode{
+			ID:     paginateNodeID,
+			Name:   "runtime-paginate",
+			Type:   domain.TransformationNodePaginate,
+			Inputs: []uuid.UUID{currentOutput},
+			Paginate: &domain.EntityTransformationPaginateConfig{
+				Limit:  optionalIntPointer(limit),
+				Offset: optionalIntPointer(offset),
+			},
+		})
+		currentOutput = paginateNodeID
+	}
 
-	rows := buildExecutionRows(rowsRecords, columns)
+	options := domain.EntityTransformationExecutionOptions{
+		Limit:  limit,
+		Offset: offset,
+	}
+
+	execResult, err := r.transformationExecutor.Execute(ctx, runtimeTransformation, options)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute transformation: %w", err)
+	}
+
+	rows := buildExecutionRows(execResult.Records, columns)
+
+	totalCount := execResult.TotalCount
 
 	hasPrev := offset > 0 && totalCount > 0
 	hasNext := limit > 0 && offset+limit < totalCount
@@ -667,27 +731,106 @@ func filtersByAlias(inputs []*graph.TransformationExecutionFilterInput) map[stri
 	return result
 }
 
-func applyTransformationFilters(records []domain.EntityTransformationRecord, filters map[string][]domain.PropertyFilter) []domain.EntityTransformationRecord {
+func cloneTransformation(t domain.EntityTransformation) domain.EntityTransformation {
+	clone := t
+	if len(t.Nodes) == 0 {
+		clone.Nodes = []domain.EntityTransformationNode{}
+		return clone
+	}
+	clone.Nodes = make([]domain.EntityTransformationNode, len(t.Nodes))
+	for i, node := range t.Nodes {
+		clone.Nodes[i] = cloneTransformationNode(node)
+	}
+	return clone
+}
+
+func cloneTransformationNode(node domain.EntityTransformationNode) domain.EntityTransformationNode {
+	clone := node
+	clone.Inputs = append([]uuid.UUID(nil), node.Inputs...)
+	if node.Load != nil {
+		copyLoad := *node.Load
+		copyLoad.Filters = clonePropertyFilters(node.Load.Filters)
+		clone.Load = &copyLoad
+	}
+	if node.Filter != nil {
+		copyFilter := *node.Filter
+		copyFilter.Filters = clonePropertyFilters(node.Filter.Filters)
+		clone.Filter = &copyFilter
+	}
+	if node.Project != nil {
+		copyProject := *node.Project
+		copyProject.Fields = append([]string(nil), node.Project.Fields...)
+		clone.Project = &copyProject
+	}
+	if node.Join != nil {
+		copyJoin := *node.Join
+		clone.Join = &copyJoin
+	}
+	if node.Materialize != nil {
+		copyMaterialize := *node.Materialize
+		copyMaterialize.Outputs = make([]domain.EntityTransformationMaterializeOutput, len(node.Materialize.Outputs))
+		for i, output := range node.Materialize.Outputs {
+			copyOutput := output
+			copyOutput.Fields = make([]domain.EntityTransformationMaterializeFieldMapping, len(output.Fields))
+			copy(copyOutput.Fields, output.Fields)
+			copyMaterialize.Outputs[i] = copyOutput
+		}
+		clone.Materialize = &copyMaterialize
+	}
+	if node.Sort != nil {
+		copySort := *node.Sort
+		clone.Sort = &copySort
+	}
+	if node.Paginate != nil {
+		copyPaginate := *node.Paginate
+		if node.Paginate.Limit != nil {
+			limitCopy := *node.Paginate.Limit
+			copyPaginate.Limit = &limitCopy
+		}
+		if node.Paginate.Offset != nil {
+			offsetCopy := *node.Paginate.Offset
+			copyPaginate.Offset = &offsetCopy
+		}
+		clone.Paginate = &copyPaginate
+	}
+	return clone
+}
+
+func clonePropertyFilters(filters []domain.PropertyFilter) []domain.PropertyFilter {
 	if len(filters) == 0 {
-		return append([]domain.EntityTransformationRecord(nil), records...)
+		return []domain.PropertyFilter{}
 	}
-	filtered := make([]domain.EntityTransformationRecord, 0, len(records))
-	for _, record := range records {
-		include := true
-		for alias, aliasFilters := range filters {
-			if len(aliasFilters) == 0 {
-				continue
-			}
-			if !domain.ApplyPropertyFilters(record.Entities[alias], aliasFilters) {
-				include = false
-				break
-			}
+	cloned := make([]domain.PropertyFilter, len(filters))
+	for i, filter := range filters {
+		cloned[i] = filter
+		if len(filter.InArray) > 0 {
+			cloned[i].InArray = append([]string(nil), filter.InArray...)
 		}
-		if include {
-			filtered = append(filtered, record)
+		if filter.Exists != nil {
+			existsCopy := *filter.Exists
+			cloned[i].Exists = &existsCopy
 		}
 	}
-	return filtered
+	return cloned
+}
+
+func optionalIntPointer(value int) *int {
+	if value <= 0 {
+		return nil
+	}
+	copy := value
+	return &copy
+}
+
+func finalNodeID(transformation domain.EntityTransformation) (uuid.UUID, error) {
+	sorted, err := transformation.TopologicallySortedNodes()
+	if err != nil {
+		return uuid.Nil, err
+	}
+	if len(sorted) == 0 {
+		return uuid.Nil, fmt.Errorf("transformation %s has no nodes", transformation.ID)
+	}
+	return sorted[len(sorted)-1].ID, nil
 }
 
 func buildExecutionRows(records []domain.EntityTransformationRecord, columns []*graph.TransformationExecutionColumn) []*graph.TransformationExecutionRow {
