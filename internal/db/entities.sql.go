@@ -677,12 +677,19 @@ ORDER BY
             THEN version
     END DESC,
     CASE
+        WHEN $6::text = 'property'
+            THEN CASE
+                WHEN BTRIM(COALESCE(properties ->> $8::text, '')) = '' THEN 1
+                ELSE 0
+            END
+    END ASC,
+    CASE
         WHEN $6::text = 'property' AND $7::text = 'asc'
-            THEN LOWER(COALESCE(properties ->> $8::text, ''))
+            THEN LOWER(BTRIM(COALESCE(properties ->> $8::text, '')))
     END ASC,
     CASE
         WHEN $6::text = 'property' AND $7::text = 'desc'
-            THEN LOWER(COALESCE(properties ->> $8::text, ''))
+            THEN LOWER(BTRIM(COALESCE(properties ->> $8::text, '')))
     END DESC,
     created_at DESC
 LIMIT $10 OFFSET $9

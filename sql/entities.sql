@@ -86,12 +86,19 @@ ORDER BY
             THEN version
     END DESC,
     CASE
+        WHEN sqlc.arg(sort_field)::text = 'property'
+            THEN CASE
+                WHEN BTRIM(COALESCE(properties ->> sqlc.arg(sort_property)::text, '')) = '' THEN 1
+                ELSE 0
+            END
+    END ASC,
+    CASE
         WHEN sqlc.arg(sort_field)::text = 'property' AND sqlc.arg(sort_direction)::text = 'asc'
-            THEN LOWER(COALESCE(properties ->> sqlc.arg(sort_property)::text, ''))
+            THEN LOWER(BTRIM(COALESCE(properties ->> sqlc.arg(sort_property)::text, '')))
     END ASC,
     CASE
         WHEN sqlc.arg(sort_field)::text = 'property' AND sqlc.arg(sort_direction)::text = 'desc'
-            THEN LOWER(COALESCE(properties ->> sqlc.arg(sort_property)::text, ''))
+            THEN LOWER(BTRIM(COALESCE(properties ->> sqlc.arg(sort_property)::text, '')))
     END DESC,
     created_at DESC
 LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
