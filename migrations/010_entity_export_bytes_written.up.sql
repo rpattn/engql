@@ -1,0 +1,2 @@
+ALTER TABLE entity_export_jobs
+    ADD COLUMN IF NOT EXISTS bytes_written BIGINT DEFAULT 0 NOT NULL;
