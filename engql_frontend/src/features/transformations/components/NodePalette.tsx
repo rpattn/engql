@@ -71,7 +71,7 @@ export function NodePalette({
             key={item.type}
             type="button"
             onClick={() => onAdd(item.type)}
-            className="w-full rounded-md border border-slate-200 bg-white p-3 text-left shadow-sm transition hover:border-blue-500 hover:shadow"
+            className="w-full rounded-lg border border-subtle bg-surface p-3 text-left shadow-sm transition hover:border-blue-500/60 hover:bg-subtle hover:shadow"
           >
             <div className="font-medium text-slate-900">{item.title}</div>
             <p className="mt-1 text-xs text-slate-500">{item.description}</p>

@@ -368,7 +368,7 @@ export function NodeInspector({
         {rows.map((row, index) => (
           <div
             key={`${contextKey}-${activeNodeId}-${index}`}
-            className="rounded border border-slate-200 p-2"
+            className="rounded-md border border-subtle bg-surface p-3 shadow-sm"
           >
             <label className="block text-xs font-medium text-slate-600">
               Property key
@@ -381,7 +381,7 @@ export function NodeInspector({
                   })
                 }
                 list={datalistId}
-                className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
+                className="mt-1 w-full rounded-md border border-subtle bg-surface px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
               />
             </label>
             <label className="mt-2 block text-xs font-medium text-slate-600">
@@ -394,12 +394,13 @@ export function NodeInspector({
                     value: event.target.value,
                   })
                 }
-                className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
+                className="mt-1 w-full rounded-md border border-subtle bg-surface px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
               />
             </label>
             <label className="mt-2 flex items-center gap-2 text-xs font-medium text-slate-600">
               <input
                 type="checkbox"
+                className="h-4 w-4 rounded border-subtle text-blue-500 focus:ring-blue-500"
                 checked={Boolean(row.exists)}
                 onChange={(event) =>
                   setRow(index, {
@@ -423,7 +424,7 @@ export function NodeInspector({
                       .filter(Boolean),
                   })
                 }
-                className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
+                className="mt-1 w-full rounded-md border border-subtle bg-surface px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
               />
             </label>
             <button
@@ -455,7 +456,7 @@ export function NodeInspector({
 
   if (!node) {
     return (
-      <aside className="rounded-md border border-dashed border-slate-300 p-4 text-sm text-slate-500">
+      <aside className="rounded-xl border border-dashed border-subtle/70 bg-subtle p-4 text-sm text-muted">
         Select a node on the canvas to configure it.
       </aside>
     )
@@ -465,7 +466,7 @@ export function NodeInspector({
 
 
   return (
-    <aside className="flex h-full flex-col rounded-md border border-slate-200 bg-white p-4">
+    <aside className="flex h-full flex-col rounded-xl border border-subtle bg-surface p-5 shadow-sm">
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-sm font-semibold text-slate-700">{typeLabel} node</h3>
@@ -474,7 +475,7 @@ export function NodeInspector({
         <button
           type="button"
           onClick={() => onDelete(node.id)}
-          className="rounded border border-rose-200 px-3 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50"
+          className="rounded-md border border-rose-500/40 px-3 py-1 text-xs font-semibold text-rose-500 transition hover:bg-rose-500/10"
         >
           Delete
         </button>
@@ -491,7 +492,7 @@ export function NodeInspector({
                 name: event.target.value,
               }))
             }
-            className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
+            className="mt-1 w-full rounded-md border border-subtle bg-surface px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
           />
         </label>
 
@@ -513,7 +514,7 @@ export function NodeInspector({
                     },
                   }))
                 }
-                className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
+                className="mt-1 w-full rounded-md border border-subtle bg-surface px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
               />
             </label>
             <label className="block text-xs font-medium text-slate-600">
@@ -548,7 +549,7 @@ export function NodeInspector({
                         }))
                       }
                       list={entityTypeListId}
-                      className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
+                      className="mt-1 w-full rounded-md border border-subtle bg-surface px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
                     />
                     {entityTypeListId && (
                       <datalist id={entityTypeListId}>
@@ -595,7 +596,7 @@ export function NodeInspector({
                     },
                   }))
                 }
-                className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
+                className="mt-1 w-full rounded-md border border-subtle bg-surface px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
               />
             </label>
             {renderFilters(
@@ -632,16 +633,16 @@ export function NodeInspector({
                     },
                   }))
                 }
-                className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
+                className="mt-1 w-full rounded-md border border-subtle bg-surface px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
               />
             </label>
             <div className="text-xs font-medium text-slate-600">
               <span>Fields</span>
-              <div className="mt-1 flex min-h-[2.25rem] flex-wrap gap-1 rounded border border-slate-200 px-2 py-1">
+              <div className="mt-1 flex min-h-[2.5rem] flex-wrap gap-1 rounded-lg border border-subtle bg-subtle px-2 py-1.5">
                 {data.config.project.fields.map((field, index) => (
                   <span
                     key={`${node.id}-project-field-${field}-${index}`}
-                    className="flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-700"
+                    className="flex items-center gap-1 rounded-full bg-surface px-2 py-0.5 text-[11px] font-medium text-slate-700 shadow-sm"
                   >
                     {field}
                     <button
@@ -661,7 +662,7 @@ export function NodeInspector({
                           }
                         })
                       }
-                      className="rounded bg-slate-200 px-1 text-[10px] font-semibold text-slate-600 hover:bg-slate-300"
+                      className="rounded-full bg-subtle px-1 text-[10px] font-semibold text-muted transition hover:bg-surface"
                       aria-label={`Remove ${field}`}
                     >
                       ×
@@ -755,7 +756,7 @@ export function NodeInspector({
                 return (
                   <div
                     key={`${node.id}-materialize-output-${outputIndex}`}
-                    className="rounded border border-slate-200 p-3"
+                    className="rounded border border-subtle p-3"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <label className="flex-1 text-xs font-medium text-slate-600">
@@ -783,7 +784,7 @@ export function NodeInspector({
                               }
                             })
                           }
-                          className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
+                          className="mt-1 w-full rounded-md border border-subtle bg-surface px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
                         />
                       </label>
                       {(data.config.materialize.outputs?.length ?? 0) > 1 && (
@@ -881,7 +882,7 @@ export function NodeInspector({
                             return (
                               <div
                                 key={`${node.id}-materialize-field-${outputIndex}-${fieldIndex}`}
-                                className="rounded border border-slate-200 p-2"
+                                className="rounded-md border border-subtle bg-surface p-3 shadow-sm"
                               >
                                 <label className="block text-xs font-medium text-slate-600">
                                   Source alias
@@ -913,7 +914,7 @@ export function NodeInspector({
                                         }
                                       })
                                     }
-                                    className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
+                                    className="mt-1 w-full rounded-md border border-subtle bg-surface px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
                                   >
                                     <option value="">Select an alias</option>
                                     {sourceOptions.map((option) => (
@@ -956,7 +957,7 @@ export function NodeInspector({
                                       })
                                     }
                                     list={fieldListId}
-                                    className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
+                                    className="mt-1 w-full rounded-md border border-subtle bg-surface px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
                                   />
                                   {fieldListId && (
                                     <datalist id={fieldListId}>
@@ -996,7 +997,7 @@ export function NodeInspector({
                                         }
                                       })
                                     }
-                                    className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
+                                    className="mt-1 w-full rounded-md border border-subtle bg-surface px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
                                   />
                                 </label>
                                 <button
@@ -1118,7 +1119,7 @@ export function NodeInspector({
                     },
                   }))
                 }
-                className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
+                className="mt-1 w-full rounded-md border border-subtle bg-surface px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
               />
             </label>
             <label className="block text-xs font-medium text-slate-600">
@@ -1134,7 +1135,7 @@ export function NodeInspector({
                     },
                   }))
                 }
-                className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
+                className="mt-1 w-full rounded-md border border-subtle bg-surface px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
               />
             </label>
             <label className="block text-xs font-medium text-slate-600">
@@ -1164,7 +1165,7 @@ export function NodeInspector({
                         }))
                       }
                       list={joinFieldListId}
-                      className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
+                      className="mt-1 w-full rounded-md border border-subtle bg-surface px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
                     />
                     {joinFieldListId && (
                       <datalist id={joinFieldListId}>
@@ -1198,7 +1199,7 @@ export function NodeInspector({
                     },
                   }))
                 }
-                className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
+                className="mt-1 w-full rounded-md border border-subtle bg-surface px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
               />
             </label>
             <label className="block text-xs font-medium text-slate-600">
@@ -1223,7 +1224,7 @@ export function NodeInspector({
                         }))
                       }
                       list={sortFieldListId}
-                      className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
+                      className="mt-1 w-full rounded-md border border-subtle bg-surface px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
                     />
                     {sortFieldListId && (
                       <datalist id={sortFieldListId}>
@@ -1249,7 +1250,7 @@ export function NodeInspector({
                     },
                   }))
                 }
-                className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
+                className="mt-1 w-full rounded-md border border-subtle bg-surface px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
               >
                 <option value="ASC">Ascending</option>
                 <option value="DESC">Descending</option>
@@ -1277,7 +1278,7 @@ export function NodeInspector({
                     },
                   }))
                 }
-                className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
+                className="mt-1 w-full rounded-md border border-subtle bg-surface px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
               />
             </label>
             <label className="block text-xs font-medium text-slate-600">
@@ -1294,7 +1295,7 @@ export function NodeInspector({
                     },
                   }))
                 }
-                className="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
+                className="mt-1 w-full rounded-md border border-subtle bg-surface px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
               />
             </label>
           </div>
