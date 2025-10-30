@@ -10,7 +10,10 @@ import (
 	"github.com/google/uuid"
 )
 
-const anyAliasSentinel = "__ANY_ALIAS__"
+const (
+	anyAliasSentinel     = "__ANY_ALIAS__"
+	defaultLoadBatchSize = 1000
+)
 
 // EntityRepository defines the subset of entity storage used by the executor.
 type EntityRepository interface {
@@ -224,35 +227,70 @@ func (e *Executor) executeLoad(ctx context.Context, transformation domain.Entity
 	if node.Load == nil {
 		return nodeResult{}, fmt.Errorf("load node missing configuration")
 	}
-	limit := 1000
-	if req.limit > 0 {
-		desired := req.limit + req.offset
-		if desired > 0 {
-			limit = desired
-		}
-	}
 	filter := &domain.EntityFilter{EntityType: node.Load.EntityType, PropertyFilters: node.Load.Filters}
-	entities, totalCount, err := e.entityRepo.List(ctx, transformation.OrganizationID, filter, nil, limit, 0)
-	if err != nil {
-		return nodeResult{}, fmt.Errorf("load entities: %w", err)
-	}
-	capacity := len(entities)
 	limiter := newPageLimiter(req)
-	if limiter.limit > 0 && limiter.max > 0 && limiter.max < capacity {
-		capacity = limiter.max
+	capacity := limiter.max
+	if capacity == 0 {
+		capacity = defaultLoadBatchSize
 	}
 	records := make([]domain.EntityTransformationRecord, 0, capacity)
-	for i := range entities {
-		entity := entities[i]
-		if !domain.ApplyPropertyFilters(&entity, node.Load.Filters) {
-			continue
+	totalCount := 0
+	repoOffset := 0
+
+	for {
+		if limiter.limit > 0 && limiter.Total() >= limiter.max {
+			break
 		}
-		if limiter.Include() {
-			entityCopy := entity
-			record := domain.EntityTransformationRecord{Entities: map[string]*domain.Entity{node.Load.Alias: &entityCopy}}
-			records = append(records, record)
+
+		batchLimit := defaultLoadBatchSize
+		if limiter.limit > 0 {
+			remaining := limiter.max - limiter.Total()
+			if remaining <= 0 {
+				break
+			}
+			if remaining < batchLimit {
+				batchLimit = remaining
+			}
+		}
+		if batchLimit <= 0 {
+			batchLimit = defaultLoadBatchSize
+		}
+
+		entities, batchTotal, err := e.entityRepo.List(ctx, transformation.OrganizationID, filter, nil, batchLimit, repoOffset)
+		if err != nil {
+			return nodeResult{}, fmt.Errorf("load entities: %w", err)
+		}
+		if totalCount == 0 && batchTotal > 0 {
+			totalCount = batchTotal
+		}
+		if len(entities) == 0 {
+			break
+		}
+		repoOffset += len(entities)
+
+		for i := range entities {
+			entity := entities[i]
+			if !domain.ApplyPropertyFilters(&entity, node.Load.Filters) {
+				continue
+			}
+			if limiter.Include() {
+				entityCopy := entity
+				record := domain.EntityTransformationRecord{Entities: map[string]*domain.Entity{node.Load.Alias: &entityCopy}}
+				records = append(records, record)
+			}
+			if limiter.limit > 0 && limiter.Total() >= limiter.max {
+				break
+			}
+		}
+
+		if limiter.limit > 0 && limiter.Total() >= limiter.max {
+			break
+		}
+		if len(entities) < batchLimit {
+			break
 		}
 	}
+
 	if totalCount == 0 {
 		totalCount = limiter.Total()
 	}

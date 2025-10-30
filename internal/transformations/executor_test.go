@@ -10,12 +10,20 @@ import (
 	"github.com/rpattn/engql/internal/domain"
 )
 
+type listCall struct {
+	limit  int
+	offset int
+}
+
 type mockEntityRepository struct {
 	entities []domain.Entity
+	calls    []listCall
 }
 
 func (m *mockEntityRepository) List(ctx context.Context, organizationID uuid.UUID, filter *domain.EntityFilter, sort *domain.EntitySort, limit int, offset int) ([]domain.Entity, int, error) {
-	var result []domain.Entity
+	m.calls = append(m.calls, listCall{limit: limit, offset: offset})
+
+	var filtered []domain.Entity
 	for _, entity := range m.entities {
 		if entity.OrganizationID != organizationID {
 			continue
@@ -77,9 +85,23 @@ func (m *mockEntityRepository) List(ctx context.Context, organizationID uuid.UUI
 				}
 			}
 		}
-		result = append(result, entity)
+		filtered = append(filtered, entity)
 	}
-	return result, len(result), nil
+	total := len(filtered)
+	if offset < 0 {
+		offset = 0
+	}
+	if offset > total {
+		offset = total
+	}
+	end := total
+	if limit > 0 && offset+limit < end {
+		end = offset + limit
+	}
+	page := filtered[offset:end]
+	result := make([]domain.Entity, len(page))
+	copy(result, page)
+	return result, total, nil
 }
 
 func mockPropertyValueIsEmpty(value any) bool {
@@ -252,6 +274,90 @@ func TestExecutor_FilterFallbackAlias(t *testing.T) {
 	}
 	if entity.Properties["status"] != "active" {
 		t.Fatalf("unexpected status %v", entity.Properties["status"])
+	}
+}
+
+func TestExecutor_LoadPagesThroughRepository(t *testing.T) {
+	orgID := uuid.New()
+	totalEntities := 2500
+	entities := make([]domain.Entity, totalEntities)
+	for i := 0; i < totalEntities; i++ {
+		entities[i] = domain.Entity{
+			ID:             uuid.New(),
+			OrganizationID: orgID,
+			EntityType:     "user",
+			Properties: map[string]any{
+				"index": i,
+			},
+		}
+	}
+
+	repo := &mockEntityRepository{entities: entities}
+	executor := NewExecutor(repo, nil)
+
+	loadNodeID := uuid.New()
+	transformation := domain.EntityTransformation{
+		ID:             uuid.New(),
+		OrganizationID: orgID,
+		Name:           "load-large-page",
+		Nodes: []domain.EntityTransformationNode{
+			{
+				ID:   loadNodeID,
+				Name: "load",
+				Type: domain.TransformationNodeLoad,
+				Load: &domain.EntityTransformationLoadConfig{
+					Alias:      "users",
+					EntityType: "user",
+				},
+			},
+		},
+	}
+
+	limit := 40
+	offset := 2300
+	result, err := executor.Execute(
+		context.Background(),
+		transformation,
+		domain.EntityTransformationExecutionOptions{Limit: limit, Offset: offset},
+	)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+
+	expectedCalls := []listCall{
+		{limit: defaultLoadBatchSize, offset: 0},
+		{limit: defaultLoadBatchSize, offset: defaultLoadBatchSize},
+		{limit: offset + limit - 2*defaultLoadBatchSize, offset: 2 * defaultLoadBatchSize},
+	}
+	if len(repo.calls) != len(expectedCalls) {
+		t.Fatalf("expected %d repository calls, got %d", len(expectedCalls), len(repo.calls))
+	}
+	for i, call := range repo.calls {
+		expected := expectedCalls[i]
+		if call.limit != expected.limit || call.offset != expected.offset {
+			t.Fatalf("call %d expected limit %d offset %d, got limit %d offset %d", i, expected.limit, expected.offset, call.limit, call.offset)
+		}
+	}
+
+	if len(result.Records) != limit {
+		t.Fatalf("expected %d records, got %d", limit, len(result.Records))
+	}
+	first := result.Records[0].Entities["users"]
+	if first == nil {
+		t.Fatalf("expected first record to contain users alias")
+	}
+	if index, ok := first.Properties["index"].(int); !ok || index != offset {
+		t.Fatalf("expected first record index %d, got %v", offset, first.Properties["index"])
+	}
+	last := result.Records[len(result.Records)-1].Entities["users"]
+	if last == nil {
+		t.Fatalf("expected last record to contain users alias")
+	}
+	if index, ok := last.Properties["index"].(int); !ok || index != offset+limit-1 {
+		t.Fatalf("expected last record index %d, got %v", offset+limit-1, last.Properties["index"])
+	}
+	if result.TotalCount != totalEntities {
+		t.Fatalf("expected total count %d, got %d", totalEntities, result.TotalCount)
 	}
 }
 
