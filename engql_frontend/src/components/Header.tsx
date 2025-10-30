@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Boxes,
   Database,
@@ -11,10 +11,33 @@ import {
   SquareFunction,
   Upload,
   X,
+  Moon,
+  Sun,
 } from 'lucide-react'
 
 export default function Header() {
   const [isOpen, setIsOpen] = useState(false)
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = window.localStorage.getItem('theme')
+      if (stored === 'light' || stored === 'dark') {
+        return stored
+      }
+
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+      return prefersDark ? 'dark' : 'light'
+    }
+
+    return 'light'
+  })
+
+  useEffect(() => {
+    if (typeof document === 'undefined' || typeof window === 'undefined') return
+
+    const root = document.documentElement
+    root.dataset.theme = theme
+    window.localStorage.setItem('theme', theme)
+  }, [theme])
 
   return (
     <>
@@ -152,6 +175,20 @@ export default function Header() {
 
           {/* Demo Links End */}
         </nav>
+
+        <div className="border-t border-subtle px-4 py-3">
+          <button
+            type="button"
+            onClick={() =>
+              setTheme((current) => (current === 'light' ? 'dark' : 'light'))
+            }
+            className="flex w-full items-center justify-between rounded-lg border border-subtle bg-surface px-3 py-2 text-sm font-medium transition-colors hover:bg-subtle"
+            aria-label="Toggle color theme"
+          >
+            <span>{theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}</span>
+            {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
+          </button>
+        </div>
       </aside>
     </>
   )

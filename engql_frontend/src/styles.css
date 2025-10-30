@@ -30,8 +30,68 @@
   --status-pending-bg: rgba(253, 186, 116, 0.18);
 }
 
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --app-background: 248 250 252;
+  --app-foreground: 15 23 42;
+  --app-muted: 100 116 139;
+  --app-border: 226 232 240;
+  --app-surface: 255 255 255;
+  --app-surface-muted: 241 245 249;
+  --app-overlay: 15 23 42 / 0.55;
+  --app-header: 255 255 255;
+  --app-header-border: 226 232 240;
+
+  --status-default-text: 71 85 105;
+  --status-default-border: 203 213 225;
+  --status-default-bg: rgba(148, 163, 184, 0.12);
+  --status-completed-text: 21 128 61;
+  --status-completed-border: 134 239 172;
+  --status-completed-bg: rgba(74, 222, 128, 0.14);
+  --status-failed-text: 185 28 28;
+  --status-failed-border: 248 113 113;
+  --status-failed-bg: rgba(248, 113, 113, 0.16);
+  --status-cancelled-text: 126 34 206;
+  --status-cancelled-border: 192 132 252;
+  --status-cancelled-bg: rgba(192, 132, 252, 0.16);
+  --status-pending-text: 194 65 12;
+  --status-pending-border: 253 186 116;
+  --status-pending-bg: rgba(253, 186, 116, 0.18);
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --app-background: 9 13 24;
+  --app-foreground: 226 232 240;
+  --app-muted: 148 163 184;
+  --app-border: 54 65 85;
+  --app-surface: 21 30 49;
+  --app-surface-muted: 28 41 68;
+  --app-overlay: 6 8 15 / 0.75;
+  --app-header: 15 23 42;
+  --app-header-border: 41 56 86;
+
+  --status-default-text: 203 213 225;
+  --status-default-border: 71 85 105;
+  --status-default-bg: rgba(148, 163, 184, 0.12);
+  --status-completed-text: 134 239 172;
+  --status-completed-border: 34 197 94;
+  --status-completed-bg: rgba(34, 197, 94, 0.18);
+  --status-failed-text: 248 113 113;
+  --status-failed-border: 239 68 68;
+  --status-failed-bg: rgba(239, 68, 68, 0.18);
+  --status-cancelled-text: 233 213 255;
+  --status-cancelled-border: 168 85 247;
+  --status-cancelled-bg: rgba(168, 85, 247, 0.2);
+  --status-pending-text: 253 230 138;
+  --status-pending-border: 234 179 8;
+  --status-pending-bg: rgba(234, 179, 8, 0.2);
+}
+
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     --app-background: 9 13 24;
     --app-foreground: 226 232 240;
     --app-muted: 148 163 184;
