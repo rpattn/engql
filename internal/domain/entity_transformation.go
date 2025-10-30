@@ -98,8 +98,8 @@ type EntityTransformationPaginateConfig struct {
 }
 
 type EntityTransformationExecutionOptions struct {
-	Limit  int
-	Offset int
+	Limit  int `json:"limit,omitempty"`
+	Offset int `json:"offset,omitempty"`
 }
 
 type EntityTransformationRecord struct {

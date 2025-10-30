@@ -44,11 +44,11 @@ ORDER BY created_at DESC;
 -- name: UpdateEntityTransformation :one
 UPDATE entity_transformations
 SET
-    name = COALESCE($2, name),
-    description = COALESCE($3, description),
-    nodes = COALESCE($4, nodes),
+    name = COALESCE(sqlc.narg(name), name),
+    description = COALESCE(sqlc.narg(description), description),
+    nodes = COALESCE(sqlc.narg(nodes), nodes),
     updated_at = NOW()
-WHERE id = $1
+WHERE id = sqlc.arg(id)
 RETURNING
     id,
     organization_id,

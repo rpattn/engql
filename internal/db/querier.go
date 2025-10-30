@@ -12,58 +12,68 @@ import (
 )
 
 type Querier interface {
-        CreateEntity(ctx context.Context, arg CreateEntityParams) (CreateEntityRow, error)
-        CreateEntityJoin(ctx context.Context, arg CreateEntityJoinParams) (CreateEntityJoinRow, error)
-        CreateEntityTransformation(ctx context.Context, arg CreateEntityTransformationParams) (CreateEntityTransformationRow, error)
-        CreateEntitySchema(ctx context.Context, arg CreateEntitySchemaParams) (CreateEntitySchemaRow, error)
+	CreateEntity(ctx context.Context, arg CreateEntityParams) (CreateEntityRow, error)
+	CreateEntityJoin(ctx context.Context, arg CreateEntityJoinParams) (CreateEntityJoinRow, error)
+	CreateEntitySchema(ctx context.Context, arg CreateEntitySchemaParams) (CreateEntitySchemaRow, error)
 	CreateEntitySchemaAndArchivePrevious(ctx context.Context, arg CreateEntitySchemaAndArchivePreviousParams) (CreateEntitySchemaAndArchivePreviousRow, error)
+	CreateEntityTransformation(ctx context.Context, arg CreateEntityTransformationParams) (EntityTransformation, error)
 	CreateOrganization(ctx context.Context, arg CreateOrganizationParams) (Organization, error)
-        DeleteEntity(ctx context.Context, id uuid.UUID) error
-        DeleteEntityJoin(ctx context.Context, id uuid.UUID) error
-        DeleteEntityTransformation(ctx context.Context, id uuid.UUID) error
+	DeleteEntity(ctx context.Context, id uuid.UUID) error
+	DeleteEntityJoin(ctx context.Context, id uuid.UUID) error
+	DeleteEntityTransformation(ctx context.Context, id uuid.UUID) error
 	DeleteOrganization(ctx context.Context, id uuid.UUID) error
 	EntityIngestBatchStats(ctx context.Context, organizationID pgtype.UUID) (EntityIngestBatchStatsRow, error)
 	FilterEntitiesByProperty(ctx context.Context, arg FilterEntitiesByPropertyParams) ([]FilterEntitiesByPropertyRow, error)
 	GetEntitiesByIDs(ctx context.Context, ids []uuid.UUID) ([]GetEntitiesByIDsRow, error)
 	GetEntity(ctx context.Context, id uuid.UUID) (GetEntityRow, error)
 	GetEntityAncestors(ctx context.Context, arg GetEntityAncestorsParams) ([]GetEntityAncestorsRow, error)
+	GetEntityByReference(ctx context.Context, arg GetEntityByReferenceParams) (GetEntityByReferenceRow, error)
 	GetEntityChildren(ctx context.Context, arg GetEntityChildrenParams) ([]GetEntityChildrenRow, error)
-        GetEntityCount(ctx context.Context, organizationID uuid.UUID) (int64, error)
-        GetEntityCountByType(ctx context.Context, arg GetEntityCountByTypeParams) (int64, error)
-        GetEntityByReference(ctx context.Context, arg GetEntityByReferenceParams) (GetEntityByReferenceRow, error)
+	GetEntityCount(ctx context.Context, organizationID uuid.UUID) (int64, error)
+	GetEntityCountByType(ctx context.Context, arg GetEntityCountByTypeParams) (int64, error)
 	GetEntityDescendants(ctx context.Context, arg GetEntityDescendantsParams) ([]GetEntityDescendantsRow, error)
-        GetEntityHistoryByVersion(ctx context.Context, arg GetEntityHistoryByVersionParams) (EntitiesHistory, error)
-        GetEntityJoin(ctx context.Context, id uuid.UUID) (GetEntityJoinRow, error)
-        GetEntityTransformation(ctx context.Context, id uuid.UUID) (GetEntityTransformationRow, error)
-        GetEntitySchema(ctx context.Context, id uuid.UUID) (GetEntitySchemaRow, error)
+	GetEntityHistoryByVersion(ctx context.Context, arg GetEntityHistoryByVersionParams) (EntitiesHistory, error)
+	GetEntityJoin(ctx context.Context, id uuid.UUID) (GetEntityJoinRow, error)
+	GetEntitySchema(ctx context.Context, id uuid.UUID) (GetEntitySchemaRow, error)
 	GetEntitySchemaByName(ctx context.Context, arg GetEntitySchemaByNameParams) (GetEntitySchemaByNameRow, error)
 	GetEntitySchemaVersionByNumber(ctx context.Context, arg GetEntitySchemaVersionByNumberParams) (GetEntitySchemaVersionByNumberRow, error)
 	GetEntitySiblings(ctx context.Context, arg GetEntitySiblingsParams) ([]GetEntitySiblingsRow, error)
+	GetEntityTransformation(ctx context.Context, id uuid.UUID) (EntityTransformation, error)
 	GetMaxEntityHistoryVersion(ctx context.Context, entityID uuid.UUID) (int64, error)
 	GetOrganization(ctx context.Context, id uuid.UUID) (Organization, error)
 	GetOrganizationByName(ctx context.Context, name string) (Organization, error)
+	// Track background export jobs for entities.
+        InsertEntityExportJob(ctx context.Context, arg InsertEntityExportJobParams) error
+        InsertEntityExportLog(ctx context.Context, arg InsertEntityExportLogParams) error
 	InsertEntityHistoryRecord(ctx context.Context, arg InsertEntityHistoryRecordParams) error
 	// Track background flush batches for staged entity ingestion.
 	InsertEntityIngestBatch(ctx context.Context, arg InsertEntityIngestBatchParams) error
-        ListEntities(ctx context.Context, arg ListEntitiesParams) ([]ListEntitiesRow, error)
-        ListEntitiesByType(ctx context.Context, arg ListEntitiesByTypeParams) ([]ListEntitiesByTypeRow, error)
-        ListEntitiesByReferences(ctx context.Context, arg ListEntitiesByReferencesParams) ([]ListEntitiesByReferencesRow, error)
+	ListEntities(ctx context.Context, arg ListEntitiesParams) ([]ListEntitiesRow, error)
+	ListEntitiesByReferences(ctx context.Context, arg ListEntitiesByReferencesParams) ([]ListEntitiesByReferencesRow, error)
+	ListEntitiesByType(ctx context.Context, arg ListEntitiesByTypeParams) ([]ListEntitiesByTypeRow, error)
+        GetEntityExportJobByID(ctx context.Context, id uuid.UUID) (EntityExportJob, error)
+        ListEntityExportJobsByStatus(ctx context.Context, arg ListEntityExportJobsByStatusParams) ([]EntityExportJob, error)
+        ListEntityExportLogsForJob(ctx context.Context, arg ListEntityExportLogsForJobParams) ([]EntityExportLog, error)
 	ListEntityHistory(ctx context.Context, entityID uuid.UUID) ([]EntitiesHistory, error)
-        ListEntityIngestBatchesByStatus(ctx context.Context, arg ListEntityIngestBatchesByStatusParams) ([]EntityIngestBatch, error)
-        ListEntityJoinsByOrganization(ctx context.Context, organizationID uuid.UUID) ([]ListEntityJoinsByOrganizationRow, error)
-        ListEntityTransformationsByOrganization(ctx context.Context, organizationID uuid.UUID) ([]ListEntityTransformationsByOrganizationRow, error)
-        ListEntitySchemaVersions(ctx context.Context, arg ListEntitySchemaVersionsParams) ([]ListEntitySchemaVersionsRow, error)
+	ListEntityIngestBatchesByStatus(ctx context.Context, arg ListEntityIngestBatchesByStatusParams) ([]EntityIngestBatch, error)
+	ListEntityJoinsByOrganization(ctx context.Context, organizationID uuid.UUID) ([]ListEntityJoinsByOrganizationRow, error)
+	ListEntitySchemaVersions(ctx context.Context, arg ListEntitySchemaVersionsParams) ([]ListEntitySchemaVersionsRow, error)
 	ListEntitySchemas(ctx context.Context, organizationID uuid.UUID) ([]ListEntitySchemasRow, error)
+	ListEntityTransformationsByOrganization(ctx context.Context, organizationID uuid.UUID) ([]EntityTransformation, error)
 	ListOrganizations(ctx context.Context) ([]Organization, error)
+	MarkEntityExportJobCompleted(ctx context.Context, arg MarkEntityExportJobCompletedParams) error
+	MarkEntityExportJobFailed(ctx context.Context, arg MarkEntityExportJobFailedParams) error
+	MarkEntityExportJobRunning(ctx context.Context, id uuid.UUID) error
 	MarkEntityIngestBatchCompleted(ctx context.Context, arg MarkEntityIngestBatchCompletedParams) error
 	MarkEntityIngestBatchFailed(ctx context.Context, arg MarkEntityIngestBatchFailedParams) error
 	MarkEntityIngestBatchFlushing(ctx context.Context, id uuid.UUID) error
 	MarkEntitySchemaInactive(ctx context.Context, id uuid.UUID) error
 	SchemaExists(ctx context.Context, arg SchemaExistsParams) (bool, error)
-        UpdateEntity(ctx context.Context, arg UpdateEntityParams) (UpdateEntityRow, error)
-        UpdateEntityJoin(ctx context.Context, arg UpdateEntityJoinParams) (UpdateEntityJoinRow, error)
-        UpdateEntityTransformation(ctx context.Context, arg UpdateEntityTransformationParams) (UpdateEntityTransformationRow, error)
-        UpdateOrganization(ctx context.Context, arg UpdateOrganizationParams) (Organization, error)
+	UpdateEntity(ctx context.Context, arg UpdateEntityParams) (UpdateEntityRow, error)
+	UpdateEntityExportJobProgress(ctx context.Context, arg UpdateEntityExportJobProgressParams) error
+	UpdateEntityJoin(ctx context.Context, arg UpdateEntityJoinParams) (UpdateEntityJoinRow, error)
+	UpdateEntityTransformation(ctx context.Context, arg UpdateEntityTransformationParams) (EntityTransformation, error)
+	UpdateOrganization(ctx context.Context, arg UpdateOrganizationParams) (Organization, error)
 	UpsertEntityFromHistory(ctx context.Context, arg UpsertEntityFromHistoryParams) error
 }
 

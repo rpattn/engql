@@ -41,7 +41,7 @@ func (r *entityTransformationRepository) Create(ctx context.Context, transformat
 	if err != nil {
 		return domain.EntityTransformation{}, fmt.Errorf("create entity transformation: %w", err)
 	}
-	return mapTransformationRow(convertCreateTransformationRow(row))
+	return mapTransformationRow(convertEntityTransformationRow(row))
 }
 
 func (r *entityTransformationRepository) GetByID(ctx context.Context, id uuid.UUID) (domain.EntityTransformation, error) {
@@ -49,7 +49,7 @@ func (r *entityTransformationRepository) GetByID(ctx context.Context, id uuid.UU
 	if err != nil {
 		return domain.EntityTransformation{}, fmt.Errorf("get entity transformation: %w", err)
 	}
-	return mapTransformationRow(convertGetTransformationRow(row))
+	return mapTransformationRow(convertEntityTransformationRow(row))
 }
 
 func (r *entityTransformationRepository) ListByOrganization(ctx context.Context, organizationID uuid.UUID) ([]domain.EntityTransformation, error) {
@@ -59,7 +59,7 @@ func (r *entityTransformationRepository) ListByOrganization(ctx context.Context,
 	}
 	result := make([]domain.EntityTransformation, 0, len(rows))
 	for _, row := range rows {
-		mapped, err := mapTransformationRow(convertListTransformationRow(row))
+		mapped, err := mapTransformationRow(convertEntityTransformationRow(row))
 		if err != nil {
 			return nil, err
 		}
@@ -73,24 +73,24 @@ func (r *entityTransformationRepository) Update(ctx context.Context, transformat
 	if err != nil {
 		return domain.EntityTransformation{}, fmt.Errorf("marshal nodes: %w", err)
 	}
-	var namePtr *string
+	name := pgtype.Text{Valid: false}
 	if transformation.Name != "" {
-		namePtr = &transformation.Name
+		name = pgtype.Text{String: transformation.Name, Valid: true}
 	}
 	desc := pgtype.Text{Valid: false}
 	if transformation.Description != "" {
 		desc = pgtype.Text{String: transformation.Description, Valid: true}
 	}
 	row, err := r.queries.UpdateEntityTransformation(ctx, db.UpdateEntityTransformationParams{
-		ID:          transformation.ID,
-		Name:        namePtr,
+		Name:        name,
 		Description: desc,
 		Nodes:       nodesJSON,
+		ID:          transformation.ID,
 	})
 	if err != nil {
 		return domain.EntityTransformation{}, fmt.Errorf("update entity transformation: %w", err)
 	}
-	return mapTransformationRow(convertUpdateTransformationRow(row))
+	return mapTransformationRow(convertEntityTransformationRow(row))
 }
 
 func (r *entityTransformationRepository) Delete(ctx context.Context, id uuid.UUID) error {
@@ -110,43 +110,7 @@ type transformationRow struct {
 	updatedAt      time.Time
 }
 
-func convertCreateTransformationRow(row db.CreateEntityTransformationRow) transformationRow {
-	return transformationRow{
-		id:             row.ID,
-		organizationID: row.OrganizationID,
-		name:           row.Name,
-		description:    row.Description,
-		nodes:          row.Nodes,
-		createdAt:      row.CreatedAt,
-		updatedAt:      row.UpdatedAt,
-	}
-}
-
-func convertGetTransformationRow(row db.GetEntityTransformationRow) transformationRow {
-	return transformationRow{
-		id:             row.ID,
-		organizationID: row.OrganizationID,
-		name:           row.Name,
-		description:    row.Description,
-		nodes:          row.Nodes,
-		createdAt:      row.CreatedAt,
-		updatedAt:      row.UpdatedAt,
-	}
-}
-
-func convertListTransformationRow(row db.ListEntityTransformationsByOrganizationRow) transformationRow {
-	return transformationRow{
-		id:             row.ID,
-		organizationID: row.OrganizationID,
-		name:           row.Name,
-		description:    row.Description,
-		nodes:          row.Nodes,
-		createdAt:      row.CreatedAt,
-		updatedAt:      row.UpdatedAt,
-	}
-}
-
-func convertUpdateTransformationRow(row db.UpdateEntityTransformationRow) transformationRow {
+func convertEntityTransformationRow(row db.EntityTransformation) transformationRow {
 	return transformationRow{
 		id:             row.ID,
 		organizationID: row.OrganizationID,

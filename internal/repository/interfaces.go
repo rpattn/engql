@@ -39,7 +39,7 @@ type EntityRepository interface {
 	GetByIDs(ctx context.Context, ids []uuid.UUID) ([]domain.Entity, error)
 	GetHistoryByVersion(ctx context.Context, entityID uuid.UUID, version int64) (domain.EntityHistory, error)
 	ListHistory(ctx context.Context, entityID uuid.UUID) ([]domain.EntityHistory, error)
-        List(ctx context.Context, organizationID uuid.UUID, filter *domain.EntityFilter, sort *domain.EntitySort, limit int, offset int) ([]domain.Entity, int, error)
+	List(ctx context.Context, organizationID uuid.UUID, filter *domain.EntityFilter, sort *domain.EntitySort, limit int, offset int) ([]domain.Entity, int, error)
 	ListByType(ctx context.Context, organizationID uuid.UUID, entityType string) ([]domain.Entity, error)
 	GetByReference(ctx context.Context, organizationID uuid.UUID, entityType string, referenceValue string) (domain.Entity, error)
 	ListByReferences(ctx context.Context, organizationID uuid.UUID, entityType string, referenceValues []string) ([]domain.Entity, error)
@@ -115,25 +115,47 @@ type IngestBatchStats struct {
 
 // EntityJoinRepository defines operations for persisted join definitions and executions
 type EntityJoinRepository interface {
-        Create(ctx context.Context, join domain.EntityJoinDefinition) (domain.EntityJoinDefinition, error)
-        GetByID(ctx context.Context, id uuid.UUID) (domain.EntityJoinDefinition, error)
-        ListByOrganization(ctx context.Context, organizationID uuid.UUID) ([]domain.EntityJoinDefinition, error)
-        Update(ctx context.Context, join domain.EntityJoinDefinition) (domain.EntityJoinDefinition, error)
-        Delete(ctx context.Context, id uuid.UUID) error
-        ExecuteJoin(ctx context.Context, join domain.EntityJoinDefinition, options domain.JoinExecutionOptions) ([]domain.EntityJoinEdge, int64, error)
+	Create(ctx context.Context, join domain.EntityJoinDefinition) (domain.EntityJoinDefinition, error)
+	GetByID(ctx context.Context, id uuid.UUID) (domain.EntityJoinDefinition, error)
+	ListByOrganization(ctx context.Context, organizationID uuid.UUID) ([]domain.EntityJoinDefinition, error)
+	Update(ctx context.Context, join domain.EntityJoinDefinition) (domain.EntityJoinDefinition, error)
+	Delete(ctx context.Context, id uuid.UUID) error
+	ExecuteJoin(ctx context.Context, join domain.EntityJoinDefinition, options domain.JoinExecutionOptions) ([]domain.EntityJoinEdge, int64, error)
 }
 
 // EntityTransformationRepository manages transformation DAG definitions.
 type EntityTransformationRepository interface {
-        Create(ctx context.Context, transformation domain.EntityTransformation) (domain.EntityTransformation, error)
-        GetByID(ctx context.Context, id uuid.UUID) (domain.EntityTransformation, error)
-        ListByOrganization(ctx context.Context, organizationID uuid.UUID) ([]domain.EntityTransformation, error)
-        Update(ctx context.Context, transformation domain.EntityTransformation) (domain.EntityTransformation, error)
-        Delete(ctx context.Context, id uuid.UUID) error
+	Create(ctx context.Context, transformation domain.EntityTransformation) (domain.EntityTransformation, error)
+	GetByID(ctx context.Context, id uuid.UUID) (domain.EntityTransformation, error)
+	ListByOrganization(ctx context.Context, organizationID uuid.UUID) ([]domain.EntityTransformation, error)
+	Update(ctx context.Context, transformation domain.EntityTransformation) (domain.EntityTransformation, error)
+	Delete(ctx context.Context, id uuid.UUID) error
 }
 
 // IngestionLogRepository stores ingestion errors for observability.
 type IngestionLogRepository interface {
 	Record(ctx context.Context, entry domain.IngestionLogEntry) error
 	List(ctx context.Context, organizationID uuid.UUID, schemaName string, fileName string, limit int, offset int) ([]domain.IngestionLogEntry, error)
+}
+
+// EntityExportRepository manages export jobs and row-level errors.
+type EntityExportRepository interface {
+	Create(ctx context.Context, job domain.EntityExportJob) (domain.EntityExportJob, error)
+	GetByID(ctx context.Context, id uuid.UUID) (domain.EntityExportJob, error)
+	List(ctx context.Context, organizationID *uuid.UUID, statuses []domain.EntityExportJobStatus, limit int, offset int) ([]domain.EntityExportJob, error)
+	MarkRunning(ctx context.Context, id uuid.UUID) error
+	UpdateProgress(ctx context.Context, id uuid.UUID, rowsExported int, bytesWritten int64, rowsRequested *int) error
+	MarkCompleted(ctx context.Context, id uuid.UUID, result EntityExportResult) error
+	MarkFailed(ctx context.Context, id uuid.UUID, errorMessage string) error
+	RecordLog(ctx context.Context, entry domain.EntityExportLog) error
+	ListLogs(ctx context.Context, jobID uuid.UUID, limit int, offset int) ([]domain.EntityExportLog, error)
+}
+
+// EntityExportResult captures final file metadata for a completed export job.
+type EntityExportResult struct {
+	RowsExported int
+	BytesWritten int64
+	FilePath     *string
+	FileMimeType *string
+	FileByteSize *int64
 }
