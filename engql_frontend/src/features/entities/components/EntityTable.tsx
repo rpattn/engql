@@ -279,7 +279,7 @@ export default function EntityTable({
         aria-label={`Sort by ${label}`}
         onClick={() => toggleSort(columnId)}
         className={`rounded p-1 transition ${
-          isActive ? 'text-blue-600' : 'text-gray-400 opacity-0 group-hover:opacity-100'
+          isActive ? 'text-blue-600' : 'text-muted opacity-0 group-hover:opacity-100'
         } hover:text-blue-600`}
       >
         {direction === 'asc' ? (
@@ -298,18 +298,18 @@ export default function EntityTable({
       <button
         type="button"
         onClick={() => setColumnsMenuOpen((open) => !open)}
-        className="flex items-center gap-2 rounded-md border border-gray-300 px-2 py-1.5 text-xs font-medium text-gray-600 transition hover:border-gray-400 hover:text-gray-900"
+        className="flex items-center gap-2 rounded-md border border-subtle px-2 py-1.5 text-xs font-medium text-muted transition hover:border-blue-500/60 hover:text-blue-500"
       >
         <Columns className="h-3.5 w-3.5" />
         Columns
       </button>
       {columnsMenuOpen && (
-        <div className="absolute right-0 z-20 mt-2 w-72 rounded-md border border-gray-200 bg-white p-3 text-sm shadow-lg">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+        <div className="absolute right-0 z-20 mt-2 w-72 rounded-md border border-subtle bg-surface p-3 text-sm shadow-lg">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
             Schema fields
           </p>
           {sortedFields.length === 0 ? (
-            <p className="text-xs text-gray-500">No schema fields available.</p>
+            <p className="text-xs text-muted">No schema fields available.</p>
           ) : (
             <div className="max-h-64 space-y-2 overflow-auto pr-1">
               {sortedFields.map((field) => {
@@ -317,17 +317,17 @@ export default function EntityTable({
                 return (
                   <label
                     key={field.name}
-                    className="flex items-center justify-between gap-3 rounded px-1 py-1 hover:bg-gray-50"
+                    className="flex items-center justify-between gap-3 rounded px-1 py-1 hover:bg-subtle"
                   >
                     <span>
-                      <span className="block text-sm font-medium text-gray-800">{field.name}</span>
-                      <span className="block text-[10px] uppercase tracking-wide text-gray-400">
+                      <span className="block text-sm font-medium">{field.name}</span>
+                      <span className="block text-[10px] uppercase tracking-wide text-muted">
                         {field.type}
                       </span>
                     </span>
                     <input
                       type="checkbox"
-                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      className="h-4 w-4 rounded border-subtle text-blue-600 focus:ring-blue-500"
                       checked={visible}
                       onChange={(event) =>
                         handleFieldVisibilityChange(field.name, event.target.checked)
@@ -340,7 +340,7 @@ export default function EntityTable({
           )}
           <button
             type="button"
-            className="mt-3 w-full rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:border-gray-300 hover:text-gray-900 disabled:cursor-not-allowed disabled:text-gray-400"
+            className="mt-3 w-full rounded-md border border-subtle px-3 py-1.5 text-xs font-medium text-muted transition hover:border-blue-500/60 hover:text-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
             onClick={() => onHiddenFieldNamesChange([])}
             disabled={hiddenFieldNames.length === 0}
           >
@@ -354,19 +354,19 @@ export default function EntityTable({
   const headerLabel = isBusy && isEmpty ? 'Loading entities…' : summaryLabel
 
   return (
-    <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-      <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 text-sm text-gray-600">
+    <div className="overflow-hidden rounded-lg border border-subtle bg-surface shadow-sm">
+      <div className="flex items-center justify-between border-b border-subtle px-4 py-3 text-sm text-muted">
         <div>{headerLabel}</div>
         {renderColumnsMenu()}
       </div>
 
       <div className="relative">
         <div className="max-h-[480px] overflow-auto">
-          <table className="min-w-full divide-y divide-gray-200 text-sm">
-            <thead className="bg-gray-50">
+          <table className="min-w-full divide-y divide-subtle text-sm">
+            <thead className="bg-subtle">
               <tr>
                 <th
-                  className="relative px-4 py-3 text-left font-semibold text-gray-600"
+                  className="relative px-4 py-3 text-left font-semibold text-muted"
                   style={getColumnStyle(BASE_COLUMN_IDS.entity)}
                 >
                   <div className="group flex items-center gap-2">
@@ -376,7 +376,7 @@ export default function EntityTable({
                   {renderResizeHandle(BASE_COLUMN_IDS.entity)}
                 </th>
                 <th
-                  className="relative px-4 py-3 text-left font-semibold text-gray-600"
+                  className="relative px-4 py-3 text-left font-semibold text-muted"
                   style={getColumnStyle(BASE_COLUMN_IDS.path)}
                 >
                   <div className="group flex items-center gap-2">
@@ -386,7 +386,7 @@ export default function EntityTable({
                   {renderResizeHandle(BASE_COLUMN_IDS.path)}
                 </th>
                 <th
-                  className="relative px-4 py-3 text-left font-semibold text-gray-600"
+                  className="relative px-4 py-3 text-left font-semibold text-muted"
                   style={getColumnStyle(BASE_COLUMN_IDS.version)}
                 >
                   <div className="group flex items-center gap-2">
@@ -402,13 +402,13 @@ export default function EntityTable({
                   return (
                     <th
                       key={field.name}
-                      className="relative px-4 py-3 text-left font-semibold text-gray-600"
+                      className="relative px-4 py-3 text-left font-semibold text-muted"
                       style={getColumnStyle(columnId)}
                     >
                       <div className="group flex items-center justify-between gap-2">
                         <div>
                           <div>{field.name}</div>
-                          <div className="text-[10px] uppercase tracking-wide text-gray-400">
+                          <div className="text-[10px] uppercase tracking-wide text-muted">
                             {field.type}
                           </div>
                         </div>
@@ -425,7 +425,7 @@ export default function EntityTable({
                             className={`rounded p-1 transition ${
                               isActive
                                 ? 'text-blue-600'
-                                : 'text-gray-400 opacity-0 group-hover:opacity-100'
+                                : 'text-muted opacity-0 group-hover:opacity-100'
                             } hover:text-blue-600`}
                           >
                             <Filter className="h-4 w-4" />
@@ -446,7 +446,7 @@ export default function EntityTable({
                   )
                 })}
                 <th
-                  className="relative px-4 py-3 text-left font-semibold text-gray-600"
+                  className="relative px-4 py-3 text-left font-semibold text-muted"
                   style={getColumnStyle(BASE_COLUMN_IDS.updatedAt)}
                 >
                   <div className="group flex items-center gap-2">
@@ -456,7 +456,7 @@ export default function EntityTable({
                   {renderResizeHandle(BASE_COLUMN_IDS.updatedAt)}
                 </th>
                 <th
-                  className="relative px-4 py-3 text-left font-semibold text-gray-600"
+                  className="relative px-4 py-3 text-left font-semibold text-muted"
                   style={getColumnStyle(BASE_COLUMN_IDS.createdAt)}
                 >
                   <div className="group flex items-center gap-2">
@@ -466,7 +466,7 @@ export default function EntityTable({
                   {renderResizeHandle(BASE_COLUMN_IDS.createdAt)}
                 </th>
                 <th
-                  className="relative px-4 py-3 text-right font-semibold text-gray-600"
+                  className="relative px-4 py-3 text-right font-semibold text-muted"
                   style={getColumnStyle(BASE_COLUMN_IDS.actions)}
                 >
                   Actions
@@ -474,12 +474,12 @@ export default function EntityTable({
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-subtle/60">
               {rows.length === 0 ? (
                 <tr>
                   <td
                     colSpan={totalVisibleColumns}
-                    className="px-4 py-10 text-center text-sm text-gray-600"
+                    className="px-4 py-10 text-center text-sm text-muted"
                   >
                     {isBusy
                       ? 'Loading entities…'
@@ -488,13 +488,13 @@ export default function EntityTable({
                 </tr>
               ) : (
                 rows.map(({ entity, props, linkedById }) => (
-                  <tr key={entity.id} className="bg-white align-top">
+                  <tr key={entity.id} className="bg-surface align-top">
                     <td className="px-4 py-4" style={getColumnStyle(BASE_COLUMN_IDS.entity)}>
-                      <div className="font-medium text-gray-900">
+                      <div className="font-medium">
                         <Link
                           to="/entity/$entityId"
                           params={{ entityId: entity.id }}
-                          className="text-blue-600 transition hover:text-blue-700 hover:underline"
+                          className="text-blue-500 transition hover:text-blue-400 hover:underline"
                         >
                           {entity.entityType}
                         </Link>
@@ -502,15 +502,15 @@ export default function EntityTable({
                     </td>
                     <td className="px-4 py-4" style={getColumnStyle(BASE_COLUMN_IDS.path)}>
                       {entity.path ? (
-                        <span className="text-sm text-gray-700">{entity.path}</span>
+                        <span className="text-sm text-muted">{entity.path}</span>
                       ) : (
-                        <span className="text-xs uppercase tracking-wide text-gray-400">
+                        <span className="text-xs uppercase tracking-wide text-muted">
                           —
                         </span>
                       )}
                     </td>
                     <td className="px-4 py-4" style={getColumnStyle(BASE_COLUMN_IDS.version)}>
-                      <span className="rounded bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-700">
+                      <span className="rounded bg-subtle px-2 py-1 text-xs font-semibold text-muted">
                         v{entity.version}
                       </span>
                     </td>
@@ -527,18 +527,18 @@ export default function EntityTable({
                       )
                     })}
                     <td className="px-4 py-4" style={getColumnStyle(BASE_COLUMN_IDS.updatedAt)}>
-                      <div className="text-sm text-gray-800">
+                      <div className="text-sm">
                         {formatTimestamp(entity.updatedAt)}
                       </div>
-                      <div className="text-xs text-gray-500">
+                      <div className="text-xs text-muted">
                         {formatRelative(entity.updatedAt)}
                       </div>
                     </td>
                     <td className="px-4 py-4" style={getColumnStyle(BASE_COLUMN_IDS.createdAt)}>
-                      <div className="text-sm text-gray-800">
+                      <div className="text-sm">
                         {formatTimestamp(entity.createdAt)}
                       </div>
-                      <div className="text-xs text-gray-500">
+                      <div className="text-xs text-muted">
                         {formatRelative(entity.createdAt)}
                       </div>
                     </td>
@@ -547,7 +547,7 @@ export default function EntityTable({
                         <Link
                           to="/entities/$entityId/versions"
                           params={{ entityId: entity.id }}
-                          className="flex items-center gap-1 rounded-md border border-indigo-200 px-3 py-1.5 text-xs font-medium text-indigo-600 transition hover:border-indigo-300 hover:bg-indigo-50"
+                          className="flex items-center gap-1 rounded-md border border-indigo-500/50 px-3 py-1.5 text-xs font-medium text-indigo-400 transition hover:border-indigo-500 hover:bg-indigo-500/10"
                         >
                           <History className="h-3.5 w-3.5" />
                           Versions
@@ -555,7 +555,7 @@ export default function EntityTable({
                         <button
                           type="button"
                           onClick={() => onEdit(entity)}
-                          className="flex items-center gap-1 rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:border-gray-400 hover:text-gray-900"
+                          className="flex items-center gap-1 rounded-md border border-subtle px-3 py-1.5 text-xs font-medium text-muted transition hover:border-blue-500/60 hover:text-blue-500"
                         >
                           <Pencil className="h-3.5 w-3.5" />
                           Edit
@@ -563,7 +563,7 @@ export default function EntityTable({
                         <button
                           type="button"
                           onClick={() => onDelete(entity)}
-                          className="flex items-center gap-1 rounded-md border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 transition hover:border-red-300 hover:bg-red-50"
+                          className="flex items-center gap-1 rounded-md border border-red-500/50 px-3 py-1.5 text-xs font-medium text-red-400 transition hover:border-red-500 hover:bg-red-500/10"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                           Delete
@@ -577,7 +577,7 @@ export default function EntityTable({
           </table>
         </div>
         {isBusy && (
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/70">
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-surface/70">
             <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
             <span className="sr-only">Loading entities…</span>
           </div>
@@ -598,7 +598,7 @@ function renderFieldValue(
     (typeof value === 'string' && value.trim().length === 0)
   ) {
     return (
-      <span className="text-xs uppercase tracking-wide text-gray-400">
+      <span className="text-xs uppercase tracking-wide text-muted">
         —
       </span>
     )
@@ -609,7 +609,7 @@ function renderFieldValue(
       return (
         <span
           className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${
-            value ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-600'
+            value ? 'bg-emerald-500/15 text-emerald-400' : 'bg-subtle text-muted'
           }`}
         >
           {value ? 'True' : 'False'}
@@ -617,12 +617,12 @@ function renderFieldValue(
       )
     case FieldType.Integer:
     case FieldType.Float:
-      return <span className="text-sm text-gray-800">{String(value)}</span>
+      return <span className="text-sm">{String(value)}</span>
     case FieldType.EntityReference: {
       const id = typeof value === 'string' ? value : ''
       if (!id) {
         return (
-          <span className="text-xs uppercase tracking-wide text-gray-400">
+          <span className="text-xs uppercase tracking-wide text-muted">
             —
           </span>
         )
@@ -632,7 +632,7 @@ function renderFieldValue(
         ? extractEntityLabel(linked)
         : id
       return (
-        <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700">
+        <span className="inline-flex items-center rounded-full bg-blue-500/10 px-2 py-0.5 text-xs font-semibold text-blue-400">
           {label}
         </span>
       )
@@ -648,7 +648,7 @@ function renderFieldValue(
 
       if (ids.length === 0) {
         return (
-          <span className="text-xs uppercase tracking-wide text-gray-400">
+          <span className="text-xs uppercase tracking-wide text-muted">
             —
           </span>
         )
@@ -662,7 +662,7 @@ function renderFieldValue(
             return (
               <span
                 key={id}
-                className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold uppercase text-blue-700"
+                className="inline-flex items-center rounded-full bg-blue-500/10 px-2 py-0.5 text-[11px] font-semibold uppercase text-blue-400"
               >
                 {label}
               </span>
@@ -673,15 +673,15 @@ function renderFieldValue(
     }
     case FieldType.Timestamp:
       return (
-        <div className="text-xs text-gray-700">
+        <div className="text-xs text-muted">
           <div>{formatTimestamp(String(value))}</div>
-          <div className="text-[10px] text-gray-500">{formatRelative(String(value))}</div>
+          <div className="text-[10px] text-muted">{formatRelative(String(value))}</div>
         </div>
       )
     case FieldType.Json: {
       const preview = formatJsonPreviewLimited(value)
       return (
-        <pre className="max-h-32 overflow-auto rounded bg-gray-50 px-3 py-2 text-xs text-gray-700">
+        <pre className="max-h-32 overflow-auto rounded bg-subtle px-3 py-2 text-xs text-muted">
           {preview}
         </pre>
       )
@@ -690,12 +690,12 @@ function renderFieldValue(
       if (Array.isArray(value) || typeof value === 'object') {
         const preview = formatJsonPreviewLimited(value)
         return (
-          <pre className="max-h-32 overflow-auto rounded bg-gray-50 px-3 py-2 text-xs text-gray-700">
+          <pre className="max-h-32 overflow-auto rounded bg-subtle px-3 py-2 text-xs text-muted">
             {preview}
           </pre>
         )
       }
-      return <span className="text-sm text-gray-800">{String(value)}</span>
+      return <span className="text-sm">{String(value)}</span>
     }
   }
 }
