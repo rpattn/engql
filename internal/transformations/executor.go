@@ -580,10 +580,8 @@ func (e *Executor) executeJoin(
 
 	limiter := newPageLimiter(req)
 	var results []domain.EntityTransformationRecord
+	total := 0
 	for _, leftRecord := range leftRecords {
-		if !limiter.ShouldContinue() {
-			break
-		}
 		leftEntity := leftRecord.Entities[node.Join.LeftAlias]
 		if leftEntity == nil {
 			continue
@@ -660,6 +658,10 @@ func (e *Executor) executeJoin(
 
 		switch node.Type {
 		case domain.TransformationNodeJoin:
+			total += len(deduped)
+			if !limiter.ShouldContinue() {
+				continue
+			}
 			for _, idx := range deduped {
 				if !limiter.ShouldContinue() {
 					break
@@ -671,14 +673,19 @@ func (e *Executor) executeJoin(
 			}
 		case domain.TransformationNodeLeftJoin:
 			if len(deduped) == 0 {
+				total++
 				if !limiter.ShouldContinue() {
-					break
+					continue
 				}
 				combined := leftRecord.Clone()
 				combined.Entities[node.Join.RightAlias] = nil
 				if limiter.Consider() {
 					results = append(results, combined)
 				}
+				continue
+			}
+			total += len(deduped)
+			if !limiter.ShouldContinue() {
 				continue
 			}
 			for _, idx := range deduped {
@@ -692,8 +699,9 @@ func (e *Executor) executeJoin(
 			}
 		case domain.TransformationNodeAntiJoin:
 			if len(deduped) == 0 {
+				total++
 				if !limiter.ShouldContinue() {
-					break
+					continue
 				}
 				if limiter.Consider() {
 					results = append(results, leftRecord.Clone())
@@ -701,7 +709,6 @@ func (e *Executor) executeJoin(
 			}
 		}
 	}
-	total := len(results)
 	if total == 0 {
 		leftTotal := totals[node.Inputs[0]]
 		rightTotal := totals[node.Inputs[1]]

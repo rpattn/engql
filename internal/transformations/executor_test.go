@@ -1438,8 +1438,8 @@ func TestExecutor_JoinRespectsExecutionWindow(t *testing.T) {
 	if len(result.Records) != opts.Limit {
 		t.Fatalf("expected %d records, got %d", opts.Limit, len(result.Records))
 	}
-	if result.TotalCount != opts.Limit {
-		t.Fatalf("expected total count %d, got %d", opts.Limit, result.TotalCount)
+	if result.TotalCount != totalCombos {
+		t.Fatalf("expected total count %d, got %d", totalCombos, result.TotalCount)
 	}
 
 	expectedFirstLeft := opts.Offset / rightCount
