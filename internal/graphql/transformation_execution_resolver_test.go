@@ -151,6 +151,13 @@ func TestTransformationExecutionUsesExecutorPagination(t *testing.T) {
 	if value == nil || *value != "Bob" {
 		t.Fatalf("expected row value Bob, got %v", value)
 	}
+
+	if conn.PageInfo == nil {
+		t.Fatalf("expected page info")
+	}
+	if conn.PageInfo.TotalCount != len(entityRecords) {
+		t.Fatalf("expected total count %d, got %d", len(entityRecords), conn.PageInfo.TotalCount)
+	}
 }
 
 func TestTransformationExecutionAppliesDefaultPagination(t *testing.T) {
@@ -237,5 +244,12 @@ func TestTransformationExecutionAppliesDefaultPagination(t *testing.T) {
 	}
 	if len(conn.Rows) != defaultPageSize {
 		t.Fatalf("expected %d rows from resolver, got %d", defaultPageSize, len(conn.Rows))
+	}
+
+	if conn.PageInfo == nil {
+		t.Fatalf("expected page info")
+	}
+	if conn.PageInfo.TotalCount != len(entityRecords) {
+		t.Fatalf("expected total count %d, got %d", len(entityRecords), conn.PageInfo.TotalCount)
 	}
 }

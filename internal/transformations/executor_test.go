@@ -27,13 +27,56 @@ func (m *mockEntityRepository) List(ctx context.Context, organizationID uuid.UUI
 			if len(filter.PropertyFilters) > 0 {
 				matched := true
 				for _, pf := range filter.PropertyFilters {
-					value := entity.Properties[pf.Key]
-					if pf.Value != "" && value != pf.Value {
-						matched = false
-						break
-					}
+					value, ok := entity.Properties[pf.Key]
 					if pf.Exists != nil {
-						if *pf.Exists && value == nil {
+						if *pf.Exists {
+							if !ok {
+								matched = false
+								break
+							}
+						} else {
+							if ok {
+								if pf.Value == "" && len(pf.InArray) == 0 {
+									if str, okStr := value.(string); okStr {
+										if str != "" {
+											matched = false
+											break
+										}
+									} else if value != nil {
+										matched = false
+										break
+									}
+								} else {
+									matched = false
+									break
+								}
+							}
+						}
+					}
+					if pf.Value != "" {
+						if !ok {
+							matched = false
+							break
+						}
+						if fmt.Sprintf("%v", value) != pf.Value {
+							matched = false
+							break
+						}
+					}
+					if len(pf.InArray) > 0 {
+						if !ok {
+							matched = false
+							break
+						}
+						valueStr := fmt.Sprintf("%v", value)
+						found := false
+						for _, candidate := range pf.InArray {
+							if valueStr == candidate {
+								found = true
+								break
+							}
+						}
+						if !found {
 							matched = false
 							break
 						}
