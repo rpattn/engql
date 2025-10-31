@@ -117,13 +117,38 @@ func minPositive(a, b int) int {
 	}
 }
 
+func capacityForRequest(sourceLen int, req pageRequest) int {
+	if sourceLen <= 0 {
+		return 0
+	}
+	capacity := sourceLen
+	if req.limit > 0 && req.limit < capacity {
+		capacity = req.limit
+	}
+	return capacity
+}
+
 // NewExecutor constructs a transformation executor.
 func NewExecutor(entityRepo EntityRepository, schemaProvider SchemaProvider) *Executor {
 	return &Executor{entityRepo: entityRepo, schemaProvider: schemaProvider}
 }
 
-// Execute runs the transformation graph and returns paginated results.
+// Execute runs the transformation graph with full caching for maximum speed.
 func (e *Executor) Execute(ctx context.Context, transformation domain.EntityTransformation, opts domain.EntityTransformationExecutionOptions) (domain.EntityTransformationExecutionResult, error) {
+	return e.execute(ctx, transformation, opts, false)
+}
+
+// ExecuteStreaming runs the transformation graph with memory-optimized caching suited for streaming exports.
+func (e *Executor) ExecuteStreaming(ctx context.Context, transformation domain.EntityTransformation, opts domain.EntityTransformationExecutionOptions) (domain.EntityTransformationExecutionResult, error) {
+	return e.execute(ctx, transformation, opts, true)
+}
+
+func (e *Executor) execute(
+	ctx context.Context,
+	transformation domain.EntityTransformation,
+	opts domain.EntityTransformationExecutionOptions,
+	memoryOptimized bool,
+) (domain.EntityTransformationExecutionResult, error) {
 	sorted, err := transformation.TopologicallySortedNodes()
 	if err != nil {
 		return domain.EntityTransformationExecutionResult{}, err
@@ -139,6 +164,15 @@ func (e *Executor) Execute(ctx context.Context, transformation domain.EntityTran
 		finalNode := sorted[len(sorted)-1]
 		nodeRequests[finalNode.ID] = pageRequest{limit: opts.Limit, offset: opts.Offset}
 		requestCounts[finalNode.ID] = 1
+	}
+
+	remainingUses := make(map[uuid.UUID]int)
+	if memoryOptimized {
+		for _, node := range transformation.Nodes {
+			for _, input := range node.Inputs {
+				remainingUses[input]++
+			}
+		}
 	}
 
 	for i := len(sorted) - 1; i >= 0; i-- {
@@ -199,6 +233,22 @@ func (e *Executor) Execute(ctx context.Context, transformation domain.EntityTran
 		}
 		results[node.ID] = nodeResults
 		totals[node.ID] = total
+
+		if memoryOptimized {
+			for _, input := range node.Inputs {
+				if remaining, ok := remainingUses[input]; ok {
+					remaining--
+					if remaining <= 0 {
+						// Drop cached results once all dependents have consumed them.
+						delete(results, input)
+						delete(totals, input)
+						delete(remainingUses, input)
+					} else {
+						remainingUses[input] = remaining
+					}
+				}
+			}
+		}
 	}
 
 	if len(sorted) == 0 {
@@ -206,7 +256,7 @@ func (e *Executor) Execute(ctx context.Context, transformation domain.EntityTran
 	}
 
 	finalNode := sorted[len(sorted)-1]
-	finalRecords := append([]domain.EntityTransformationRecord(nil), results[finalNode.ID]...)
+	finalRecords := results[finalNode.ID]
 	totalCount := totals[finalNode.ID]
 	if totalCount == 0 {
 		totalCount = len(finalRecords)
@@ -250,7 +300,7 @@ func (e *Executor) executeLoad(ctx context.Context, transformation domain.Entity
 	if node.Load == nil {
 		return nil, 0, fmt.Errorf("load node missing configuration")
 	}
-	limit := 1000
+	limit := 20000
 	if req.limit > 0 {
 		desired := req.limit + req.offset
 		if desired > 0 && desired < limit {
@@ -309,7 +359,7 @@ func (e *Executor) executeFilter(node domain.EntityTransformationNode, cache map
 		}
 	}
 	limiter := newPageLimiter(req)
-	filtered := make([]domain.EntityTransformationRecord, 0, len(inputRecords))
+	filtered := make([]domain.EntityTransformationRecord, 0, capacityForRequest(len(inputRecords), req))
 	for _, record := range inputRecords {
 		if !limiter.ShouldContinue() {
 			break
@@ -339,7 +389,7 @@ func (e *Executor) executeProject(node domain.EntityTransformationNode, cache ma
 		return nil, 0, fmt.Errorf("project input not found")
 	}
 	limiter := newPageLimiter(req)
-	projected := make([]domain.EntityTransformationRecord, 0, len(inputRecords))
+	projected := make([]domain.EntityTransformationRecord, 0, capacityForRequest(len(inputRecords), req))
 	for _, record := range inputRecords {
 		if !limiter.ShouldContinue() {
 			break
@@ -389,7 +439,7 @@ func (e *Executor) executeMaterialize(node domain.EntityTransformationNode, cach
 	}
 
 	limiter := newPageLimiter(req)
-	results := make([]domain.EntityTransformationRecord, 0, len(inputRecords))
+	results := make([]domain.EntityTransformationRecord, 0, capacityForRequest(len(inputRecords), req))
 	for _, record := range inputRecords {
 		if !limiter.ShouldContinue() {
 			break
