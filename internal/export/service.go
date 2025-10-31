@@ -102,14 +102,14 @@ func NewService(
 		transformationExecutor: transformations.NewExecutor(entityRepo, schemaRepo),
 		exportDir:              filepath.Join(os.TempDir(), "engql-exports"),
 		jobTimeout:             30 * time.Minute,
-		pageSize:               1000,
+		pageSize:               20000,
 		now:                    time.Now,
 	}
 	for _, opt := range opts {
 		opt(service)
 	}
 	if service.pageSize <= 0 {
-		service.pageSize = 1000
+		service.pageSize = 20000
 	}
 	if service.jobTimeout <= 0 {
 		service.jobTimeout = 30 * time.Minute

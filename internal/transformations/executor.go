@@ -300,7 +300,7 @@ func (e *Executor) executeLoad(ctx context.Context, transformation domain.Entity
 	if node.Load == nil {
 		return nil, 0, fmt.Errorf("load node missing configuration")
 	}
-	limit := 1000
+	limit := 20000
 	if req.limit > 0 {
 		desired := req.limit + req.offset
 		if desired > 0 && desired < limit {
