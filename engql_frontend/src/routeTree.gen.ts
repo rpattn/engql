@@ -10,7 +10,6 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TransformationsRouteImport } from './routes/transformations'
-import { Route as JoinTestingRouteImport } from './routes/join-testing'
 import { Route as IngestionRouteImport } from './routes/ingestion'
 import { Route as ExportsRouteImport } from './routes/exports'
 import { Route as EntitySchemasRouteImport } from './routes/entity-schemas'
@@ -41,11 +40,6 @@ import { Route as DemoStartSsrDataOnlyRouteImport } from './routes/demo/start.ss
 const TransformationsRoute = TransformationsRouteImport.update({
   id: '/transformations',
   path: '/transformations',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const JoinTestingRoute = JoinTestingRouteImport.update({
-  id: '/join-testing',
-  path: '/join-testing',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IngestionRoute = IngestionRouteImport.update({
@@ -190,7 +184,6 @@ export interface FileRoutesByFullPath {
   '/entity-schemas': typeof EntitySchemasRoute
   '/exports': typeof ExportsRoute
   '/ingestion': typeof IngestionRouteWithChildren
-  '/join-testing': typeof JoinTestingRoute
   '/transformations': typeof TransformationsRouteWithChildren
   '/demo/table': typeof DemoTableRoute
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
@@ -219,7 +212,6 @@ export interface FileRoutesByTo {
   '/entity-schemas': typeof EntitySchemasRoute
   '/exports': typeof ExportsRoute
   '/ingestion': typeof IngestionRouteWithChildren
-  '/join-testing': typeof JoinTestingRoute
   '/demo/table': typeof DemoTableRoute
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
   '/entity/$entityId': typeof EntityEntityIdRoute
@@ -248,7 +240,6 @@ export interface FileRoutesById {
   '/entity-schemas': typeof EntitySchemasRoute
   '/exports': typeof ExportsRoute
   '/ingestion': typeof IngestionRouteWithChildren
-  '/join-testing': typeof JoinTestingRoute
   '/transformations': typeof TransformationsRouteWithChildren
   '/demo/table': typeof DemoTableRoute
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
@@ -280,7 +271,6 @@ export interface FileRouteTypes {
     | '/entity-schemas'
     | '/exports'
     | '/ingestion'
-    | '/join-testing'
     | '/transformations'
     | '/demo/table'
     | '/demo/tanstack-query'
@@ -309,7 +299,6 @@ export interface FileRouteTypes {
     | '/entity-schemas'
     | '/exports'
     | '/ingestion'
-    | '/join-testing'
     | '/demo/table'
     | '/demo/tanstack-query'
     | '/entity/$entityId'
@@ -337,7 +326,6 @@ export interface FileRouteTypes {
     | '/entity-schemas'
     | '/exports'
     | '/ingestion'
-    | '/join-testing'
     | '/transformations'
     | '/demo/table'
     | '/demo/tanstack-query'
@@ -368,7 +356,6 @@ export interface RootRouteChildren {
   EntitySchemasRoute: typeof EntitySchemasRoute
   ExportsRoute: typeof ExportsRoute
   IngestionRoute: typeof IngestionRouteWithChildren
-  JoinTestingRoute: typeof JoinTestingRoute
   TransformationsRoute: typeof TransformationsRouteWithChildren
   DemoTableRoute: typeof DemoTableRoute
   DemoTanstackQueryRoute: typeof DemoTanstackQueryRoute
@@ -392,13 +379,6 @@ declare module '@tanstack/react-router' {
       path: '/transformations'
       fullPath: '/transformations'
       preLoaderRoute: typeof TransformationsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/join-testing': {
-      id: '/join-testing'
-      path: '/join-testing'
-      fullPath: '/join-testing'
-      preLoaderRoute: typeof JoinTestingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/ingestion': {
@@ -654,7 +634,6 @@ const rootRouteChildren: RootRouteChildren = {
   EntitySchemasRoute: EntitySchemasRoute,
   ExportsRoute: ExportsRoute,
   IngestionRoute: IngestionRouteWithChildren,
-  JoinTestingRoute: JoinTestingRoute,
   TransformationsRoute: TransformationsRouteWithChildren,
   DemoTableRoute: DemoTableRoute,
   DemoTanstackQueryRoute: DemoTanstackQueryRoute,

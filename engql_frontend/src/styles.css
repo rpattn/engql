@@ -1,15 +1,290 @@
 @import "tailwindcss";
 
+:root {
+  color-scheme: light dark;
+
+  --app-background: 248 250 252;
+  --app-foreground: 15 23 42;
+  --app-muted: 100 116 139;
+  --app-border: 226 232 240;
+  --app-surface: 255 255 255;
+  --app-surface-muted: 241 245 249;
+  --app-overlay: 15 23 42 / 0.55;
+  --app-header: 255 255 255;
+  --app-header-border: 226 232 240;
+
+  --status-default-text: 71 85 105;
+  --status-default-border: 203 213 225;
+  --status-default-bg: rgba(148, 163, 184, 0.12);
+  --status-completed-text: 21 128 61;
+  --status-completed-border: 134 239 172;
+  --status-completed-bg: rgba(74, 222, 128, 0.14);
+  --status-failed-text: 185 28 28;
+  --status-failed-border: 248 113 113;
+  --status-failed-bg: rgba(248, 113, 113, 0.16);
+  --status-cancelled-text: 126 34 206;
+  --status-cancelled-border: 192 132 252;
+  --status-cancelled-bg: rgba(192, 132, 252, 0.16);
+  --status-pending-text: 194 65 12;
+  --status-pending-border: 253 186 116;
+  --status-pending-bg: rgba(253, 186, 116, 0.18);
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --app-background: 248 250 252;
+  --app-foreground: 15 23 42;
+  --app-muted: 100 116 139;
+  --app-border: 226 232 240;
+  --app-surface: 255 255 255;
+  --app-surface-muted: 241 245 249;
+  --app-overlay: 15 23 42 / 0.55;
+  --app-header: 255 255 255;
+  --app-header-border: 226 232 240;
+
+  --status-default-text: 71 85 105;
+  --status-default-border: 203 213 225;
+  --status-default-bg: rgba(148, 163, 184, 0.12);
+  --status-completed-text: 21 128 61;
+  --status-completed-border: 134 239 172;
+  --status-completed-bg: rgba(74, 222, 128, 0.14);
+  --status-failed-text: 185 28 28;
+  --status-failed-border: 248 113 113;
+  --status-failed-bg: rgba(248, 113, 113, 0.16);
+  --status-cancelled-text: 126 34 206;
+  --status-cancelled-border: 192 132 252;
+  --status-cancelled-bg: rgba(192, 132, 252, 0.16);
+  --status-pending-text: 194 65 12;
+  --status-pending-border: 253 186 116;
+  --status-pending-bg: rgba(253, 186, 116, 0.18);
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --app-background: 9 13 24;
+  --app-foreground: 226 232 240;
+  --app-muted: 148 163 184;
+  --app-border: 54 65 85;
+  --app-surface: 21 30 49;
+  --app-surface-muted: 28 41 68;
+  --app-overlay: 6 8 15 / 0.75;
+  --app-header: 15 23 42;
+  --app-header-border: 41 56 86;
+
+  --status-default-text: 203 213 225;
+  --status-default-border: 71 85 105;
+  --status-default-bg: rgba(148, 163, 184, 0.12);
+  --status-completed-text: 134 239 172;
+  --status-completed-border: 34 197 94;
+  --status-completed-bg: rgba(34, 197, 94, 0.18);
+  --status-failed-text: 248 113 113;
+  --status-failed-border: 239 68 68;
+  --status-failed-bg: rgba(239, 68, 68, 0.18);
+  --status-cancelled-text: 233 213 255;
+  --status-cancelled-border: 168 85 247;
+  --status-cancelled-bg: rgba(168, 85, 247, 0.2);
+  --status-pending-text: 253 230 138;
+  --status-pending-border: 234 179 8;
+  --status-pending-bg: rgba(234, 179, 8, 0.2);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --app-background: 9 13 24;
+    --app-foreground: 226 232 240;
+    --app-muted: 148 163 184;
+    --app-border: 54 65 85;
+    --app-surface: 21 30 49;
+    --app-surface-muted: 28 41 68;
+    --app-overlay: 6 8 15 / 0.75;
+    --app-header: 15 23 42;
+    --app-header-border: 41 56 86;
+
+    --status-default-text: 203 213 225;
+    --status-default-border: 71 85 105;
+    --status-default-bg: rgba(148, 163, 184, 0.12);
+    --status-completed-text: 134 239 172;
+    --status-completed-border: 34 197 94;
+    --status-completed-bg: rgba(34, 197, 94, 0.18);
+    --status-failed-text: 248 113 113;
+    --status-failed-border: 239 68 68;
+    --status-failed-bg: rgba(239, 68, 68, 0.18);
+    --status-cancelled-text: 233 213 255;
+    --status-cancelled-border: 168 85 247;
+    --status-cancelled-bg: rgba(168, 85, 247, 0.2);
+    --status-pending-text: 253 230 138;
+    --status-pending-border: 234 179 8;
+    --status-pending-bg: rgba(234, 179, 8, 0.2);
+  }
+}
+
 body {
-  @apply m-0;
+  @apply m-0 min-h-screen;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
     "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-color: rgb(var(--app-background));
+  color: rgb(var(--app-foreground));
 }
 
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New",
     monospace;
+}
+
+.app-shell {
+  min-height: 100vh;
+  background-color: rgb(var(--app-background));
+  color: rgb(var(--app-foreground));
+}
+
+.header-surface {
+  background-color: rgb(var(--app-header));
+  border-bottom: 1px solid rgb(var(--app-header-border));
+  color: rgb(var(--app-foreground));
+}
+
+.drawer-surface {
+  background-color: rgb(var(--app-surface));
+  color: rgb(var(--app-foreground));
+  border-right: 1px solid rgb(var(--app-border));
+}
+
+.backdrop-overlay {
+  background-color: color-mix(in srgb, rgb(var(--app-overlay)), transparent 40%);
+}
+
+.bg-app {
+  background-color: rgb(var(--app-background));
+}
+
+.bg-surface {
+  background-color: rgb(var(--app-surface));
+}
+
+.bg-subtle {
+  background-color: rgb(var(--app-surface-muted));
+}
+
+.border-subtle {
+  border-color: rgb(var(--app-border));
+}
+
+.text-muted {
+  color: rgb(var(--app-muted));
+}
+
+.hover\:bg-subtle:hover {
+  background-color: rgb(var(--app-surface-muted));
+}
+
+.hover\:border-subtle:hover {
+  border-color: rgb(var(--app-border));
+}
+
+.ring-app {
+  --tw-ring-color: rgba(var(--app-foreground), 0.18);
+}
+
+.shadow-elevated {
+  box-shadow: 0 10px 30px rgba(var(--app-foreground), 0.08);
+}
+
+.text-slate-100,
+.text-slate-200,
+.text-slate-300 {
+  color: color-mix(in srgb, rgb(var(--app-foreground)), white 25%);
+}
+
+.text-slate-400,
+.text-slate-500 {
+  color: color-mix(in srgb, rgb(var(--app-foreground)), rgb(var(--app-background)) 45%);
+}
+
+.text-slate-600,
+.text-slate-700 {
+  color: color-mix(in srgb, rgb(var(--app-foreground)), rgb(var(--app-background)) 25%);
+}
+
+.text-slate-800,
+.text-slate-900,
+.text-slate-950 {
+  color: rgb(var(--app-foreground));
+}
+
+.bg-slate-900,
+.bg-slate-950,
+.bg-slate-900\/60,
+.bg-slate-900\/70,
+.bg-slate-900\/80,
+.bg-slate-950\/60,
+.bg-slate-950\/70 {
+  background-color: color-mix(in srgb, rgb(var(--app-surface)), rgb(var(--app-background)) 18%);
+}
+
+.hover\:bg-slate-900\/60:hover,
+.hover\:bg-slate-900\/70:hover {
+  background-color: color-mix(in srgb, rgb(var(--app-surface)), rgb(var(--app-background)) 28%);
+}
+
+.border-slate-600,
+.border-slate-700,
+.border-slate-800,
+.border-slate-900 {
+  border-color: rgb(var(--app-border));
+}
+
+.divide-slate-800 > :not([hidden]) ~ :not([hidden]) {
+  border-color: rgb(var(--app-border));
+}
+
+.shadow-slate-950\/40 {
+  box-shadow: 0 20px 45px rgba(var(--app-foreground), 0.12);
+}
+
+.focus\:ring-slate-400:focus {
+  --tw-ring-color: rgba(var(--app-foreground), 0.18);
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 9999px;
+  border: 1px solid rgb(var(--status-default-border));
+  background-color: var(--status-default-bg);
+  color: rgb(var(--status-default-text));
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.status-pill[data-variant='completed'] {
+  border-color: rgb(var(--status-completed-border));
+  background-color: var(--status-completed-bg);
+  color: rgb(var(--status-completed-text));
+}
+
+.status-pill[data-variant='failed'] {
+  border-color: rgb(var(--status-failed-border));
+  background-color: var(--status-failed-bg);
+  color: rgb(var(--status-failed-text));
+}
+
+.status-pill[data-variant='cancelled'] {
+  border-color: rgb(var(--status-cancelled-border));
+  background-color: var(--status-cancelled-bg);
+  color: rgb(var(--status-cancelled-text));
+}
+
+.status-pill[data-variant='pending'] {
+  border-color: rgb(var(--status-pending-border));
+  background-color: var(--status-pending-bg);
+  color: rgb(var(--status-pending-text));
 }

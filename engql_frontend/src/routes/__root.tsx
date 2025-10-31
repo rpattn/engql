@@ -7,6 +7,7 @@ import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
 
 import Header from '../components/Header'
+import { OrganizationsProvider } from '../features/organizations'
 
 import TanStackQueryDevtools from '../integrations/tanstack-query/devtools'
 
@@ -49,9 +50,13 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       <head>
         <HeadContent />
       </head>
-      <body>
-        <Header />
-        {children}
+      <body className="app-shell">
+        <OrganizationsProvider>
+          <Header />
+          <main className="relative z-10 flex min-h-[calc(100vh-4rem)] flex-col pb-10 pt-6">
+            {children}
+          </main>
+        </OrganizationsProvider>
         <TanStackDevtools
           config={{
             position: 'bottom-right',

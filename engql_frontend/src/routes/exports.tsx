@@ -7,6 +7,7 @@ import {
   type EntityExportJobsQuery,
   useEntityExportJobsQuery,
 } from '@/generated/graphql'
+import { OrganizationSelect, useOrganizations } from '@/features/organizations'
 
 const ACTIVE_POLL_INTERVAL = 5_000
 const IDLE_POLL_INTERVAL = 15_000
@@ -21,7 +22,8 @@ export const Route = createFileRoute('/exports')({
 })
 
 function ExportsPage() {
-  const [organizationId, setOrganizationId] = useState('')
+  const { selectedOrganizationId, setSelectedOrganizationId } = useOrganizations()
+  const organizationId = selectedOrganizationId ?? ''
   const [limit, setLimit] = useState(50)
   const [offset, setOffset] = useState(0)
   const [cancelError, setCancelError] = useState<string | null>(null)
@@ -150,27 +152,27 @@ function ExportsPage() {
   }, [jobs])
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100">
-      <div className="mx-auto max-w-7xl px-6 py-8">
-        <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
+    <main className="bg-app">
+      <div className="mx-auto w-full max-w-6xl px-6 py-8">
+        <header className="mb-10 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-semibold text-cyan-300">Exports</h1>
-            <p className="mt-2 max-w-2xl text-sm text-slate-400">
-              Monitor export jobs, download completed files, and review failures. Jobs in the
-              pending or running state refresh automatically.
+            <h1 className="text-3xl font-semibold">Exports</h1>
+            <p className="mt-2 max-w-2xl text-sm text-muted">
+              Monitor export jobs, download completed files, and review failures. Jobs in the pending or running state refresh
+              automatically.
             </p>
           </div>
           <div className="flex items-center gap-3">
             <Link
               to="/ingestion/batches"
-              className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-200 transition hover:bg-slate-800"
+              className="rounded-md border border-subtle bg-surface px-4 py-2 text-sm font-medium transition hover:bg-subtle"
             >
               View ingestion batches
             </Link>
             <button
               type="button"
               onClick={() => exportsQuery.refetch()}
-              className="rounded-lg border border-cyan-500 px-4 py-2 text-sm font-medium text-cyan-300 transition hover:bg-cyan-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-blue-300"
               disabled={exportsQuery.isFetching || !enabled}
             >
               {exportsQuery.isFetching ? 'Refreshing…' : 'Refresh jobs'}
@@ -178,23 +180,22 @@ function ExportsPage() {
           </div>
         </header>
 
-        <section className="mb-8 rounded-xl border border-slate-800 bg-slate-950/60 p-5 shadow-lg shadow-slate-950/40">
-          <h2 className="text-lg font-semibold text-slate-200">Filter exports</h2>
+        <section className="mb-8 rounded-xl border border-subtle bg-surface p-5 shadow-sm">
+          <h2 className="text-lg font-semibold">Filter exports</h2>
           <div className="mt-4 grid gap-4 md:grid-cols-4">
-            <label className="flex flex-col text-sm text-slate-300">
-              <span className="mb-1 font-medium">Organization ID</span>
-              <input
-                value={organizationId}
-                onChange={(event) => {
-                  setOrganizationId(event.target.value)
+            <label className="flex flex-col text-sm font-medium text-muted">
+              <span className="mb-1">Organization</span>
+              <OrganizationSelect
+                value={selectedOrganizationId}
+                onChange={(value) => {
+                  setSelectedOrganizationId(value)
                   setOffset(0)
                 }}
-                placeholder="UUID"
-                className="rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white outline-none focus:border-cyan-400"
+                className="rounded-md border border-subtle bg-subtle px-3 py-2 text-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
               />
             </label>
-            <label className="flex flex-col text-sm text-slate-300">
-              <span className="mb-1 font-medium">Limit</span>
+            <label className="flex flex-col text-sm font-medium text-muted">
+              <span className="mb-1">Limit</span>
               <input
                 type="number"
                 min={1}
@@ -205,11 +206,11 @@ function ExportsPage() {
                     setLimit(parsed)
                   }
                 }}
-                className="rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white outline-none focus:border-cyan-400"
+                className="rounded-md border border-subtle bg-subtle px-3 py-2 text-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
               />
             </label>
-            <label className="flex flex-col text-sm text-slate-300">
-              <span className="mb-1 font-medium">Offset</span>
+            <label className="flex flex-col text-sm font-medium text-muted">
+              <span className="mb-1">Offset</span>
               <input
                 type="number"
                 min={0}
@@ -220,24 +221,18 @@ function ExportsPage() {
                     setOffset(parsed)
                   }
                 }}
-                className="rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white outline-none focus:border-cyan-400"
+                className="rounded-md border border-subtle bg-subtle px-3 py-2 text-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
               />
             </label>
-            <div className="flex flex-col justify-end text-xs text-slate-400">
+            <div className="flex flex-col justify-end text-xs text-muted">
               <p>Exports are scoped to a single organization.</p>
               <p className="mt-1">
                 Need different data? Queue exports from the{' '}
-                <Link
-                  to="/entities"
-                  className="font-semibold text-cyan-300 hover:underline"
-                >
+                <Link to="/entities" className="font-semibold text-blue-600 hover:underline">
                   Entities
                 </Link>{' '}
                 or{' '}
-                <Link
-                  to="/transformations"
-                  className="font-semibold text-cyan-300 hover:underline"
-                >
+                <Link to="/transformations" className="font-semibold text-blue-600 hover:underline">
                   Transformations
                 </Link>{' '}
                 screens.
@@ -247,15 +242,13 @@ function ExportsPage() {
         </section>
 
         {exportsQuery.isError ? (
-          <p className="mb-6 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          <p className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {(exportsQuery.error as Error).message}
           </p>
         ) : null}
 
         {cancelError ? (
-          <p className="mb-6 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-            {cancelError}
-          </p>
+          <p className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{cancelError}</p>
         ) : null}
 
         {enabled ? (
@@ -269,25 +262,23 @@ function ExportsPage() {
             <StatCard label="Rows exported" value={stats.rowsExported} />
           </section>
         ) : (
-          <p className="mb-8 text-sm text-slate-500">
-            Provide an organization ID to load export activity.
-          </p>
+          <p className="mb-8 text-sm text-muted">Select an organization to load export activity.</p>
         )}
 
-        <section className="mb-10 rounded-xl border border-slate-800 bg-slate-950/60 p-5 shadow-lg shadow-slate-950/40 text-slate-100">
+        <section className="mb-10 rounded-xl border border-subtle bg-surface p-5 shadow-sm">
           <header className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-slate-200">In-progress jobs</h2>
-            <span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs text-slate-400">
+            <h2 className="text-lg font-semibold">In-progress jobs</h2>
+            <span className="rounded-full border border-subtle bg-subtle px-3 py-1 text-xs font-medium text-muted">
               {inProgressJobs.length} active
             </span>
           </header>
 
           {!enabled ? (
-            <p className="text-sm text-slate-500">Enter an organization to view jobs.</p>
+            <p className="text-sm text-muted">Select an organization to view jobs.</p>
           ) : exportsQuery.isLoading ? (
-            <p className="text-sm text-slate-500">Loading export jobs…</p>
+            <p className="text-sm text-muted">Loading export jobs…</p>
           ) : inProgressJobs.length === 0 ? (
-            <p className="text-sm text-slate-500">No pending or running exports.</p>
+            <p className="text-sm text-muted">No pending or running exports.</p>
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
               {inProgressJobs.map((job) => {
@@ -295,18 +286,15 @@ function ExportsPage() {
                   cancelExportJobMutation.isPending &&
                   cancelExportJobMutation.variables?.id === job.id
                 return (
-                  <article
-                    key={job.id}
-                    className="rounded-lg border border-slate-800 bg-slate-900/70 p-4 shadow-md shadow-slate-950/40"
-                  >
-                    <header className="flex items-center justify-between text-sm text-slate-400">
-                      <span className="font-semibold text-cyan-300">{jobDisplayName(job)}</span>
+                  <article key={job.id} className="rounded-lg border border-subtle bg-surface p-4 shadow-sm">
+                    <header className="flex items-center justify-between text-sm text-muted">
+                      <span className="font-semibold text-blue-600">{jobDisplayName(job)}</span>
                       <StatusBadge status={job.status} />
                     </header>
-                    <dl className="mt-3 space-y-2 text-xs text-slate-400">
+                    <dl className="mt-3 space-y-2 text-xs text-muted">
                       <div className="flex justify-between">
                         <dt>Job ID</dt>
-                        <dd className="font-mono text-slate-300">{job.id.slice(0, 8)}…</dd>
+                        <dd className="font-mono text-sm">{job.id.slice(0, 8)}…</dd>
                       </div>
                       <div className="flex justify-between">
                         <dt>Requested rows</dt>
@@ -332,7 +320,7 @@ function ExportsPage() {
                           setCancelError(null)
                           cancelExportJobMutation.mutate({ id: job.id })
                         }}
-                        className="inline-flex items-center rounded-md border border-red-400 px-3 py-1 text-xs font-medium text-red-200 transition hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="inline-flex items-center rounded-md border border-red-300 px-3 py-1 text-xs font-medium text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
                         disabled={cancelExportJobMutation.isPending}
                       >
                         {isCancelling ? 'Cancelling…' : 'Cancel job'}
@@ -345,78 +333,78 @@ function ExportsPage() {
           )}
         </section>
 
-        <section className="rounded-xl border border-slate-800 bg-slate-950/60 p-5 shadow-lg shadow-slate-950/40">
+        <section className="rounded-xl border border-subtle bg-surface p-5 shadow-sm">
           <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="text-lg font-semibold text-slate-200">Completed, failed, & cancelled jobs</h2>
-              <p className="mt-1 text-xs text-slate-500">
+              <h2 className="text-lg font-semibold">Completed, failed, & cancelled jobs</h2>
+              <p className="mt-1 text-xs text-muted">
                 Download completed files or review errors and cancellation reasons.
               </p>
             </div>
-            <span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs text-slate-400">
+            <span className="rounded-full border border-subtle bg-subtle px-3 py-1 text-xs font-medium text-muted">
               {historicalJobs.length} jobs
             </span>
           </header>
 
           {!enabled ? (
-            <p className="text-sm text-slate-500">Enter an organization to view job history.</p>
+            <p className="text-sm text-muted">Select an organization to view job history.</p>
           ) : exportsQuery.isLoading ? (
-            <p className="text-sm text-slate-500">Loading job history…</p>
+            <p className="text-sm text-muted">Loading job history…</p>
           ) : historicalJobs.length === 0 ? (
-            <p className="text-sm text-slate-500">No completed or failed exports yet.</p>
+            <p className="text-sm text-muted">No completed or failed exports yet.</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-slate-800 text-sm text-slate-100">
-                <thead className="bg-slate-900/80 text-xs uppercase text-slate-400">
+              <table className="min-w-full overflow-hidden rounded-lg border border-subtle bg-surface text-sm">
+                <thead className="bg-subtle text-xs font-semibold uppercase text-muted">
                   <tr>
-                    <th className="px-4 py-3 text-left font-semibold">Type</th>
-                    <th className="px-4 py-3 text-left font-semibold">Target</th>
-                    <th className="px-4 py-3 text-left font-semibold">Status</th>
-                    <th className="px-4 py-3 text-left font-semibold">Rows</th>
-                    <th className="px-4 py-3 text-left font-semibold">File size</th>
-                    <th className="px-4 py-3 text-left font-semibold">Enqueued</th>
-                    <th className="px-4 py-3 text-left font-semibold">Completed</th>
-                    <th className="px-4 py-3 text-left font-semibold">Actions</th>
-                    <th className="px-4 py-3 text-left font-semibold">Error</th>
+                    <th className="px-4 py-3 text-left">Type</th>
+                    <th className="px-4 py-3 text-left">Target</th>
+                    <th className="px-4 py-3 text-left">Status</th>
+                    <th className="px-4 py-3 text-left">Rows</th>
+                    <th className="px-4 py-3 text-left">File size</th>
+                    <th className="px-4 py-3 text-left">Enqueued</th>
+                    <th className="px-4 py-3 text-left">Completed</th>
+                    <th className="px-4 py-3 text-left">Actions</th>
+                    <th className="px-4 py-3 text-left">Error</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800">
+                <tbody className="[&>tr]:border-b [&>tr]:border-subtle [&>tr:last-child]:border-0">
                   {historicalJobs.map((job) => {
                     const downloadHref = buildDownloadHref(job.downloadUrl)
                     return (
-                      <tr key={job.id} className="hover:bg-slate-900/60">
-                        <td className="px-4 py-3 capitalize text-slate-200">{job.jobType.toLowerCase()}</td>
-                        <td className="px-4 py-3 text-slate-300">{jobDisplayName(job)}</td>
-                        <td className="px-4 py-3 text-slate-200">
+                      <tr key={job.id} className="transition hover:bg-subtle">
+                        <td className="px-4 py-3 capitalize">{job.jobType.toLowerCase()}</td>
+                        <td className="px-4 py-3">{jobDisplayName(job)}</td>
+                        <td className="px-4 py-3">
                           <StatusBadge status={job.status} />
                         </td>
-                        <td className="px-4 py-3 text-slate-300">
+                        <td className="px-4 py-3">
                           {job.rowsExported.toLocaleString()} / {job.rowsRequested.toLocaleString()}
                         </td>
-                        <td className="px-4 py-3 text-slate-300">
+                        <td className="px-4 py-3">
                           {job.fileByteSize != null ? formatBytes(job.fileByteSize) : '—'}
                         </td>
-                        <td className="px-4 py-3 text-slate-400">{formatTimestamp(job.enqueuedAt)}</td>
-                        <td className="px-4 py-3 text-slate-400">{job.completedAt ? formatTimestamp(job.completedAt) : '—'}</td>
-                        <td className="px-4 py-3 text-slate-200">
+                        <td className="px-4 py-3 text-muted">{formatTimestamp(job.enqueuedAt)}</td>
+                        <td className="px-4 py-3 text-muted">{job.completedAt ? formatTimestamp(job.completedAt) : '—'}</td>
+                        <td className="px-4 py-3">
                           {job.status === EntityExportJobStatus.Completed ? (
                             downloadHref ? (
                               <a
                                 href={downloadHref}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-flex items-center rounded-md border border-cyan-500 px-3 py-1 text-xs font-medium text-cyan-200 transition hover:bg-cyan-500/10"
+                                className="inline-flex items-center rounded-md border border-blue-500 px-3 py-1 text-xs font-medium text-blue-600 transition hover:bg-blue-50"
                               >
                                 Download
                               </a>
                             ) : (
-                              <span className="text-xs text-slate-500">Invalid download</span>
+                              <span className="text-xs text-muted">Invalid download</span>
                             )
                           ) : (
-                            <span className="text-xs text-slate-500">—</span>
+                            <span className="text-xs text-muted">—</span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-slate-400">{job.errorMessage ?? '—'}</td>
+                        <td className="px-4 py-3 text-muted">{job.errorMessage ?? '—'}</td>
                       </tr>
                     )
                   })}
@@ -481,28 +469,28 @@ function formatBytes(size: number) {
 
 function StatCard({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-lg border border-slate-800 bg-slate-950/70 px-4 py-3 text-slate-100 shadow shadow-slate-950/40">
-      <div className="text-xs uppercase tracking-wide text-slate-500">{label}</div>
-      <div className="mt-2 text-lg font-semibold text-cyan-300">{value.toLocaleString()}</div>
+    <div className="rounded-lg border border-subtle bg-surface px-4 py-3 shadow-sm">
+      <div className="text-xs font-semibold uppercase tracking-wide text-muted">{label}</div>
+      <div className="mt-2 text-xl font-semibold">{value.toLocaleString()}</div>
     </div>
   )
 }
 
 function StatusBadge({ status }: { status: EntityExportJobStatus | string }) {
   const normalized = status.toString().toUpperCase()
-  let colorClass = 'text-slate-300 border-slate-600 bg-slate-900/60'
+  let variant: 'completed' | 'failed' | 'cancelled' | 'pending' | undefined
   if (normalized === 'COMPLETED') {
-    colorClass = 'text-emerald-200 border-emerald-500/60 bg-emerald-500/10'
+    variant = 'completed'
   } else if (normalized === 'FAILED') {
-    colorClass = 'text-red-200 border-red-500/60 bg-red-500/10'
+    variant = 'failed'
   } else if (normalized === 'CANCELLED') {
-    colorClass = 'text-purple-200 border-purple-500/60 bg-purple-500/10'
+    variant = 'cancelled'
   } else if (normalized === 'PENDING' || normalized === 'RUNNING') {
-    colorClass = 'text-amber-200 border-amber-500/60 bg-amber-500/10'
+    variant = 'pending'
   }
 
   return (
-    <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${colorClass}`}>
+    <span className="status-pill" data-variant={variant}>
       {normalized}
     </span>
   )

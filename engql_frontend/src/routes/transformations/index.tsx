@@ -58,7 +58,7 @@ function TransformationsListRoute() {
 
   const handleCreate = () => {
     if (!trimmedOrgId) {
-      alert('Please enter an organization ID before creating a transformation.')
+      alert('Please select an organization before creating a transformation.')
       return
     }
 
@@ -90,11 +90,11 @@ function TransformationsListRoute() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold text-slate-800">Catalog</h2>
+        <h2 className="text-lg font-semibold">Catalog</h2>
         <button
           type="button"
           onClick={handleCreate}
-          className="rounded bg-blue-600 px-3 py-1 text-xs font-semibold text-white disabled:bg-blue-300"
+          className="rounded-md bg-blue-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-blue-400/60"
           disabled={!trimmedOrgId || createMutation.isPending}
         >
           {createMutation.isPending ? 'Creating…' : 'New transformation'}
@@ -102,13 +102,13 @@ function TransformationsListRoute() {
       </div>
 
       {!canLoad ? (
-        <p className="rounded border border-dashed border-slate-300 p-6 text-sm text-slate-500">
-          Provide an organization ID to load transformations.
+        <p className="rounded-lg border border-dashed border-subtle p-6 text-sm text-muted">
+          Select an organization to load transformations.
         </p>
       ) : listQuery.isLoading ? (
-        <p className="rounded border border-slate-200 p-6 text-sm text-slate-500">Loading…</p>
+        <p className="rounded-lg border border-subtle p-6 text-sm text-muted">Loading…</p>
       ) : listQuery.error ? (
-        <p className="rounded border border-rose-300 bg-rose-50 p-6 text-sm text-rose-700">
+        <p className="rounded-lg border border-red-500/40 bg-red-500/10 p-6 text-sm text-red-500">
           {(listQuery.error as Error).message}
         </p>
       ) : (

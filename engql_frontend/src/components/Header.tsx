@@ -1,81 +1,92 @@
 import { Link } from '@tanstack/react-router'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Boxes,
   Database,
   GitBranch,
-  GitMerge,
-  Home,
   Menu,
   History,
   Download,
   SquareFunction,
   Upload,
   X,
+  Moon,
+  Sun,
 } from 'lucide-react'
 
 export default function Header() {
   const [isOpen, setIsOpen] = useState(false)
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = window.localStorage.getItem('theme')
+      if (stored === 'light' || stored === 'dark') {
+        return stored
+      }
+
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+      return prefersDark ? 'dark' : 'light'
+    }
+
+    return 'light'
+  })
+
+  useEffect(() => {
+    if (typeof document === 'undefined' || typeof window === 'undefined') return
+
+    const root = document.documentElement
+    root.dataset.theme = theme
+    window.localStorage.setItem('theme', theme)
+  }, [theme])
 
   return (
     <>
-      <header className="p-4 flex items-center bg-gray-800 text-white shadow-lg">
+      <header className="header-surface sticky top-0 z-40 flex items-center gap-4 px-4 py-3 shadow-sm">
         <button
           onClick={() => setIsOpen(true)}
-          className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+          className="rounded-lg p-2 transition-colors hover:bg-subtle"
           aria-label="Open menu"
         >
           <Menu size={24} />
         </button>
-        <h1 className="ml-4 text-xl font-semibold">
-          <Link to="/">
-            <img
-              src="/logo512.png"
-              alt="TanStack Logo"
-              className="h-10"
-            />
-          </Link>
-        </h1>
+        <Link to="/entities" className="inline-flex items-center gap-3">
+          <img src="/logo512.png" alt="TanStack Logo" className="h-9" />
+          <span className="text-lg font-semibold tracking-tight">EngQL</span>
+        </Link>
       </header>
 
+      {isOpen ? (
+        <div
+          className="backdrop-overlay fixed inset-0 z-40 transition-opacity"
+          aria-hidden
+          onClick={() => setIsOpen(false)}
+        />
+      ) : null}
+
       <aside
-        className={`fixed top-0 left-0 h-full w-80 bg-gray-900 text-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col ${
+        className={`drawer-surface fixed top-0 left-0 z-50 flex h-full w-80 transform flex-col shadow-2xl transition-transform duration-300 ease-in-out ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="flex items-center justify-between p-4 border-b border-gray-700">
-          <h2 className="text-xl font-bold">Navigation</h2>
+        <div className="flex items-center justify-between border-b border-subtle px-4 py-3">
+          <h2 className="text-base font-semibold">Navigation</h2>
           <button
             onClick={() => setIsOpen(false)}
-            className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
+            className="rounded-lg p-2 transition-colors hover:bg-subtle"
             aria-label="Close menu"
           >
             <X size={24} />
           </button>
         </div>
 
-        <nav className="flex-1 p-4 overflow-y-auto">
-          <Link
-            to="/"
-            onClick={() => setIsOpen(false)}
-            className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition-colors mb-2"
-            activeProps={{
-              className:
-                'flex items-center gap-3 p-3 rounded-lg bg-cyan-600 hover:bg-cyan-700 transition-colors mb-2',
-            }}
-          >
-            <Home size={20} />
-            <span className="font-medium">Home</span>
-          </Link>
-
+        <nav className="flex-1 overflow-y-auto px-3 py-4">
           <Link
             to="/entity-schemas"
             onClick={() => setIsOpen(false)}
-            className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition-colors mb-2"
+            className="mb-2 flex items-center gap-3 rounded-lg p-3 font-medium transition-colors hover:bg-subtle"
             activeProps={{
               className:
-                'flex items-center gap-3 p-3 rounded-lg bg-cyan-600 hover:bg-cyan-700 transition-colors mb-2',
+                'mb-2 flex items-center gap-3 rounded-lg bg-cyan-600 p-3 font-medium text-white transition-colors hover:bg-cyan-600/90',
             }}
           >
             <Database size={20} />
@@ -85,10 +96,10 @@ export default function Header() {
           <Link
             to="/entities"
             onClick={() => setIsOpen(false)}
-            className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition-colors mb-2"
+            className="mb-2 flex items-center gap-3 rounded-lg p-3 font-medium transition-colors hover:bg-subtle"
             activeProps={{
               className:
-                'flex items-center gap-3 p-3 rounded-lg bg-cyan-600 hover:bg-cyan-700 transition-colors mb-2',
+                'mb-2 flex items-center gap-3 rounded-lg bg-cyan-600 p-3 font-medium text-white transition-colors hover:bg-cyan-600/90',
             }}
           >
             <Boxes size={20} />
@@ -98,10 +109,10 @@ export default function Header() {
           <Link
             to="/transformations"
             onClick={() => setIsOpen(false)}
-            className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition-colors mb-2"
+            className="mb-2 flex items-center gap-3 rounded-lg p-3 font-medium transition-colors hover:bg-subtle"
             activeProps={{
               className:
-                'flex items-center gap-3 p-3 rounded-lg bg-cyan-600 hover:bg-cyan-700 transition-colors mb-2',
+                'mb-2 flex items-center gap-3 rounded-lg bg-cyan-600 p-3 font-medium text-white transition-colors hover:bg-cyan-600/90',
             }}
           >
             <GitBranch size={20} />
@@ -113,10 +124,10 @@ export default function Header() {
           <Link
             to="/demo/start/server-funcs"
             onClick={() => setIsOpen(false)}
-            className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition-colors mb-2"
+            className="mb-2 flex items-center gap-3 rounded-lg p-3 font-medium transition-colors hover:bg-subtle"
             activeProps={{
               className:
-                'flex items-center gap-3 p-3 rounded-lg bg-cyan-600 hover:bg-cyan-700 transition-colors mb-2',
+                'mb-2 flex items-center gap-3 rounded-lg bg-cyan-600 p-3 font-medium text-white transition-colors hover:bg-cyan-600/90',
             }}
           >
             <SquareFunction size={20} />
@@ -124,25 +135,12 @@ export default function Header() {
           </Link>
 
           <Link
-            to="/join-testing"
-            onClick={() => setIsOpen(false)}
-            className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition-colors mb-2"
-            activeProps={{
-              className:
-                'flex items-center gap-3 p-3 rounded-lg bg-cyan-600 hover:bg-cyan-700 transition-colors mb-2',
-            }}
-          >
-            <GitMerge size={20} />
-            <span className="font-medium">Join Testing</span>
-          </Link>
-
-          <Link
             to="/ingestion"
             onClick={() => setIsOpen(false)}
-            className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition-colors mb-2"
+            className="mb-2 flex items-center gap-3 rounded-lg p-3 font-medium transition-colors hover:bg-subtle"
             activeProps={{
               className:
-                'flex items-center gap-3 p-3 rounded-lg bg-cyan-600 hover:bg-cyan-700 transition-colors mb-2',
+                'mb-2 flex items-center gap-3 rounded-lg bg-cyan-600 p-3 font-medium text-white transition-colors hover:bg-cyan-600/90',
             }}
           >
             <Upload size={20} />
@@ -152,10 +150,10 @@ export default function Header() {
           <Link
             to="/ingestion/batches"
             onClick={() => setIsOpen(false)}
-            className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition-colors mb-2"
+            className="mb-2 flex items-center gap-3 rounded-lg p-3 font-medium transition-colors hover:bg-subtle"
             activeProps={{
               className:
-                'flex items-center gap-3 p-3 rounded-lg bg-cyan-600 hover:bg-cyan-700 transition-colors mb-2',
+                'mb-2 flex items-center gap-3 rounded-lg bg-cyan-600 p-3 font-medium text-white transition-colors hover:bg-cyan-600/90',
             }}
           >
             <History size={20} />
@@ -165,10 +163,10 @@ export default function Header() {
           <Link
             to="/exports"
             onClick={() => setIsOpen(false)}
-            className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition-colors mb-2"
+            className="mb-2 flex items-center gap-3 rounded-lg p-3 font-medium transition-colors hover:bg-subtle"
             activeProps={{
               className:
-                'flex items-center gap-3 p-3 rounded-lg bg-cyan-600 hover:bg-cyan-700 transition-colors mb-2',
+                'mb-2 flex items-center gap-3 rounded-lg bg-cyan-600 p-3 font-medium text-white transition-colors hover:bg-cyan-600/90',
             }}
           >
             <Download size={20} />
@@ -177,6 +175,20 @@ export default function Header() {
 
           {/* Demo Links End */}
         </nav>
+
+        <div className="border-t border-subtle px-4 py-3">
+          <button
+            type="button"
+            onClick={() =>
+              setTheme((current) => (current === 'light' ? 'dark' : 'light'))
+            }
+            className="flex w-full items-center justify-between rounded-lg border border-subtle bg-surface px-3 py-2 text-sm font-medium transition-colors hover:bg-subtle"
+            aria-label="Toggle color theme"
+          >
+            <span>{theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}</span>
+            {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
+          </button>
+        </div>
       </aside>
     </>
   )

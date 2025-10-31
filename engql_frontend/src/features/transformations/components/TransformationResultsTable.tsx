@@ -107,8 +107,8 @@ export function TransformationResultsTable({
   }
 
   return (
-    <div className="overflow-hidden rounded border border-slate-200 bg-white">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-2 text-xs text-slate-600">
+    <div className="overflow-hidden rounded-xl border border-subtle bg-surface shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-subtle px-4 py-2 text-xs text-muted">
         <div className="flex items-center gap-2">
           {summary}
           {isFetching && !isLoading ? <Loader2 className="h-3 w-3 animate-spin text-blue-500" /> : null}
@@ -119,7 +119,7 @@ export function TransformationResultsTable({
             <select
               value={pageSize}
               onChange={handlePageSizeChange}
-              className="rounded border border-slate-300 px-2 py-1 text-xs"
+              className="rounded-md border border-subtle bg-surface px-2 py-1 text-xs shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
             >
               {PAGE_SIZE_OPTIONS.map((option) => (
                 <option key={option} value={option}>
@@ -133,7 +133,7 @@ export function TransformationResultsTable({
               type="button"
               onClick={() => onPageChange(Math.max(0, page - 1))}
               disabled={page === 0 || !pageInfo?.hasPreviousPage}
-              className="rounded border border-slate-300 px-2 py-1 text-xs font-medium text-slate-600 disabled:opacity-40"
+              className="rounded-md border border-subtle px-2 py-1 text-xs font-medium text-muted transition hover:bg-subtle disabled:opacity-40"
             >
               Previous
             </button>
@@ -141,7 +141,7 @@ export function TransformationResultsTable({
               type="button"
               onClick={() => onPageChange(page + 1)}
               disabled={!pageInfo?.hasNextPage}
-              className="rounded border border-slate-300 px-2 py-1 text-xs font-medium text-slate-600 disabled:opacity-40"
+              className="rounded-md border border-subtle px-2 py-1 text-xs font-medium text-muted transition hover:bg-subtle disabled:opacity-40"
             >
               Next
             </button>
@@ -152,7 +152,7 @@ export function TransformationResultsTable({
                 type="button"
                 onClick={onExportResults}
                 disabled={isExporting}
-                className="rounded border border-blue-500 px-2 py-1 text-xs font-medium text-blue-600 transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-md border border-blue-500/50 px-2 py-1 text-xs font-medium text-blue-500 transition hover:bg-blue-500/10 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isExporting ? 'Exporting…' : 'Export results'}
               </button>
@@ -161,7 +161,7 @@ export function TransformationResultsTable({
               <button
                 type="button"
                 onClick={onRefresh}
-                className="rounded border border-slate-300 px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100"
+                className="rounded-md border border-subtle px-2 py-1 text-xs font-medium text-muted transition hover:bg-subtle"
               >
                 Refresh
               </button>
@@ -171,7 +171,7 @@ export function TransformationResultsTable({
       </div>
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-slate-200 text-sm">
-          <thead className="bg-slate-50">
+          <thead className="bg-subtle">
             <tr>
               {columns.map((column) => {
                 const hasFilter = Boolean(filters[column.key]?.length)
@@ -206,7 +206,7 @@ export function TransformationResultsTable({
                         className={`rounded border px-1.5 py-1 ${
                           hasFilter
                             ? 'border-blue-300 bg-blue-50 text-blue-600'
-                            : 'border-slate-300 text-slate-500 hover:bg-slate-100'
+                            : 'border-slate-300 text-slate-500 hover:bg-subtle'
                         }`}
                         aria-label={`Filter ${column.label}`}
                       >
@@ -249,7 +249,7 @@ export function TransformationResultsTable({
               </tr>
             ) : (
               rows.map((row, index) => (
-                <tr key={index} className="bg-white hover:bg-slate-50">
+                <tr key={index} className="bg-surface hover:bg-subtle">
                   {columns.map((column) => (
                     <td key={column.key} className="whitespace-pre-wrap px-4 py-2 text-xs text-slate-700">
                       {row[column.key] ?? ''}

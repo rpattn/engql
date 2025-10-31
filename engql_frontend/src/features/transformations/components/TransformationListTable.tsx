@@ -13,16 +13,16 @@ export function TransformationListTable({
 }) {
   if (!transformations.length) {
     return (
-      <div className="rounded border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">
+      <div className="rounded-lg border border-dashed border-subtle p-8 text-center text-sm text-muted">
         No transformations found for this organization yet. Create one to get started.
       </div>
     )
   }
 
   return (
-    <div className="overflow-hidden rounded border border-slate-200">
-      <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
-        <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+    <div className="overflow-hidden rounded-lg border border-subtle">
+      <table className="min-w-full divide-y divide-subtle text-left text-sm">
+        <thead className="bg-subtle text-xs font-semibold uppercase tracking-wide text-muted">
           <tr>
             <th className="px-4 py-2">Name</th>
             <th className="px-4 py-2">Description</th>
@@ -31,25 +31,25 @@ export function TransformationListTable({
             <th className="px-4 py-2 text-right">Actions</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100 bg-white">
+        <tbody className="divide-y divide-subtle/60 bg-surface">
           {transformations.map((transformation) => (
-            <tr key={transformation.id} className="hover:bg-slate-50">
-              <td className="px-4 py-3 font-medium text-slate-900">
+            <tr key={transformation.id} className="transition hover:bg-subtle">
+              <td className="px-4 py-3 font-medium">
                 <Link
                   to="/transformations/$transformationId"
                   params={{ transformationId: transformation.id }}
-                  className="text-blue-600 hover:underline"
+                  className="text-blue-600 transition hover:text-blue-400 hover:underline"
                 >
                   {transformation.name}
                 </Link>
               </td>
-              <td className="px-4 py-3 text-slate-600">
+              <td className="px-4 py-3 text-muted">
                 {transformation.description ?? '—'}
               </td>
-              <td className="px-4 py-3 text-slate-600">
+              <td className="px-4 py-3 text-muted">
                 {transformation.nodes.length}
               </td>
-              <td className="px-4 py-3 text-slate-600">
+              <td className="px-4 py-3 text-muted">
                 {new Date(transformation.updatedAt).toLocaleString()}
               </td>
               <td className="px-4 py-3">
@@ -57,28 +57,28 @@ export function TransformationListTable({
                   <Link
                     to="/transformations/$transformationId/execute"
                     params={{ transformationId: transformation.id }}
-                    className="rounded border border-blue-200 px-2 py-1 text-blue-600 hover:bg-blue-50"
+                    className="rounded border border-blue-500/40 px-2 py-1 text-blue-500 transition hover:border-blue-500 hover:bg-blue-500/10"
                   >
                     Execute
                   </Link>
                   <Link
                     to="/transformations/$transformationId/results"
                     params={{ transformationId: transformation.id }}
-                    className="rounded border border-emerald-200 px-2 py-1 text-emerald-600 hover:bg-emerald-50"
+                    className="rounded border border-emerald-500/40 px-2 py-1 text-emerald-400 transition hover:border-emerald-500 hover:bg-emerald-500/10"
                   >
                     Results
                   </Link>
                   <button
                     type="button"
                     onClick={() => onOpen(transformation.id)}
-                    className="rounded border border-slate-200 px-2 py-1 text-slate-600 hover:bg-slate-100"
+                    className="rounded border border-subtle px-2 py-1 text-muted transition hover:border-blue-500/60 hover:text-blue-500"
                   >
                     Open
                   </button>
                   <button
                     type="button"
                     onClick={() => onDelete(transformation.id)}
-                    className="rounded border border-rose-200 px-2 py-1 text-rose-600 hover:bg-rose-50"
+                    className="rounded border border-red-500/40 px-2 py-1 text-red-500 transition hover:border-red-500/60 hover:bg-red-500/10"
                   >
                     Delete
                   </button>

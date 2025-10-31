@@ -466,13 +466,15 @@ function TransformationDetailRoute() {
 
   if (detailQuery.isLoading) {
     return (
-      <p className="rounded border border-slate-200 p-6 text-sm text-slate-500">Loading…</p>
+      <p className="rounded-xl border border-subtle bg-surface p-6 text-sm text-muted shadow-sm">
+        Loading…
+      </p>
     )
   }
 
   if (detailQuery.error) {
     return (
-      <p className="rounded border border-rose-300 bg-rose-50 p-6 text-sm text-rose-700">
+      <p className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-6 text-sm text-rose-400 shadow-sm">
         {(detailQuery.error as Error).message}
       </p>
     )
@@ -480,7 +482,7 @@ function TransformationDetailRoute() {
 
   if (!transformation) {
     return (
-      <p className="rounded border border-slate-200 p-6 text-sm text-slate-500">
+      <p className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-6 text-sm text-amber-500 shadow-sm">
         Transformation not found.
       </p>
     )
@@ -515,18 +517,18 @@ function TransformationDetailRoute() {
         isExecuting={false}
         isDirty={isDirty}
         extra={
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 text-muted">
             <Link
               to="/transformations/$transformationId/results"
               params={{ transformationId }}
-              className="rounded border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100"
+              className="rounded-md border border-subtle px-3 py-1 text-xs font-semibold transition hover:border-blue-500/60 hover:text-blue-500"
             >
               View results
             </Link>
-            <label className="flex items-center gap-2 text-xs font-medium text-slate-600">
+            <label className="flex items-center gap-2 text-xs font-medium">
               <input
                 type="checkbox"
-                className="h-3 w-3 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                className="h-3 w-3 rounded border-subtle text-blue-500 focus:ring-blue-500"
                 checked={isAutoSaveEnabled}
                 onChange={(event) => setIsAutoSaveEnabled(event.target.checked)}
               />
@@ -535,7 +537,7 @@ function TransformationDetailRoute() {
             <button
               type="button"
               onClick={() => setPreviewRefreshKey((key) => key + 1)}
-              className="rounded border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100"
+              className="rounded-md border border-subtle px-3 py-1 text-xs font-medium transition hover:bg-subtle"
             >
               Refresh preview
             </button>
@@ -544,32 +546,32 @@ function TransformationDetailRoute() {
       />
 
       <section className="grid gap-4 md:grid-cols-2">
-        <div className="space-y-3 rounded border border-slate-200 bg-white p-4">
-          <label className="block text-xs font-semibold text-slate-600">
+        <div className="space-y-3 rounded-xl border border-subtle bg-surface p-5 shadow-sm">
+          <label className="block text-xs font-semibold text-muted">
             Name
             <input
               value={name}
               onChange={(event) => setName(event.target.value)}
-              className="mt-1 w-full rounded border border-slate-300 px-3 py-1 text-sm"
+              className="mt-1 w-full rounded-md border border-subtle bg-surface px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
             />
           </label>
-          <label className="block text-xs font-semibold text-slate-600">
+          <label className="block text-xs font-semibold text-muted">
             Description
             <textarea
               value={description}
               onChange={(event) => setDescription(event.target.value)}
-              className="mt-1 w-full rounded border border-slate-300 px-3 py-1 text-sm"
+              className="mt-1 w-full rounded-md border border-subtle bg-surface px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
               rows={3}
             />
           </label>
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-500">
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs text-muted">
             <div>
               <dt className="font-semibold text-slate-600">Transformation ID</dt>
-              <dd className="truncate text-slate-500">{transformation.id}</dd>
+              <dd className="truncate text-muted">{transformation.id}</dd>
             </div>
             <div>
               <dt className="font-semibold text-slate-600">Organization</dt>
-              <dd className="text-slate-500">{transformation.organizationId}</dd>
+              <dd className="text-muted">{transformation.organizationId}</dd>
             </div>
             <div>
               <dt className="font-semibold text-slate-600">Created</dt>
@@ -592,7 +594,7 @@ function TransformationDetailRoute() {
         />
         <div
           ref={canvasContainerRef}
-          className="min-h-[520px] rounded border border-slate-200 bg-white p-2"
+          className="min-h-[520px] rounded-xl border border-subtle bg-subtle p-2 shadow-inner"
         >
           <TransformationCanvas
             controller={graphController}

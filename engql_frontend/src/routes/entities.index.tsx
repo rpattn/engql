@@ -8,7 +8,6 @@ import {
   useDeleteEntityMutation,
   useEntitiesManagementQuery,
   useEntitySchemasQuery,
-  useGetOrganizationsQuery,
   useQueueEntityTypeExportMutation,
   useUpdateEntityMutation,
 } from '../generated/graphql'
@@ -26,7 +25,7 @@ import {
   prepareFieldValueForSubmit,
   safeParseProperties,
 } from '../features/entities/components/helpers'
-import { loadLastOrganizationId, persistLastOrganizationId } from '../lib/browserStorage'
+import { OrganizationSelect, useOrganizations } from '@/features/organizations'
 
 type FeedbackState = { type: 'success' | 'error'; message: string; context?: 'export' }
 
@@ -40,12 +39,12 @@ export const Route = createFileRoute('/entities/')({
 
 function EntitiesPage() {
   const queryClient = useQueryClient()
-  const organizationsQuery = useGetOrganizationsQuery()
-  const organizations = organizationsQuery.data?.organizations ?? []
-
-  const [selectedOrgId, setSelectedOrgId] = useState<string | null>(
-    () => loadLastOrganizationId(),
-  )
+  const {
+    organizations,
+    selectedOrganizationId: selectedOrgId,
+    setSelectedOrganizationId: setSelectedOrgId,
+    isLoading: organizationsLoading,
+  } = useOrganizations()
   const [selectedSchemaId, setSelectedSchemaId] = useState<string | null>(null)
   const [columnFilters, setColumnFilters] = useState<Record<string, ColumnFilterValue>>({})
   const [hiddenFieldNames, setHiddenFieldNames] = useState<string[]>([])
@@ -55,30 +54,6 @@ function EntitiesPage() {
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
   const [sortState, setSortState] = useState<SortState | null>(null)
-
-  useEffect(() => {
-    if (organizations.length === 0) {
-      setSelectedOrgId(null)
-      return
-    }
-
-    setSelectedOrgId((current) => {
-      const activeId =
-        current && organizations.some((org) => org.id === current)
-          ? current
-          : loadLastOrganizationId()
-
-      if (activeId && organizations.some((org) => org.id === activeId)) {
-        return activeId
-      }
-
-      return organizations[0]?.id ?? null
-    })
-  }, [organizations])
-
-  useEffect(() => {
-    persistLastOrganizationId(selectedOrgId)
-  }, [selectedOrgId])
 
   const entitySchemasQuery = useEntitySchemasQuery(
     { organizationId: selectedOrgId ?? '' },
@@ -422,132 +397,128 @@ function EntitiesPage() {
     selectedOrgId && organizations.find((org) => org.id === selectedOrgId)
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-8 text-gray-900">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-semibold">Entities</h1>
-          <p className="mt-1 text-sm text-gray-600">
-            Browse, create, and maintain entities for a chosen schema.
-          </p>
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-8">
+      <section className="rounded-2xl border border-subtle bg-surface p-6 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-semibold">Entities</h1>
+            <p className="mt-1 text-sm text-muted">
+              Browse, create, and maintain entities for a chosen schema.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setModalState({ mode: 'create' })}
+              disabled={!selectedOrgId || !selectedSchema}
+              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-blue-400/60"
+            >
+              Add Entity
+            </button>
+            <button
+              type="button"
+              onClick={handleQueueEntityExport}
+              disabled={
+                !selectedOrgId ||
+                !selectedSchema ||
+                queueEntityTypeExportMutation.isPending
+              }
+              className="rounded-md border border-blue-500/70 px-4 py-2 text-sm font-medium text-blue-600 transition hover:bg-blue-500/10 disabled:cursor-not-allowed disabled:border-blue-500/40 disabled:text-blue-500/60"
+            >
+              {queueEntityTypeExportMutation.isPending
+                ? 'Queuing export…'
+                : 'Export all rows'}
+            </button>
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setModalState({ mode: 'create' })}
-            disabled={!selectedOrgId || !selectedSchema}
-            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-blue-300"
-          >
-            Add Entity
-          </button>
-          <button
-            type="button"
-            onClick={handleQueueEntityExport}
-            disabled={
-              !selectedOrgId ||
-              !selectedSchema ||
-              queueEntityTypeExportMutation.isPending
-            }
-            className="rounded-md border border-blue-500 px-4 py-2 text-sm font-medium text-blue-700 transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {queueEntityTypeExportMutation.isPending
-              ? 'Queuing export…'
-              : 'Export all rows'}
-          </button>
-        </div>
-      </div>
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-[2fr,2fr,1fr] sm:items-end">
-        <label className="flex flex-col text-sm font-medium text-gray-700">
-          Organization
-          <select
-            value={selectedOrgId ?? ''}
-            onChange={(event) => {
-              setSelectedOrgId(event.target.value || null)
-              setFeedback(null)
-            }}
-            className="mt-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
-          >
-            <option value="" disabled>
-              Select an organization
-            </option>
-            {organizations.map((organization) => (
-              <option key={organization.id} value={organization.id}>
-                {organization.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="mt-6 grid gap-4 sm:grid-cols-[2fr,2fr,1fr] sm:items-end">
+          <label className="flex flex-col text-sm">
+            <span className="text-muted">Organization</span>
+            <OrganizationSelect
+              value={selectedOrgId}
+              onChange={(value) => {
+                setSelectedOrgId(value)
+                setFeedback(null)
+              }}
+              className="mt-1"
+            />
+          </label>
 
-        <label className="flex flex-col text-sm font-medium text-gray-700">
-          Entity schema
-          <select
-            value={selectedSchemaId ?? ''}
-            onChange={(event) => {
-              setSelectedSchemaId(event.target.value || null)
-              setFeedback(null)
-            }}
-            disabled={schemas.length === 0}
-            className="mt-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:bg-gray-100"
-          >
-            {schemas.length === 0 && (
-              <option value="" disabled>
-                No schemas available
-              </option>
+          <label className="flex flex-col text-sm">
+            <span className="text-muted">Entity schema</span>
+            <select
+              value={selectedSchemaId ?? ''}
+              onChange={(event) => {
+                setSelectedSchemaId(event.target.value || null)
+                setFeedback(null)
+              }}
+              disabled={schemas.length === 0}
+              className="mt-1 rounded-md border border-subtle bg-subtle px-3 py-2 text-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:bg-subtle/70"
+            >
+              {schemas.length === 0 && (
+                <option value="" disabled>
+                  No schemas available
+                </option>
+              )}
+              {schemas.map((schema) => (
+                <option key={schema.id} value={schema.id}>
+                  {schema.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <div className="text-xs text-muted">
+            {activeOrganization ? (
+              <p>
+                Working in{' '}
+                <span className="font-semibold text-blue-500">
+                  {activeOrganization.name}
+                </span>
+              </p>
+            ) : organizationsLoading ? (
+              <p>Loading organizations…</p>
+            ) : (
+              <p>Select an organization.</p>
             )}
-            {schemas.map((schema) => (
-              <option key={schema.id} value={schema.id}>
-                {schema.name}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <div className="text-xs text-gray-500">
-          {activeOrganization ? (
-            <p>
-              Working in <span className="font-semibold">{activeOrganization.name}</span>
-            </p>
-          ) : organizationsQuery.isLoading ? (
-            <p>Loading organizations…</p>
-          ) : (
-            <p>Select an organization.</p>
-          )}
+          </div>
         </div>
-      </div>
 
-      {feedback && (
-        <div
-          className={`mt-4 rounded-md border px-4 py-2 text-sm ${
-            feedback.type === 'success'
-              ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-              : 'border-red-200 bg-red-50 text-red-700'
-          }`}
-        >
-          <p>{feedback.message}</p>
-          {feedback.context === 'export' && feedback.type === 'success' ? (
-            <p className="mt-1 text-xs">
-              Track progress on the{' '}
-              <Link to="/exports" className="font-semibold text-blue-600 underline">
-                Exports page
-              </Link>
-              .
-            </p>
-          ) : null}
-        </div>
-      )}
+        {feedback && (
+          <div
+            className={`mt-4 rounded-md border px-4 py-2 text-sm ${
+              feedback.type === 'success'
+                ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-500'
+                : 'border-red-500/40 bg-red-500/10 text-red-500'
+            }`}
+          >
+            <p>{feedback.message}</p>
+            {feedback.context === 'export' && feedback.type === 'success' ? (
+              <p className="mt-1 text-xs">
+                Track progress on the{' '}
+                <Link to="/exports" className="font-semibold text-blue-500 underline">
+                  Exports page
+                </Link>
+                .
+              </p>
+            ) : null}
+          </div>
+        )}
 
-      {entitiesQuery.error && (
-        <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
-          {(entitiesQuery.error as Error).message}
-        </div>
-      )}
+        {entitiesQuery.error && (
+          <div className="mt-4 rounded-md border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm text-red-500">
+            {(entitiesQuery.error as Error).message}
+          </div>
+        )}
+      </section>
 
-      <div className="mt-6 space-y-4">
-        <EntityTable
-          rows={tableRows}
-          schemaFields={selectedSchema?.fields ?? []}
-          columnFilters={columnFilters}
-          onColumnFilterChange={handleColumnFilterChange}
+      <section className="rounded-2xl border border-subtle bg-surface p-6 shadow-sm">
+      <EntityTable
+        rows={tableRows}
+        schemaFields={selectedSchema?.fields ?? []}
+        columnFilters={columnFilters}
+        onColumnFilterChange={handleColumnFilterChange}
           onEdit={(entity) => setModalState({ mode: 'edit', entity })}
           onDelete={handleDeleteEntity}
           summaryLabel={summaryLabel}
@@ -559,8 +530,8 @@ function EntitiesPage() {
           onSortChange={handleSortChange}
         />
 
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <label className="flex items-center gap-2 text-sm text-gray-600">
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
+          <label className="flex items-center gap-2 text-sm text-muted">
             <span>Rows per page:</span>
             <select
               value={pageSize}
@@ -571,7 +542,7 @@ function EntitiesPage() {
                   setPage(0)
                 }
               }}
-              className="rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+              className="rounded-md border border-subtle bg-subtle px-2 py-1 text-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
             >
               {PAGE_SIZE_OPTIONS.map((size) => (
                 <option key={size} value={size}>
@@ -587,11 +558,11 @@ function EntitiesPage() {
                 type="button"
                 onClick={() => setPage((value) => Math.max(value - 1, 0))}
                 disabled={page === 0}
-                className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:border-gray-400 hover:text-gray-900 disabled:cursor-not-allowed disabled:text-gray-400"
+                className="rounded-md border border-subtle px-4 py-2 text-sm font-medium text-muted transition hover:border-blue-500/60 hover:text-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Previous
               </button>
-              <div className="text-sm text-gray-600">
+              <div className="text-sm text-muted">
                 Page {Math.min(page + 1, totalPages)} of {totalPages}
               </div>
               <button
@@ -602,14 +573,14 @@ function EntitiesPage() {
                   }
                 }}
                 disabled={page + 1 >= totalPages}
-                className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:border-gray-400 hover:text-gray-900 disabled:cursor-not-allowed disabled:text-gray-400"
+                className="rounded-md border border-subtle px-4 py-2 text-sm font-medium text-muted transition hover:border-blue-500/60 hover:text-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Next
               </button>
             </div>
           )}
         </div>
-      </div>
+      </section>
 
       {modalState && selectedSchema && selectedOrgId && (
         <EntityEditorModal

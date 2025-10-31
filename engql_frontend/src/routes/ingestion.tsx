@@ -3,6 +3,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import type { ChangeEvent } from "react";
 import { graphqlRequest } from "../lib/graphql";
+import { OrganizationSelect, useOrganizations } from "@/features/organizations";
 
 type EntitiesByTypeResponse = {
   entitiesByType: Array<{
@@ -139,7 +140,10 @@ function IngestionPage() {
     return <Outlet />;
   }
 
-  const [organizationId, setOrganizationId] = useState("");
+  const { selectedOrganizationId, setSelectedOrganizationId } =
+    useOrganizations();
+  const organizationId = selectedOrganizationId ?? "";
+  const trimmedOrganizationId = organizationId.trim();
   const [schemaName, setSchemaName] = useState("");
   const [description, setDescription] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -158,22 +162,22 @@ function IngestionPage() {
     preview.totalRows > 0;
 
   const entitiesQuery = useQuery({
-    queryKey: ["entities-by-type", organizationId, schemaName],
+    queryKey: ["entities-by-type", trimmedOrganizationId, schemaName],
     enabled: false,
     queryFn: async () => {
       return graphqlRequest<EntitiesByTypeResponse>(ENTITIES_BY_TYPE_QUERY, {
-        organizationId: organizationId.trim(),
+        organizationId: trimmedOrganizationId,
         entityType: schemaName.trim(),
       });
     },
   });
 
   const schemaQuery = useQuery({
-    queryKey: ["schema-by-name", organizationId, schemaName],
+    queryKey: ["schema-by-name", trimmedOrganizationId, schemaName],
     enabled: false,
     queryFn: async () => {
       return graphqlRequest<EntitySchemaByNameResponse>(ENTITY_SCHEMA_QUERY, {
-        organizationId: organizationId.trim(),
+        organizationId: trimmedOrganizationId,
         name: schemaName.trim(),
       });
     },
@@ -189,13 +193,13 @@ function IngestionPage() {
     }
   >({
     mutationFn: async ({ file, headerRowIndex, columnOverrides }) => {
-      if (!organizationId.trim() || !schemaName.trim()) {
-        throw new Error("Organization ID and schema name are required for preview.");
+      if (!trimmedOrganizationId || !schemaName.trim()) {
+        throw new Error("Organization and schema name are required for preview.");
       }
 
       const formData = new FormData();
       formData.append("file", file);
-      formData.append("organizationId", organizationId.trim());
+      formData.append("organizationId", trimmedOrganizationId);
       formData.append("schemaName", schemaName.trim());
       if (description.trim()) {
         formData.append("description", description.trim());
@@ -269,13 +273,13 @@ function IngestionPage() {
       if (!file) {
         throw new Error("Please choose a CSV or XLSX file to upload.");
       }
-      if (!organizationId.trim() || !schemaName.trim()) {
-        throw new Error("Organization ID and schema name are required.");
+      if (!trimmedOrganizationId || !schemaName.trim()) {
+        throw new Error("Organization and schema name are required.");
       }
 
       const formData = new FormData();
       formData.append("file", file);
-      formData.append("organizationId", organizationId.trim());
+      formData.append("organizationId", trimmedOrganizationId);
       formData.append("schemaName", schemaName.trim());
       if (description.trim()) {
         formData.append("description", description.trim());
@@ -342,7 +346,7 @@ function IngestionPage() {
     const selectedFile = options?.fileOverride ?? file;
     if (
       !selectedFile ||
-      !organizationId.trim() ||
+      !trimmedOrganizationId ||
       !schemaName.trim()
     ) {
       return;
@@ -409,7 +413,7 @@ function IngestionPage() {
     if (!file) {
       return;
     }
-    if (!organizationId.trim() || !schemaName.trim()) {
+    if (!trimmedOrganizationId || !schemaName.trim()) {
       return;
     }
     triggerPreview();
@@ -464,13 +468,13 @@ function IngestionPage() {
   const hasEntities = parsedEntities.length > 0;
 
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-8 px-4 py-8 text-slate-200">
-      <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6 shadow-xl shadow-slate-950/40">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-8">
+      <section className="rounded-2xl border border-subtle bg-surface p-6 shadow-sm">
         <header className="mb-6">
-          <h1 className="text-2xl font-semibold text-cyan-300">
+          <h1 className="text-2xl font-semibold text-blue-600">
             Data Ingestion
           </h1>
-          <p className="mt-2 text-sm text-slate-400">
+          <p className="mt-2 text-sm text-muted">
             Upload a CSV or Excel file to detect the schema, validate rows, and
             push entities into the metadata store.
           </p>
@@ -478,45 +482,43 @@ function IngestionPage() {
 
         <div className="grid gap-4 md:grid-cols-2">
           <label className="flex flex-col text-sm">
-            <span className="mb-1 text-slate-300">Organization ID</span>
-            <input
-              type="text"
-              value={organizationId}
-              onChange={(event) => setOrganizationId(event.target.value)}
-              className="rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2 text-slate-100 outline-none focus:border-cyan-400"
-              placeholder="UUID of the organization"
+            <span className="mb-1 text-muted">Organization</span>
+            <OrganizationSelect
+              value={selectedOrganizationId}
+              onChange={(value) => setSelectedOrganizationId(value)}
+              className="rounded-lg border border-subtle bg-subtle px-3 py-2 text-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
             />
           </label>
 
           <label className="flex flex-col text-sm">
-            <span className="mb-1 text-slate-300">Schema Name</span>
+            <span className="mb-1 text-muted">Schema Name</span>
             <input
               type="text"
               value={schemaName}
               onChange={(event) => setSchemaName(event.target.value)}
-              className="rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2 text-slate-100 outline-none focus:border-cyan-400"
+              className="rounded-lg border border-subtle bg-subtle px-3 py-2 text-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
               placeholder="Entity type name"
             />
           </label>
 
           <label className="md:col-span-2 flex flex-col text-sm">
-            <span className="mb-1 text-slate-300">Description (optional)</span>
+            <span className="mb-1 text-muted">Description (optional)</span>
             <input
               type="text"
               value={description}
               onChange={(event) => setDescription(event.target.value)}
-              className="rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2 text-slate-100 outline-none focus:border-cyan-400"
+              className="rounded-lg border border-subtle bg-subtle px-3 py-2 text-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
               placeholder="Describe this schema"
             />
           </label>
 
           <label className="md:col-span-2 flex flex-col text-sm">
-            <span className="mb-1 text-slate-300">Upload CSV/XLSX</span>
+            <span className="mb-1 text-muted">Upload CSV/XLSX</span>
             <input
               type="file"
               accept=".csv, .xlsx"
               onChange={handleFileChange}
-              className="rounded-lg border border-dashed border-slate-600 bg-slate-950/70 px-3 py-2 text-slate-100 outline-none focus:border-cyan-400"
+              className="rounded-lg border border-dashed border-subtle bg-subtle px-3 py-2 text-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
             />
           </label>
         </div>
@@ -534,7 +536,7 @@ function IngestionPage() {
           <button
             onClick={() => entitiesQuery.refetch()}
             disabled={
-              !organizationId.trim() ||
+              !trimmedOrganizationId ||
               !schemaName.trim() ||
               entitiesQuery.isFetching
             }
@@ -546,7 +548,7 @@ function IngestionPage() {
           <button
             onClick={() => schemaQuery.refetch()}
             disabled={
-              !organizationId.trim() ||
+              !trimmedOrganizationId ||
               !schemaName.trim() ||
               schemaQuery.isFetching
             }
@@ -595,9 +597,9 @@ function IngestionPage() {
             <p className="text-slate-400">
               Select a CSV or XLSX file to generate a preview.
             </p>
-          ) : !organizationId.trim() || !schemaName.trim() ? (
+          ) : !trimmedOrganizationId || !schemaName.trim() ? (
             <p className="text-slate-400">
-              Provide both the organization ID and schema name to preview the
+              Select an organization and enter a schema name to preview the
               dataset.
             </p>
           ) : previewMutation.isPending ? (
@@ -857,9 +859,9 @@ function IngestionPage() {
           </div>
         )}
 
-        {!organizationId.trim() || !schemaName.trim() ? (
+        {!trimmedOrganizationId || !schemaName.trim() ? (
           <p className="text-sm text-slate-400">
-            Enter an organization ID and schema name, then fetch the schema.
+            Select an organization and enter a schema name, then fetch the schema.
           </p>
         ) : schemaQuery.isFetching ? (
           <p className="text-sm text-slate-400">Loading schema...</p>
@@ -921,9 +923,9 @@ function IngestionPage() {
           </span>
         </header>
 
-        {!organizationId.trim() || !schemaName.trim() ? (
+        {!trimmedOrganizationId || !schemaName.trim() ? (
           <p className="text-sm text-slate-400">
-            Provide an organization ID and schema name to load entities.
+            Select an organization and enter a schema name to load entities.
           </p>
         ) : hasEntities ? (
           <div className="overflow-auto rounded-xl border border-slate-800">

@@ -54,8 +54,8 @@ export function TransformationNode({ id, data, selected }: NodeProps<Transformat
 
   return (
     <div
-      className={`group/node relative min-w-[220px] rounded-lg border bg-white shadow-sm transition-shadow ${
-        selected ? 'border-blue-400 shadow-lg' : 'border-slate-200'
+      className={`group/node relative min-w-[220px] rounded-xl border bg-surface shadow-sm transition-shadow ${
+        selected ? 'border-blue-500 shadow-lg shadow-blue-500/20' : 'border-subtle'
       }`}
     >
       <Handle
@@ -80,7 +80,7 @@ export function TransformationNode({ id, data, selected }: NodeProps<Transformat
         <div>
           <p className="text-sm font-semibold text-slate-800">{data.name}</p>
           {data.validationMessage && (
-            <p className="mt-1 rounded border border-amber-300 bg-amber-50 px-2 py-1 text-[10px] font-medium text-amber-800">
+            <p className="mt-1 rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-[10px] font-medium text-amber-500">
               {data.validationMessage}
             </p>
           )}
@@ -99,7 +99,7 @@ export function TransformationNode({ id, data, selected }: NodeProps<Transformat
           <p className="text-xs text-slate-500">No additional configuration.</p>
         )}
       </div>
-      <footer className="flex items-center justify-between border-t border-slate-200 px-3 py-2 text-[11px] font-medium text-slate-600">
+      <footer className="flex items-center justify-between border-t border-subtle px-3 py-2 text-[11px] font-medium text-slate-600">
         <span>Inputs: {counts.incoming}</span>
         <span>Outputs: {counts.outgoing}</span>
       </footer>

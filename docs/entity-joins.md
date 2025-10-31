@@ -26,12 +26,9 @@ The schema introduces several new types (`EntityJoinDefinition`, `EntityJoinConn
    - Run the Go API so the new `entity_joins` table is migrated: `go run ./cmd/server` (from the project root).
    - Launch the React frontend: `npm install && npm run dev` inside `engql_frontend`.
 
-2. **Navigate to the Join Testing page**
-   - Visit `http://localhost:3000/join-testing`.
-   - Use the *Create Join Definition* form to supply organization + schema details. Choose between `REFERENCE` and `CROSS` joins; filters and sort criteria accept JSON arrays (helpers and defaults are pre-filled).
-   - Use *List Join Definitions* to fetch definitions for an organization. The grid view reuses the entity table styles for easy scanning.
-   - Execute a join via *Run Join* to preview paired entities. Results stream into the shared grid viewer with parsed property summaries.
-   - Update or delete a definition from the action buttons embedded in the table to validate round-trips quickly.
+2. **Exercise the GraphQL operations**
+   - Use GraphiQL, `curl`, or another API client to run the `createEntityJoinDefinition`, `entityJoinDefinitions`, and `executeEntityJoin` operations against the running server.
+   - Supply organization, join configuration, and optional filter/sort payloads to validate lifecycle flows end-to-end.
 
 3. **Backend validation (optional)**
    - The integration test `tests/entity_joins_test.go` exercises the full lifecycle (create/list/execute/update/delete) against the GraphQL endpoint for automated coverage.

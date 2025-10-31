@@ -11,13 +11,16 @@ function formatProperties(raw: string) {
 
 export function ResultEdgeCard({ edge }: { edge: EntityTransformationRecordEdge }) {
   return (
-    <div className="rounded border border-slate-200 bg-white p-3">
+    <div className="rounded-xl border border-subtle bg-surface p-4 shadow-sm">
       <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
         Edge
       </h4>
       <div className="mt-2 grid gap-3 md:grid-cols-2">
         {edge.entities.map((node) => (
-          <div key={`${node.alias}-${node.entity?.id ?? 'missing'}`} className="rounded border border-slate-100 p-2">
+          <div
+            key={`${node.alias}-${node.entity?.id ?? 'missing'}`}
+            className="rounded-lg border border-subtle bg-subtle p-3"
+          >
             <p className="text-xs font-semibold text-slate-600">{node.alias}</p>
             {node.entity ? (
               <ul className="mt-1 space-y-1 text-xs text-slate-600">
@@ -37,7 +40,7 @@ export function ResultEdgeCard({ edge }: { edge: EntityTransformationRecordEdge 
                 )}
                 <li>
                   <span className="font-medium">Properties:</span>
-                  <pre className="mt-1 max-h-40 overflow-auto rounded border border-slate-200 bg-slate-50 p-2 text-[11px] leading-snug text-slate-600">
+                  <pre className="mt-1 max-h-40 overflow-auto rounded-lg border border-subtle bg-surface p-2 text-[11px] leading-snug text-muted">
                     {formatProperties(node.entity.properties)}
                   </pre>
                 </li>
