@@ -117,6 +117,17 @@ func minPositive(a, b int) int {
 	}
 }
 
+func capacityForRequest(sourceLen int, req pageRequest) int {
+	if sourceLen <= 0 {
+		return 0
+	}
+	capacity := sourceLen
+	if req.limit > 0 && req.limit < capacity {
+		capacity = req.limit
+	}
+	return capacity
+}
+
 // NewExecutor constructs a transformation executor.
 func NewExecutor(entityRepo EntityRepository, schemaProvider SchemaProvider) *Executor {
 	return &Executor{entityRepo: entityRepo, schemaProvider: schemaProvider}
@@ -348,7 +359,7 @@ func (e *Executor) executeFilter(node domain.EntityTransformationNode, cache map
 		}
 	}
 	limiter := newPageLimiter(req)
-	filtered := make([]domain.EntityTransformationRecord, 0, len(inputRecords))
+	filtered := make([]domain.EntityTransformationRecord, 0, capacityForRequest(len(inputRecords), req))
 	for _, record := range inputRecords {
 		if !limiter.ShouldContinue() {
 			break
@@ -378,7 +389,7 @@ func (e *Executor) executeProject(node domain.EntityTransformationNode, cache ma
 		return nil, 0, fmt.Errorf("project input not found")
 	}
 	limiter := newPageLimiter(req)
-	projected := make([]domain.EntityTransformationRecord, 0, len(inputRecords))
+	projected := make([]domain.EntityTransformationRecord, 0, capacityForRequest(len(inputRecords), req))
 	for _, record := range inputRecords {
 		if !limiter.ShouldContinue() {
 			break
@@ -428,7 +439,7 @@ func (e *Executor) executeMaterialize(node domain.EntityTransformationNode, cach
 	}
 
 	limiter := newPageLimiter(req)
-	results := make([]domain.EntityTransformationRecord, 0, len(inputRecords))
+	results := make([]domain.EntityTransformationRecord, 0, capacityForRequest(len(inputRecords), req))
 	for _, record := range inputRecords {
 		if !limiter.ShouldContinue() {
 			break
