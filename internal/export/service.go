@@ -579,6 +579,7 @@ func (s *Service) runTransformationExport(ctx context.Context, job domain.Entity
 	if baseOffset < 0 {
 		baseOffset = 0
 	}
+	remainingOffset := baseOffset
 	requested := options.Limit
 	if requested < 0 {
 		requested = 0
@@ -605,10 +606,22 @@ func (s *Service) runTransformationExport(ctx context.Context, job domain.Entity
 				limit = remaining
 			}
 		}
-		if limit <= 0 {
+
+		requestLimit := limit
+		skipping := remainingOffset > 0
+		if skipping {
+			// While we still have rows to skip, focus on consuming the offset in bounded chunks.
+			requestLimit = remainingOffset
+			if requestLimit > s.pageSize {
+				requestLimit = s.pageSize
+			}
+		}
+
+		if requestLimit <= 0 {
 			break
 		}
-		pageOptions := domain.EntityTransformationExecutionOptions{Limit: limit, Offset: baseOffset + rowsExported}
+
+		pageOptions := domain.EntityTransformationExecutionOptions{Limit: requestLimit}
 		result, err := s.transformationExecutor.ExecuteStreaming(ctx, *transformation, pageOptions)
 		if err != nil {
 			return fmt.Errorf("execute transformation: %w", err)
@@ -626,8 +639,45 @@ func (s *Service) runTransformationExport(ctx context.Context, job domain.Entity
 		if len(result.Records) == 0 {
 			break
 		}
-		batchSize := len(result.Records)
-		for _, record := range result.Records {
+
+		consumed := len(result.Records)
+		start := 0
+		if skipping {
+			if consumed <= remainingOffset {
+				remainingOffset -= consumed
+				// Nothing from this batch is written; clear and continue.
+				for i := range result.Records {
+					for alias := range result.Records[i].Entities {
+						result.Records[i].Entities[alias] = nil
+					}
+					result.Records[i].Entities = nil
+				}
+				result.Records = nil
+				continue
+			}
+			start = remainingOffset
+			remainingOffset = 0
+			skipping = false
+		}
+
+		effective := result.Records[start:]
+		if !skipping && len(effective) > limit {
+			effective = effective[:limit]
+		}
+
+		batchSize := len(effective)
+		if batchSize == 0 {
+			for i := range result.Records {
+				for alias := range result.Records[i].Entities {
+					result.Records[i].Entities[alias] = nil
+				}
+				result.Records[i].Entities = nil
+			}
+			result.Records = nil
+			continue
+		}
+
+		for _, record := range effective {
 			for i, column := range columns {
 				rowBuffer[i] = ""
 				if entity := record.Entities[column.alias]; entity != nil {
@@ -661,7 +711,7 @@ func (s *Service) runTransformationExport(ctx context.Context, job domain.Entity
 		if rowsTarget > 0 && rowsExported >= rowsTarget {
 			shouldBreak = true
 		}
-		if !shouldBreak && batchSize < limit {
+		if !shouldBreak && !skipping && batchSize < limit {
 			shouldBreak = true
 		}
 		for i := range result.Records {
