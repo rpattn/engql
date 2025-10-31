@@ -586,10 +586,24 @@ func (s *Service) runTransformationExport(ctx context.Context, job domain.Entity
 	rowsTarget := requested
 	rowsExported := 0
 	totalCount := 0
+	consumedTotal := 0
 
 	rowBuffer := make([]string, len(columns))
 	const gcInterval = 500000
 	nextGCTrigger := gcInterval
+	var batch []domain.EntityTransformationRecord
+	batchIndex := 0
+	noMoreData := false
+
+	releaseRecord := func(record *domain.EntityTransformationRecord) {
+		if record == nil {
+			return
+		}
+		for alias := range record.Entities {
+			record.Entities[alias] = nil
+		}
+		record.Entities = nil
+	}
 
 	for {
 		if ctx.Err() != nil {
@@ -605,66 +619,128 @@ func (s *Service) runTransformationExport(ctx context.Context, job domain.Entity
 				limit = remaining
 			}
 		}
-
 		if limit <= 0 {
 			break
 		}
 
-		pageOptions := domain.EntityTransformationExecutionOptions{
-			Limit:  limit,
-			Offset: baseOffset + rowsExported,
-		}
-		result, err := s.transformationExecutor.ExecuteStreaming(ctx, *transformation, pageOptions)
-		if err != nil {
-			return fmt.Errorf("execute transformation: %w", err)
-		}
-		if rowsExported == 0 {
-			totalCount = result.TotalCount
-			if rowsTarget == 0 && totalCount > 0 {
-				remaining := totalCount - baseOffset
-				if remaining < 0 {
-					remaining = 0
-				}
-				rowsTarget = remaining
+		writtenThisPage := 0
+		for writtenThisPage < limit {
+			if ctx.Err() != nil {
+				return ctx.Err()
 			}
-		}
-		if len(result.Records) == 0 {
-			break
+			if len(batch) == 0 {
+				remainingOffset := baseOffset - consumedTotal
+				if remainingOffset < 0 {
+					remainingOffset = 0
+				}
+				requiredRows := limit - writtenThisPage
+				if requiredRows <= 0 {
+					requiredRows = limit
+				}
+				skip := remainingOffset
+				if skip > requiredRows {
+					skip = requiredRows
+				}
+				fetchLimit := requiredRows + skip
+				if fetchLimit <= 0 {
+					break
+				}
+				pageOptions := options
+				pageOptions.Limit = fetchLimit
+				pageOptions.Offset = consumedTotal
+				result, err := s.transformationExecutor.ExecuteStreaming(ctx, *transformation, pageOptions)
+				if err != nil {
+					return fmt.Errorf("execute transformation: %w", err)
+				}
+				if rowsExported == 0 && totalCount == 0 {
+					totalCount = result.TotalCount
+					if rowsTarget == 0 && totalCount > 0 {
+						remaining := totalCount - baseOffset
+						if remaining < 0 {
+							remaining = 0
+						}
+						rowsTarget = remaining
+					}
+				}
+				if len(result.Records) == 0 {
+					noMoreData = true
+					break
+				}
+				batch = result.Records
+				batchIndex = 0
+				actualSkip := remainingOffset
+				if actualSkip > len(batch) {
+					actualSkip = len(batch)
+				}
+				if actualSkip > 0 {
+					for i := 0; i < actualSkip; i++ {
+						releaseRecord(&batch[i])
+					}
+					batchIndex = actualSkip
+					consumedTotal += actualSkip
+					if batchIndex >= len(batch) {
+						batch = nil
+						continue
+					}
+				}
+			}
+			if len(batch) == 0 {
+				break
+			}
+			available := len(batch) - batchIndex
+			if available <= 0 {
+				for i := range batch {
+					releaseRecord(&batch[i])
+				}
+				batch = nil
+				batchIndex = 0
+				continue
+			}
+			toWrite := available
+			remainingForPage := limit - writtenThisPage
+			if remainingForPage < toWrite {
+				toWrite = remainingForPage
+			}
+			for i := 0; i < toWrite; i++ {
+				record := batch[batchIndex]
+				for j, column := range columns {
+					rowBuffer[j] = ""
+					if entity := record.Entities[column.alias]; entity != nil {
+						rowBuffer[j] = formatValue(entity.Properties[column.field])
+					}
+				}
+				if err := csvWriter.Write(rowBuffer); err != nil {
+					return fmt.Errorf("write transformation row: %w", err)
+				}
+				rowsExported++
+				consumedTotal++
+				batchIndex++
+				writtenThisPage++
+				if gcInterval > 0 && rowsExported >= nextGCTrigger {
+					runtime.GC()
+					nextGCTrigger += gcInterval
+				}
+				if rowsTarget > 0 && rowsExported >= rowsTarget {
+					writtenThisPage = limit
+					break
+				}
+			}
+			if batchIndex > 0 {
+				for i := 0; i < batchIndex; i++ {
+					releaseRecord(&batch[i])
+				}
+				if batchIndex >= len(batch) {
+					batch = nil
+				} else {
+					batch = batch[batchIndex:]
+				}
+				batchIndex = 0
+			}
+			if rowsTarget > 0 && rowsExported >= rowsTarget {
+				break
+			}
 		}
 
-		consumed := len(result.Records)
-		if consumed > limit {
-			consumed = limit
-		}
-
-		if consumed == 0 {
-			for i := range result.Records {
-				for alias := range result.Records[i].Entities {
-					result.Records[i].Entities[alias] = nil
-				}
-				result.Records[i].Entities = nil
-			}
-			result.Records = nil
-			continue
-		}
-
-		for i := 0; i < consumed; i++ {
-			record := result.Records[i]
-			for i, column := range columns {
-				rowBuffer[i] = ""
-				if entity := record.Entities[column.alias]; entity != nil {
-					rowBuffer[i] = formatValue(entity.Properties[column.field])
-				}
-			}
-			if err := csvWriter.Write(rowBuffer); err != nil {
-				return fmt.Errorf("write transformation row: %w", err)
-			}
-			rowsExported++
-			if gcInterval > 0 && rowsExported >= nextGCTrigger {
-				runtime.GC()
-				nextGCTrigger += gcInterval
-			}
-		}
 		csvWriter.Flush()
 		if err := csvWriter.Error(); err != nil {
 			return fmt.Errorf("flush rows: %w", err)
@@ -679,24 +755,22 @@ func (s *Service) runTransformationExport(ctx context.Context, job domain.Entity
 		if err := s.exportRepo.UpdateProgress(ctx, job.ID, rowsExported, counter.count, rowsPtr); err != nil {
 			return fmt.Errorf("update export progress: %w", err)
 		}
-		shouldBreak := false
 		if rowsTarget > 0 && rowsExported >= rowsTarget {
-			shouldBreak = true
-		}
-		if !shouldBreak && consumed < limit {
-			shouldBreak = true
-		}
-		for i := range result.Records {
-			// Release transformation batch memory promptly for streaming exports.
-			for alias := range result.Records[i].Entities {
-				result.Records[i].Entities[alias] = nil
-			}
-			result.Records[i].Entities = nil
-		}
-		result.Records = nil // Drop reference to transformation batch to allow GC.
-		if shouldBreak {
 			break
 		}
+		if noMoreData {
+			break
+		}
+		if writtenThisPage == 0 && len(batch) == 0 {
+			break
+		}
+	}
+
+	if len(batch) > 0 {
+		for i := range batch {
+			releaseRecord(&batch[i])
+		}
+		batch = nil
 	}
 
 	csvWriter.Flush()
