@@ -122,8 +122,22 @@ func NewExecutor(entityRepo EntityRepository, schemaProvider SchemaProvider) *Ex
 	return &Executor{entityRepo: entityRepo, schemaProvider: schemaProvider}
 }
 
-// Execute runs the transformation graph and returns paginated results.
+// Execute runs the transformation graph with full caching for maximum speed.
 func (e *Executor) Execute(ctx context.Context, transformation domain.EntityTransformation, opts domain.EntityTransformationExecutionOptions) (domain.EntityTransformationExecutionResult, error) {
+	return e.execute(ctx, transformation, opts, false)
+}
+
+// ExecuteStreaming runs the transformation graph with memory-optimized caching suited for streaming exports.
+func (e *Executor) ExecuteStreaming(ctx context.Context, transformation domain.EntityTransformation, opts domain.EntityTransformationExecutionOptions) (domain.EntityTransformationExecutionResult, error) {
+	return e.execute(ctx, transformation, opts, true)
+}
+
+func (e *Executor) execute(
+	ctx context.Context,
+	transformation domain.EntityTransformation,
+	opts domain.EntityTransformationExecutionOptions,
+	memoryOptimized bool,
+) (domain.EntityTransformationExecutionResult, error) {
 	sorted, err := transformation.TopologicallySortedNodes()
 	if err != nil {
 		return domain.EntityTransformationExecutionResult{}, err
@@ -139,6 +153,15 @@ func (e *Executor) Execute(ctx context.Context, transformation domain.EntityTran
 		finalNode := sorted[len(sorted)-1]
 		nodeRequests[finalNode.ID] = pageRequest{limit: opts.Limit, offset: opts.Offset}
 		requestCounts[finalNode.ID] = 1
+	}
+
+	remainingUses := make(map[uuid.UUID]int)
+	if memoryOptimized {
+		for _, node := range transformation.Nodes {
+			for _, input := range node.Inputs {
+				remainingUses[input]++
+			}
+		}
 	}
 
 	for i := len(sorted) - 1; i >= 0; i-- {
@@ -199,6 +222,22 @@ func (e *Executor) Execute(ctx context.Context, transformation domain.EntityTran
 		}
 		results[node.ID] = nodeResults
 		totals[node.ID] = total
+
+		if memoryOptimized {
+			for _, input := range node.Inputs {
+				if remaining, ok := remainingUses[input]; ok {
+					remaining--
+					if remaining <= 0 {
+						// Drop cached results once all dependents have consumed them.
+						delete(results, input)
+						delete(totals, input)
+						delete(remainingUses, input)
+					} else {
+						remainingUses[input] = remaining
+					}
+				}
+			}
+		}
 	}
 
 	if len(sorted) == 0 {
@@ -206,7 +245,7 @@ func (e *Executor) Execute(ctx context.Context, transformation domain.EntityTran
 	}
 
 	finalNode := sorted[len(sorted)-1]
-	finalRecords := append([]domain.EntityTransformationRecord(nil), results[finalNode.ID]...)
+	finalRecords := results[finalNode.ID]
 	totalCount := totals[finalNode.ID]
 	if totalCount == 0 {
 		totalCount = len(finalRecords)

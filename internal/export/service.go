@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -381,11 +382,14 @@ func (s *Service) runEntityTypeExport(ctx context.Context, job domain.EntityExpo
 		}
 	}()
 
-	buffered := bufio.NewWriter(tempFile)
+	buffered := bufio.NewWriterSize(tempFile, 1<<20) // 1 MiB buffer for streaming writes
 	counter := &countingWriter{writer: buffered}
 	csvWriter := csv.NewWriter(counter)
 
 	headers := schemaFieldNames(schema.Fields)
+	rows := make([]string, len(headers))
+	const gcInterval = 500000
+	nextGCTrigger := gcInterval
 	if len(headers) > 0 {
 		if err := csvWriter.Write(headers); err != nil {
 			return fmt.Errorf("write header: %w", err)
@@ -419,7 +423,7 @@ func (s *Service) runEntityTypeExport(ctx context.Context, job domain.EntityExpo
 		if len(entities) == 0 {
 			break
 		}
-		rows := make([]string, len(headers))
+		batchSize := len(entities)
 		for _, entity := range entities {
 			for i, field := range headers {
 				rows[i] = formatValue(entity.Properties[field])
@@ -428,6 +432,10 @@ func (s *Service) runEntityTypeExport(ctx context.Context, job domain.EntityExpo
 				return fmt.Errorf("write entity row: %w", err)
 			}
 			rowsExported++
+			if gcInterval > 0 && rowsExported >= nextGCTrigger {
+				runtime.GC()
+				nextGCTrigger += gcInterval
+			}
 		}
 		csvWriter.Flush()
 		if err := csvWriter.Error(); err != nil {
@@ -443,10 +451,19 @@ func (s *Service) runEntityTypeExport(ctx context.Context, job domain.EntityExpo
 		if err := s.exportRepo.UpdateProgress(ctx, job.ID, rowsExported, counter.count, requestedPtr); err != nil {
 			return fmt.Errorf("update export progress: %w", err)
 		}
+		shouldBreak := false
 		if rowsTarget > 0 && rowsExported >= rowsTarget {
-			break
+			shouldBreak = true
 		}
-		if len(entities) < pageSize {
+		if !shouldBreak && batchSize < pageSize {
+			shouldBreak = true
+		}
+		for i := range entities {
+			// Release entity batch memory promptly for streaming exports.
+			entities[i].Properties = nil
+		}
+		entities = nil // Drop reference to entity batch to allow GC.
+		if shouldBreak {
 			break
 		}
 		offset += pageSize
@@ -533,7 +550,7 @@ func (s *Service) runTransformationExport(ctx context.Context, job domain.Entity
 		}
 	}()
 
-	buffered := bufio.NewWriter(tempFile)
+	buffered := bufio.NewWriterSize(tempFile, 1<<20) // 1 MiB buffer for streaming writes
 	counter := &countingWriter{writer: buffered}
 	csvWriter := csv.NewWriter(counter)
 
@@ -570,6 +587,10 @@ func (s *Service) runTransformationExport(ctx context.Context, job domain.Entity
 	rowsExported := 0
 	totalCount := 0
 
+	rowBuffer := make([]string, len(columns))
+	const gcInterval = 500000
+	nextGCTrigger := gcInterval
+
 	for {
 		if ctx.Err() != nil {
 			return ctx.Err()
@@ -588,7 +609,7 @@ func (s *Service) runTransformationExport(ctx context.Context, job domain.Entity
 			break
 		}
 		pageOptions := domain.EntityTransformationExecutionOptions{Limit: limit, Offset: baseOffset + rowsExported}
-		result, err := s.transformationExecutor.Execute(ctx, *transformation, pageOptions)
+		result, err := s.transformationExecutor.ExecuteStreaming(ctx, *transformation, pageOptions)
 		if err != nil {
 			return fmt.Errorf("execute transformation: %w", err)
 		}
@@ -605,7 +626,7 @@ func (s *Service) runTransformationExport(ctx context.Context, job domain.Entity
 		if len(result.Records) == 0 {
 			break
 		}
-		rowBuffer := make([]string, len(columns))
+		batchSize := len(result.Records)
 		for _, record := range result.Records {
 			for i, column := range columns {
 				rowBuffer[i] = ""
@@ -617,6 +638,10 @@ func (s *Service) runTransformationExport(ctx context.Context, job domain.Entity
 				return fmt.Errorf("write transformation row: %w", err)
 			}
 			rowsExported++
+			if gcInterval > 0 && rowsExported >= nextGCTrigger {
+				runtime.GC()
+				nextGCTrigger += gcInterval
+			}
 		}
 		csvWriter.Flush()
 		if err := csvWriter.Error(); err != nil {
@@ -632,10 +657,22 @@ func (s *Service) runTransformationExport(ctx context.Context, job domain.Entity
 		if err := s.exportRepo.UpdateProgress(ctx, job.ID, rowsExported, counter.count, rowsPtr); err != nil {
 			return fmt.Errorf("update export progress: %w", err)
 		}
+		shouldBreak := false
 		if rowsTarget > 0 && rowsExported >= rowsTarget {
-			break
+			shouldBreak = true
 		}
-		if len(result.Records) < limit {
+		if !shouldBreak && batchSize < limit {
+			shouldBreak = true
+		}
+		for i := range result.Records {
+			// Release transformation batch memory promptly for streaming exports.
+			for alias := range result.Records[i].Entities {
+				result.Records[i].Entities[alias] = nil
+			}
+			result.Records[i].Entities = nil
+		}
+		result.Records = nil // Drop reference to transformation batch to allow GC.
+		if shouldBreak {
 			break
 		}
 	}
