@@ -19,13 +19,14 @@ RUN npm run build
 # Stage 2: Serve
 FROM nginx:stable-alpine
 
-# Copy the build output from the previous stage
-# Note: Vite defaults to the 'dist' folder. If you use 'build', change 'dist' to 'build'.
-COPY --from=build-stage /app/dist /usr/share/nginx/html
+# 1. Clean out the default Nginx files entirely
+RUN rm -rf /usr/share/nginx/html/*
 
-# Copy our custom nginx config
+# 2. Copy the CONTENTS of your build folder
+COPY --from=build-stage /app/dist/client /usr/share/nginx/html
+
+# 3. Copy config
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
-
 CMD ["nginx", "-g", "daemon off;"]
