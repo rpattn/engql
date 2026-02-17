@@ -6,7 +6,7 @@
     "dev": "vite dev --port 3000",
     "build": "vite build",
     "serve": "vite preview",
-    "start": "node dist/server/server.js",
+    "start": "node server-entry.js",
     "test": "vitest run",
     "codegen": "graphql-codegen --overwrite && node scripts/fixReactQueryV5.js"
   },
