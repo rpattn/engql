@@ -1,5 +1,5 @@
 # Stage 1: Build
-FROM node:20-alpine AS build-stage
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
@@ -9,24 +9,26 @@ RUN npm install
 
 # Copy source and build
 COPY . .
-
-# Pass the build argument from docker-compose to the environment
 ARG VITE_API_URL
 ENV VITE_API_URL=$VITE_API_URL
 
+# This creates the .output folder containing the server
 RUN npm run build
 
-# Stage 2: Serve
-FROM nginx:stable-alpine
+# Stage 2: Runtime
+FROM node:20-alpine
 
-# 1. Clean out the default Nginx files entirely
-RUN rm -rf /usr/share/nginx/html/*
+WORKDIR /app
 
-# 2. Copy the CONTENTS of your build folder
-COPY --from=build-stage /app/dist/client /usr/share/nginx/html
+# Only copy the build output and essential files
+COPY --from=builder /app/.output ./.output
+COPY --from=builder /app/package*.json ./
 
-# 3. Copy config
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# TanStack Start/Vinxi defaults to port 3000
+ENV PORT=3000
+ENV NODE_ENV=production
 
-EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
+EXPOSE 3000
+
+# Start the generated server
+CMD ["node", ".output/server/index.mjs"]
