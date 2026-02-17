@@ -45,7 +45,7 @@ services:
         # Locally, the browser needs to talk to the API on localhost
         - VITE_API_URL=http://api:8080
     ports:
-      - "3000:3000"
+      - "3010:3000"
     depends_on:
       - api
 
