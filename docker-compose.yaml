@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  # --- Backend API ---
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    restart: always
+    environment:
+      # These map to your updated Viper BindEnv calls
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-admin}
+      - DB_NAME=${DB_NAME:-engineering_api}
+      - DB_SSLMODE=disable
+    # Coolify will use the first port for the Public URL
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # --- Database ---
+  db:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-admin}
+      POSTGRES_DB: ${DB_NAME:-engineering_api}
+    volumes:
+      - engql_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-engineering_api}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # --- Frontend (TanStack) ---
+  web:
+    build:
+      context: ./engql_frontend
+      dockerfile: Dockerfile
+      args:
+        # Pass the public URL of your API to the frontend build
+        - VITE_API_URL=${VITE_API_URL}
+    restart: always
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+
+volumes:
+  engql_db_data:

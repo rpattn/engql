@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  # --- Backend API ---
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=admin
+      - DB_NAME=engineering_api_dev
+      - DB_SSLMODE=disable
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # --- Database ---
+  db:
+    image: postgres:15-alpine
+    ports:
+      - "5432:5432" # Exposed so you can connect from your host machine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: engineering_api_dev
+    volumes:
+      - dev_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # --- Frontend ---
+  web:
+    build:
+      context: ./engql_frontend
+      dockerfile: Dockerfile
+      args:
+        # Locally, the browser needs to talk to the API on localhost
+        - VITE_API_URL=http://localhost:8080
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+
+volumes:
+  dev_postgres_data:
