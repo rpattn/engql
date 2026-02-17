@@ -17,20 +17,16 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Copy entire dist folder
+# Copy the build output
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/package*.json ./
-
-# Install production deps only
-RUN npm install --omit=dev
-
-ENV PORT=3000
-ENV NODE_ENV=production
-
-EXPOSE 3000
+# COPY the server entry
+COPY server-entry.js ./
 
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOST=0.0.0.0
 
-CMD ["npm", "run", "start"]
+EXPOSE 3000
+
+CMD ["node", "server-entry.js"]
