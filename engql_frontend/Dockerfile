@@ -1,34 +1,31 @@
-# --- Build Stage ---
-FROM node:20-alpine AS builder
+# Stage 1: Build
+FROM node:20-alpine AS build-stage
+
 WORKDIR /app
 
+# Install dependencies
+COPY package*.json ./
+RUN npm install
+
+# Copy source and build
+COPY . .
+
+# Pass the build argument from docker-compose to the environment
 ARG VITE_API_URL
 ENV VITE_API_URL=$VITE_API_URL
 
-COPY package*.json ./
-RUN npm install
-COPY . .
 RUN npm run build
 
-# --- Serve Stage ---
-FROM nginx:alpine
+# Stage 2: Serve
+FROM nginx:stable-alpine
 
-# 1. Clean out Nginx defaults
-RUN rm -rf /usr/share/nginx/html/*
+# Copy the build output from the previous stage
+# Note: Vite defaults to the 'dist' folder. If you use 'build', change 'dist' to 'build'.
+COPY --from=build-stage /app/dist /usr/share/nginx/html
 
-# 2. Update the Nginx config to point to the "client" subfolder
-RUN echo 'server { \
-    listen 80; \
-    location / { \
-        root /usr/share/nginx/html/client; \
-        index index.html; \
-        try_files $uri $uri/ /index.html; \
-    } \
-}' > /etc/nginx/conf.d/default.conf
-
-# 3. Copy the ENTIRE dist folder 
-# (This keeps the structure you saw in your 'ls' command)
-COPY --from=builder /app/dist /usr/share/nginx/html
+# Copy our custom nginx config
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
+
 CMD ["nginx", "-g", "daemon off;"]
