@@ -21,7 +21,7 @@ FROM node:20-alpine
 WORKDIR /app
 
 # Only copy the build output and essential files
-COPY --from=builder /app/.output ./.output
+COPY --from=builder /app/dist ./.output
 COPY --from=builder /app/package*.json ./
 
 # TanStack Start/Vinxi defaults to port 3000
