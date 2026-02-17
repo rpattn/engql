@@ -20,15 +20,15 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Only copy the build output and essential files
-COPY --from=builder /app/dist ./.output
+# Copy the dist folder exactly as it is
+COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/package*.json ./
 
-# TanStack Start/Vinxi defaults to port 3000
+# Set the same production envs
 ENV PORT=3000
 ENV NODE_ENV=production
 
 EXPOSE 3000
 
-# Start the generated server
-CMD ["node", ".output/server/index.mjs"]
+# Run the file directly from the dist/server path
+CMD ["node", "dist/server/index.mjs"]
