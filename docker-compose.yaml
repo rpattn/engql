@@ -47,7 +47,7 @@ services:
     depends_on:
       - api
     ports:
-      - "3000:3000"   # Coolify will attach a domain here
+      - "3000"   # Coolify will attach a domain here
 
 volumes:
   engql_db_data:
