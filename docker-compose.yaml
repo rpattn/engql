@@ -1,23 +1,20 @@
 version: '3.8'
-
 services:
-  # --- Database ---
   db:
-    image: postgres:15-alpine
+    image: 'postgres:15-alpine'
     restart: always
     environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: '${DB_USER}'
+      POSTGRES_PASSWORD: '${DB_PASSWORD}'
+      POSTGRES_DB: '${DB_NAME}'
     volumes:
-      - engql_db_data:/var/lib/postgresql/data
+      - 'engql_db_data:/var/lib/postgresql/data'
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 5s
       timeout: 5s
       retries: 5
 
-  # --- Backend API ---
   api:
     build:
       context: .
@@ -26,28 +23,40 @@ services:
     environment:
       DB_HOST: db
       DB_PORT: 5432
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
-      DB_NAME: ${DB_NAME}
+      DB_USER: '${DB_USER}'
+      DB_PASSWORD: '${DB_PASSWORD}'
+      DB_NAME: '${DB_NAME}'
       DB_SSLMODE: disable
     depends_on:
       db:
         condition: service_healthy
     expose:
-      - "8080"
+      - '8080'
+    # These labels tell Coolify/Traefik to route domain.com/api to this container
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.api-router.rule=Host(`${DOMAIN}`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.api-router.service=api-service"
+      - "traefik.http.services.api-service.loadbalancer.server.port=8080"
+      - "traefik.http.middlewares.api-strip.stripprefix.prefixes=/api"
+      - "traefik.http.routers.api-router.middlewares=api-strip"
 
-  # --- Frontend ---
   web:
     build:
       context: ./engql_frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: ${VITE_API_URL}
+        # IMPORTANT: Point this to the subpath, not a full URL
+        VITE_API_URL: '/api'
     restart: always
     depends_on:
       - api
-    ports:
-      - "3000"   # Coolify will attach a domain here
+    expose:
+      - '3000'
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.web-router.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.services.web-service.loadbalancer.server.port=3000"
 
 volumes:
   engql_db_data:
