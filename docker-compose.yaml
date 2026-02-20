@@ -56,7 +56,7 @@ services:
       - '3000'
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.web-router.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.web-router.rule=Host(`${DOMAIN}`) && !PathPrefix(`/api`)"
       - "traefik.http.services.web-service.loadbalancer.server.port=3000"
 
 volumes:
