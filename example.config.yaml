@@ -8,3 +8,6 @@ database:
   name: "engineering_api"
   host: "localhost"
   port: 5432
+
+options:
+  enable_playground: true

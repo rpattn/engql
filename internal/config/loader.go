@@ -31,6 +31,7 @@ func LoadDBConfig(configPath string) (db.Config, error) {
 	_ = v.BindEnv("database.password", "DB_PASSWORD")
 	_ = v.BindEnv("database.dbname", "DB_NAME")
 	_ = v.BindEnv("database.sslmode", "DB_SSLMODE")
+	_ = v.BindEnv("options.enable_playground", "ENABLE_PLAYGROUND")
 
 	if err := v.ReadInConfig(); err != nil {
 		fmt.Println("No config.yaml found, using environment variables")
@@ -45,5 +46,7 @@ func LoadDBConfig(configPath string) (db.Config, error) {
 	if v.IsSet("database.dbname") { cfg.DBName = v.GetString("database.dbname") }
 	if v.IsSet("database.sslmode") { cfg.SSLMode = v.GetString("database.sslmode") }
 
+	if v.IsSet("options.enable_playground") { cfg.EnablePlayground = v.GetBool("options.enable_playground") }
+	
 	return cfg, nil
 }

@@ -111,20 +111,15 @@ func main() {
 	http.Handle("/exports", corsHandler.Handler(exportHandler))
 	http.Handle("/exports/", corsHandler.Handler(exportHandler))
 
-	http.Handle("/", corsHandler.Handler(
-		middleware.LoggingMiddleware(playground.Handler("GraphQL playground", "/query")),
-	))
-	http.Handle("/", corsHandler.Handler(
-		middleware.LoggingMiddleware(http.HandlerFunc(
-			func(w http.ResponseWriter, r *http.Request) {
-				// Only allow access if it's NOT coming through the 'api' hostname 
-				host := r.Host
-				if host == "engql.rpattn.co.uk" {
-					http.NotFound(w, r)
-					return
-				}
-				playground.Handler("GraphQL playground", "/query").ServeHTTP(w, r)
-	}))))
+	renderPlayground := dbCfg.EnablePlayground
+
+	http.Handle("/", corsHandler.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !renderPlayground {
+			http.NotFound(w, r)
+			return
+		}
+		playground.Handler("GraphQL playground", "/query").ServeHTTP(w, r)
+	})))
 
 	server := &http.Server{
 		Addr:         ":8080",
