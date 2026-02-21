@@ -39,41 +39,38 @@ app.use(fromNodeMiddleware(serveStatic(join(__dirname, 'dist', 'client'))));
 
 // 2. ENHANCED INBOUND SSR HANDLER
 app.use(eventHandler(async (event) => {
-  if (typeof handler !== 'function') {
-    console.error('Handler Error: Expected a function but found:', typeof handler);
-    return new Response('Server Configuration Error', { status: 500 });
-  }
+  const { req, res } = event.node;
+  const protocol = req.headers['x-forwarded-proto'] || 'http';
+  const url = new URL(req.url, `${protocol}://${req.headers.host}`);
 
-  const start = Date.now();
-  const { req } = event.node;
-
-  try {
-    const protocol = req.headers['x-forwarded-proto'] || 'http';
-    const host = req.headers.host;
-    const url = new URL(req.url, `${protocol}://${host}`);
+  // --- NEW: PROXY LOGIC ---
+  // If the request is for /api, proxy it to the Go backend container
+  if (url.pathname.startsWith('/api')) {
+    const targetPath = url.pathname.replace('/api', ''); // remove /api
+    const targetUrl = `http://api:8080${targetPath}${url.search}`;
     
-    // Log Inbound
-    console.log(`[SSR INBOUND] ${req.method} ${url.pathname}${url.search}`);
+    console.log(`[PROXY] Forwarding ${url.pathname} -> ${targetUrl}`);
 
-    const webRequest = new Request(url, {
-      method: req.method,
-      headers: req.headers,
-      body: ['GET', 'HEAD'].includes(req.method) ? undefined : req,
-      duplex: 'half', 
-    });
+    try {
+      const proxyResponse = await fetch(targetUrl, {
+        method: req.method,
+        headers: req.headers,
+        body: ['GET', 'HEAD'].includes(req.method) ? undefined : req,
+        duplex: 'half',
+      });
 
-    const response = await handler(webRequest);
-    const duration = Date.now() - start;
-
-    // Distinguish between successful SSR and errors
-    const statusIcon = response.status >= 400 ? '⚠️' : '✅';
-    console.log(`${statusIcon} [SSR RESPONSE] ${response.status} (${duration}ms)`);
-
-    return response;
-  } catch (error) {
-    console.error('🔥 [SSR CRITICAL ERROR]:', error);
-    return new Response('Internal Server Error', { status: 500 });
+      // Forward the status and headers back to the browser
+      return proxyResponse;
+    } catch (err) {
+      console.error(`[PROXY ERROR]:`, err.message);
+      return new Response('API Bridge Error', { status: 502 });
+    }
   }
+  // --- END PROXY LOGIC ---
+
+  // Handle SSR Requests (Your existing code)
+  console.log(`[SSR INBOUND] ${req.method} ${url.pathname}${url.search}`);
+  // ... rest of your handler code
 }));
 
 const port = process.env.PORT || 3010;

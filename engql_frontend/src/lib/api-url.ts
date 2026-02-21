@@ -1,26 +1,19 @@
 // src/lib/api-url.ts
 export const getApiBaseUrl = (path: string) => {
-  // Check if we are in a browser environment
-  const isBrowser = typeof window !== 'undefined';
+  const isServer = typeof window === 'undefined';
 
-  if (isBrowser) {
-    // Browser: Use relative path so Traefik handles the routing/stripping
-    return path;
+  if (isServer) {
+    /**
+     * SSR: Talk to the Go container directly over the Docker network.
+     * We MUST strip the /api prefix because the Go server 
+     * listens on /query, not /api/query.
+     */
+    const internalBase = 'http://api:8080';
+    const cleanPath = path.startsWith('/api') ? path.replace('/api', '') : path;
+    return `${internalBase}${cleanPath}`;
   }
 
-  // SSR (SERVER): We MUST use the absolute internal address
-  // Note: 'api' is the service name in your docker-compose
-  const internalBase = 'http://api:8080';
-  
-  // Strip '/api' because the internal Go server listens on /query (not /api/query)
-  const internalPath = path.startsWith('/api') 
-    ? path.replace('/api', '') 
-    : path;
-
-  const finalUrl = `${internalBase}${internalPath}`;
-
-  // This log will appear in your Coolify 'web' service logs
-  console.log(`[SSR Fetch] Path: ${path} -> Target: ${finalUrl}`);
-
-  return finalUrl;
+  // BROWSER: Use the relative path. 
+  // Our new Proxy in entry.js will catch this if Traefik fails.
+  return path;
 };
