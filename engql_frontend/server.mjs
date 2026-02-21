@@ -26,23 +26,33 @@ app.use(eventHandler(async (event) => {
     return new Response('Server Configuration Error', { status: 500 });
   }
 
+  const start = Date.now(); // Start timer
+  const { req } = event.node;
+
   try {
-    const request = event.node.req;
-    const protocol = request.headers['x-forwarded-proto'] || 'http';
-    const url = new URL(request.url, `${protocol}://${request.headers.host}`);
+    const protocol = req.headers['x-forwarded-proto'] || 'http';
+    const url = new URL(req.url, `${protocol}://${req.headers.host}`);
     
+    // Log the incoming request to the SSR server
+    console.log(`[SSR] ${req.method} ${url.pathname}${url.search}`);
+
     const webRequest = new Request(url, {
-      method: request.method,
-      headers: request.headers,
-      body: ['GET', 'HEAD'].includes(request.method) ? undefined : request,
+      method: req.method,
+      headers: req.headers,
+      body: ['GET', 'HEAD'].includes(req.method) ? undefined : req,
       duplex: 'half', 
     });
 
     // Call the TanStack Start handler
     const response = await handler(webRequest);
+
+    // Log the result of the SSR execution
+    const duration = Date.now() - start;
+    console.log(`[SSR] Response: ${response.status} (${duration}ms)`);
+
     return response;
   } catch (error) {
-    console.error('SSR Error:', error);
+    console.error('SSR Critical Error:', error);
     return new Response('Internal Server Error', { status: 500 });
   }
 }));
