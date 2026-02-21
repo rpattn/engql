@@ -1,6 +1,8 @@
 // src/lib/graphql.ts
 const GRAPHQL_ENDPOINT =
-  `${import.meta.env.VITE_API_URL}/query`;
+  typeof window === "undefined"
+    ? "http://api:8080/query"
+    : `${import.meta.env.VITE_API_URL}/query`;  
 
 type GraphQLResponse<T> = {
   data?: T;
