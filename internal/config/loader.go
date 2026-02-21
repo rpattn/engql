@@ -12,6 +12,7 @@ type Config struct {
 	Database         db.Config
 	EnablePlayground bool
 	ServerPort       string
+	InternalSecret   string
 }
 
 func LoadConfig(configPath string) (*Config, error) {
@@ -32,13 +33,13 @@ func LoadConfig(configPath string) (*Config, error) {
 	_ = v.BindEnv("database.sslmode", "DB_SSLMODE")
 
 	_ = v.BindEnv("options.enable_playground", "ENABLE_PLAYGROUND")
-
 	_ = v.BindEnv("server.port", "PORT")
+	_ = v.BindEnv("server.internal_secret", "INTERNAL_SECRET") 
 
-	// 4. Set Defaults
 	v.SetDefault("server.port", "8080")
 	v.SetDefault("database.sslmode", "disable")
 	v.SetDefault("options.enable_playground", false)
+	v.SetDefault("internal_secret", "change-me-in-prod") 
 
 	if err := v.ReadInConfig(); err != nil {
 		fmt.Printf("Note: No config.yaml found at %s, relying on defaults and environment variables\n", configPath)
@@ -57,6 +58,7 @@ func LoadConfig(configPath string) (*Config, error) {
 
 	cfg.EnablePlayground = v.GetBool("options.enable_playground")
 	cfg.ServerPort = v.GetString("server.port")
+	cfg.InternalSecret = v.GetString("internal_secret") 
 
 	if cfg.Database.Host == "" && v.GetString("DB_HOST") == "" {
 		fmt.Println("Warning: Database host is not set.")

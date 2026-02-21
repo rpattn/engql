@@ -72,6 +72,8 @@ func main() {
 		exportService,
 	)
 
+	internalAuth := middleware.InternalOnly(cfg.InternalSecret)
+
 	srv := handler.NewDefaultServer(graph.NewExecutableSchema(graph.Config{Resolvers: resolver}))
 	srv.Use(&middleware.ResolverLoggerExtension{})
 
@@ -105,11 +107,11 @@ func main() {
 		w.Write([]byte(`{"status":"ok"}`))
 	})
 
-	http.Handle("/query", corsHandler.Handler(graphqlHandler))
-	http.Handle("/ingestion", corsHandler.Handler(ingestionHandler))
-	http.Handle("/ingestion/", corsHandler.Handler(ingestionHandler))
-	http.Handle("/exports", corsHandler.Handler(exportHandler))
-	http.Handle("/exports/", corsHandler.Handler(exportHandler))
+    http.Handle("/query", corsHandler.Handler(internalAuth(graphqlHandler)))
+    http.Handle("/ingestion", corsHandler.Handler(internalAuth(ingestionHandler)))
+    http.Handle("/ingestion/", corsHandler.Handler(internalAuth(ingestionHandler)))
+    http.Handle("/exports", corsHandler.Handler(internalAuth(exportHandler)))
+    http.Handle("/exports/", corsHandler.Handler(internalAuth(exportHandler)))
 
 	renderPlayground := cfg.EnablePlayground
 
