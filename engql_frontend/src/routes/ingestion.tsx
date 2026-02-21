@@ -1,3 +1,5 @@
+import { getApiBaseUrl } from './api-url';
+
 import { createFileRoute, Outlet, useRouterState } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
@@ -124,8 +126,7 @@ const ENTITY_SCHEMA_QUERY = `
   }
 `;
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_URL?.replace(/\/$/, "") ?? "http://localhost:8080";
+const API_BASE_URL = getApiBaseUrl();
 
 export const Route = createFileRoute("/ingestion")({
   component: IngestionPage,
