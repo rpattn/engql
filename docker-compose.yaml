@@ -27,6 +27,8 @@ services:
       DB_PASSWORD: '${DB_PASSWORD}'
       DB_NAME: '${DB_NAME}'
       DB_SSLMODE: disable
+      INTERNAL_SECRET: '${INTERNAL_SECRET}'
+      ENABLE_PLAYGROUND: '${ENABLE_PLAYGROUND}'
     depends_on:
       db:
         condition: service_healthy
@@ -38,16 +40,6 @@ services:
       start_period: 5s
     expose:
       - '8080'
-    # These labels tell Coolify/Traefik to route domain.com/api to this container
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.engql-api.rule=Host(`engql.rpattn.co.uk`) && PathPrefix(`/api`)"
-      - "traefik.http.routers.engql-api.entrypoints=websecure"
-      - "traefik.http.routers.engql-api.tls=true"
-      - "traefik.http.routers.engql-api.priority=100" # High priority
-      - "traefik.http.routers.engql-api.middlewares=api-strip"
-      - "traefik.http.middlewares.api-strip.stripprefix.prefixes=/api"
-      - "traefik.http.services.engql-api-svc.loadbalancer.server.port=8080"
 
   web:
     build:
@@ -70,11 +62,9 @@ services:
       - '3000'
     labels:
       - "traefik.enable=true"
-      # This rule says: Handle this host, BUT ONLY if it DOES NOT start with /api
-      - "traefik.http.routers.engql-web.rule=Host(`engql.rpattn.co.uk`) && !PathPrefix(`/api`)"
+      - "traefik.http.routers.engql-web.rule=Host(`engql.rpattn.co.uk`)"
       - "traefik.http.routers.engql-web.entrypoints=websecure"
       - "traefik.http.routers.engql-web.tls=true"
-      - "traefik.http.routers.engql-web.priority=10" # Lower priority
       - "traefik.http.services.engql-web-svc.loadbalancer.server.port=3000"
 volumes:
   engql_db_data:
