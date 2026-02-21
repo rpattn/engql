@@ -1,19 +1,20 @@
-export const getApiUrl = (path: string) => {
-  const isBrowser = typeof window !== 'undefined';
+export const getApiBaseUrl = (path: string) => {
+  // path is expected to be like '/api/query' or '/api/ingestion'
   
-  // Ensure path starts with a slash
-  const cleanPath = path.startsWith('/') ? path : `/${path}`;
-
-  if (isBrowser) {
-    // Browser uses the relative path (e.g., /api/query)
-    // Traefik will handle the stripping.
-    return cleanPath;
+  if (typeof window !== 'undefined') {
+    // BROWSER: Return path as-is (e.g., /api/query)
+    // Traefik will strip the /api and forward to backend
+    return path;
   }
 
-  // SSR: Talk directly to Docker container 'api' on port 8080
-  // IMPORTANT: We must remove '/api' from the start of the path 
-  // because internal calls bypass the Traefik Stripper.
-  const internalPath = cleanPath.replace(/^\/api/, '');
+  // SSR (SERVER): Talk to container directly
+  // 1. Start with the internal service address
+  const internalBase = 'http://api:8080';
   
-  return `http://api:8080${internalPath}`;
+  // 2. Strip the '/api' prefix because internal calls bypass Traefik's stripper
+  const internalPath = path.startsWith('/api') 
+    ? path.replace('/api', '') 
+    : path;
+
+  return `${internalBase}${internalPath}`;
 };

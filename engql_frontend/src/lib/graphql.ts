@@ -1,7 +1,7 @@
 // src/lib/graphql.ts
 import { getApiBaseUrl } from './api-url';
 
-const GRAPHQL_ENDPOINT = `${getApiBaseUrl()}/query`;
+export const GRAPHQL_ENDPOINT = getApiBaseUrl('/api/query');
 
 type GraphQLResponse<T> = {
   data?: T;

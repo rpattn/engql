@@ -126,7 +126,7 @@ const ENTITY_SCHEMA_QUERY = `
   }
 `;
 
-const API_BASE_URL = getApiBaseUrl();
+const API_BASE_URL = getApiBaseUrl('/api');
 
 export const Route = createFileRoute("/ingestion")({
   component: IngestionPage,
