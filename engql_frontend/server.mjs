@@ -8,33 +8,52 @@ import { toNodeListener } from 'h3/node';
 // Import the build
 import * as serverModule from './dist/server/server.js';
 
-/** * TARGET THE FETCH PROPERTY
- * Based on your cat output, the export is { default: { fetch: Function } }
+/** * 1. GLOBAL OUTBOUND LOGGER
+ * This intercepts every 'fetch' call your SSR server makes.
+ * This will show us EXACTLY what URL getApiBaseUrl is producing.
  */
-const handler = serverModule.default?.fetch;
+const originalFetch = globalThis.fetch;
+globalThis.fetch = async (url, config) => {
+  const start = Date.now();
+  const method = config?.method || 'GET';
+  
+  console.log(`   ➡️  [OUTBOUND] ${method} ${url}`);
+  
+  try {
+    const response = await originalFetch(url, config);
+    const duration = Date.now() - start;
+    console.log(`   ⬅️  [OUTBOUND] ${response.status} ${url} (${duration}ms)`);
+    return response;
+  } catch (err) {
+    console.error(`   ❌ [OUTBOUND ERROR] ${method} ${url}:`, err.message);
+    throw err;
+  }
+};
 
+const handler = serverModule.default?.fetch;
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = createApp();
 
 // Serve Static Assets
 app.use(fromNodeMiddleware(serveStatic(join(__dirname, 'dist', 'client'))));
 
-// Handle SSR Requests
+// 2. ENHANCED INBOUND SSR HANDLER
 app.use(eventHandler(async (event) => {
   if (typeof handler !== 'function') {
     console.error('Handler Error: Expected a function but found:', typeof handler);
     return new Response('Server Configuration Error', { status: 500 });
   }
 
-  const start = Date.now(); // Start timer
+  const start = Date.now();
   const { req } = event.node;
 
   try {
     const protocol = req.headers['x-forwarded-proto'] || 'http';
-    const url = new URL(req.url, `${protocol}://${req.headers.host}`);
+    const host = req.headers.host;
+    const url = new URL(req.url, `${protocol}://${host}`);
     
-    // Log the incoming request to the SSR server
-    console.log(`[SSR] ${req.method} ${url.pathname}${url.search}`);
+    // Log Inbound
+    console.log(`[SSR INBOUND] ${req.method} ${url.pathname}${url.search}`);
 
     const webRequest = new Request(url, {
       method: req.method,
@@ -43,21 +62,21 @@ app.use(eventHandler(async (event) => {
       duplex: 'half', 
     });
 
-    // Call the TanStack Start handler
     const response = await handler(webRequest);
-
-    // Log the result of the SSR execution
     const duration = Date.now() - start;
-    console.log(`[SSR] Response: ${response.status} (${duration}ms)`);
+
+    // Distinguish between successful SSR and errors
+    const statusIcon = response.status >= 400 ? '⚠️' : '✅';
+    console.log(`${statusIcon} [SSR RESPONSE] ${response.status} (${duration}ms)`);
 
     return response;
   } catch (error) {
-    console.error('SSR Critical Error:', error);
+    console.error('🔥 [SSR CRITICAL ERROR]:', error);
     return new Response('Internal Server Error', { status: 500 });
   }
 }));
 
 const port = process.env.PORT || 3010;
 createServer(toNodeListener(app)).listen(port, () => {
-  console.log(`🚀 Server started at http://localhost:${port}`);
+  console.log(`\n🚀 SSR Server ready at http://localhost:${port}\n`);
 });
