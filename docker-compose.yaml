@@ -34,14 +34,14 @@ services:
       - '8080'
     # These labels tell Coolify/Traefik to route domain.com/api to this container
     labels:
-      - 'traefik.enable=true'
-      - 'traefik.http.routers.api-router.rule=Host(`engql.rpattn.co.uk`) && PathPrefix(`/api`)'
-      - 'traefik.http.routers.api-router.priority=1000'
-      - 'traefik.http.routers.api-router.entrypoints=web,websecure'
-      - 'traefik.http.routers.api-router.service=api-service'
-      - 'traefik.http.services.api-service.loadbalancer.server.port=8080'
-      - 'traefik.http.middlewares.api-strip.stripprefix.prefixes=/api'
-      - 'traefik.http.routers.api-router.middlewares=api-strip'
+      - "traefik.enable=true"
+      - "traefik.http.routers.engql-api.rule=Host(`engql.rpattn.co.uk`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.engql-api.entrypoints=websecure"
+      - "traefik.http.routers.engql-api.tls=true"
+      - "traefik.http.routers.engql-api.priority=100" # High priority
+      - "traefik.http.routers.engql-api.middlewares=api-strip"
+      - "traefik.http.middlewares.api-strip.stripprefix.prefixes=/api"
+      - "traefik.http.services.engql-api-svc.loadbalancer.server.port=8080"
 
   web:
     build:
@@ -56,8 +56,12 @@ services:
     expose:
       - '3000'
     labels:
-      - traefik.enable=true
-      - traefik.http.services.web-service.loadbalancer.server.port=3000
-
+      - "traefik.enable=true"
+      # This rule says: Handle this host, BUT ONLY if it DOES NOT start with /api
+      - "traefik.http.routers.engql-web.rule=Host(`engql.rpattn.co.uk`) && !PathPrefix(`/api`)"
+      - "traefik.http.routers.engql-web.entrypoints=websecure"
+      - "traefik.http.routers.engql-web.tls=true"
+      - "traefik.http.routers.engql-web.priority=10" # Lower priority
+      - "traefik.http.services.engql-web-svc.loadbalancer.server.port=3000"
 volumes:
   engql_db_data:
