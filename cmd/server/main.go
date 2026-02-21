@@ -25,58 +25,67 @@ import (
 )
 
 func main() {
-	// Create context
+	// 1. CONTEXT & SIGNAL HANDLING
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Setup database connection
+	// 2. DATABASE SETUP
 	dbCfg, err := config.LoadDBConfig(".")
 	if err != nil {
 		log.Fatalf("Failed to load DB config: %v", err)
 	}
+
 	conn, err := db.NewConnection(ctx, dbCfg)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 	defer conn.Close()
 
-	// --- Run migrations (once) ---
-	log.Println("Running database migrations...")
+	// 3. MIGRATIONS
+	log.Println("🔄 Running database migrations...")
 	if err := db.RunMigrations(conn.Pool, "./migrations"); err != nil {
 		log.Fatalf("Failed to run migrations: %v", err)
 	}
 	log.Println("Database migrations complete")
 
-	// Create sqlc queries instance
 	queries := db.New(conn.Pool)
 
-	// Create repositories
 	orgRepo := repository.NewOrganizationRepository(queries)
 	entitySchemaRepo := repository.NewEntitySchemaRepository(queries)
 	entityRepo := repository.NewEntityRepository(queries, conn.Pool)
 	entityJoinRepo := repository.NewEntityJoinRepository(queries, conn.Pool)
 	entityTransformationRepo := repository.NewEntityTransformationRepository(queries, conn.Pool)
 	exportRepo := repository.NewEntityExportRepository(queries)
-	transformationExecutor := transformations.NewExecutor(entityRepo, entitySchemaRepo)
 	ingestionLogRepo := repository.NewIngestionLogRepository(conn.Pool)
+
+	transformationExecutor := transformations.NewExecutor(entityRepo, entitySchemaRepo)
 	ingestionService := ingestion.NewService(entitySchemaRepo, entityRepo, ingestionLogRepo)
 	exportService := export.NewService(orgRepo, entitySchemaRepo, entityRepo, exportRepo, entityTransformationRepo)
 
-	// Create GraphQL resolver
-	resolver := graphql.NewResolver(orgRepo, entitySchemaRepo, entityRepo, entityJoinRepo, entityTransformationRepo, transformationExecutor, exportService)
+	resolver := graphql.NewResolver(
+		orgRepo,
+		entitySchemaRepo,
+		entityRepo,
+		entityJoinRepo,
+		entityTransformationRepo,
+		transformationExecutor,
+		exportService,
+	)
 
-	// Create GraphQL server
 	srv := handler.NewDefaultServer(graph.NewExecutableSchema(graph.Config{Resolvers: resolver}))
-
-	// Add the resolver logging extension
 	srv.Use(&middleware.ResolverLoggerExtension{})
 
-	// Setup CORS
 	corsHandler := cors.New(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:3000", "https://engql.rpattn.co.uk", "http://localhost:3010"},
+		AllowedOrigins: []string{
+			"https://engql.rpattn.co.uk",
+			"http://localhost:3000",
+			"http://localhost:3010",
+			"http://web:3000", // Internal Docker network origin
+		},
 		AllowCredentials: true,
-		AllowedMethods:   []string{"GET", "POST", "OPTIONS"},
+		AllowedMethods:   []string{"GET", "POST", "OPTIONS", "HEAD"},
 		AllowedHeaders:   []string{"*"},
+		Debug:            false, 
 	})
 
 	graphqlHandler := middleware.LoggingMiddleware(
@@ -89,18 +98,23 @@ func main() {
 		export.NewHTTPHandler(exportService),
 	)
 
+	// Health check (for Docker/Coolify health monitoring)
+	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status":"ok"}`))
+	})
+
 	http.Handle("/query", corsHandler.Handler(graphqlHandler))
 	http.Handle("/ingestion", corsHandler.Handler(ingestionHandler))
-	http.Handle("/ingestion/preview", corsHandler.Handler(ingestionHandler))
-	http.Handle("/ingestion/batches", corsHandler.Handler(ingestionHandler))
-	http.Handle("/ingestion/logs", corsHandler.Handler(ingestionHandler))
+	http.Handle("/ingestion/", corsHandler.Handler(ingestionHandler))
 	http.Handle("/exports", corsHandler.Handler(exportHandler))
-	http.Handle("/exports/batches", corsHandler.Handler(exportHandler))
-	http.Handle("/exports/logs", corsHandler.Handler(exportHandler))
-	http.Handle("/exports/files/", corsHandler.Handler(exportHandler))
-	http.Handle("/", corsHandler.Handler(middleware.LoggingMiddleware(playground.Handler("GraphQL playground", "/query"))))
+	http.Handle("/exports/", corsHandler.Handler(exportHandler))
 
-	// Create HTTP server
+	http.Handle("/", corsHandler.Handler(
+		middleware.LoggingMiddleware(playground.Handler("GraphQL playground", "/query")),
+	))
+
 	server := &http.Server{
 		Addr:         ":8080",
 		ReadTimeout:  15 * time.Second,
@@ -108,30 +122,27 @@ func main() {
 		IdleTimeout:  60 * time.Second,
 	}
 
-	// Start server in a goroutine
 	go func() {
-		log.Println("Starting GraphQL server on :8080")
-		log.Println("GraphQL playground available at http://localhost:8080")
-		log.Println("GraphQL endpoint available at http://localhost:8080/query")
-
+		log.Println("API Backend starting on :8080")
+		log.Println("Health check: http://localhost:8080/health")
+		log.Println("Playground:   http://localhost:8080/")
+		
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Failed to start server: %v", err)
 		}
 	}()
 
-	// Wait for interrupt signal to gracefully shutdown the server
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-	log.Println("Shutting down server...")
 
-	// Graceful shutdown with timeout
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	log.Println("Shutting down server...")
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
 
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		log.Fatalf("Server forced to shutdown: %v", err)
 	}
 
-	log.Println("Server exited")
+	log.Println("Server exited gracefully")
 }
