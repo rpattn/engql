@@ -1,4 +1,4 @@
-import { getApiBaseUrl } from './api-url';
+import { getApiBaseUrl } from "@/lib/api-url";
 
 import { createFileRoute, Outlet, useRouterState } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
