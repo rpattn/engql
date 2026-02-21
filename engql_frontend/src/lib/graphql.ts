@@ -1,7 +1,7 @@
 // src/lib/graphql.ts
 import { getApiBaseUrl } from './api-url';
 
-export const GRAPHQL_ENDPOINT = getApiBaseUrl('/api/query');
+export const getGraphqlEndpoint = () => getApiBaseUrl('/api/query');
 
 type GraphQLResponse<T> = {
   data?: T;
@@ -14,7 +14,7 @@ export async function graphqlRequest<TData, TVariables extends Record<string, un
   variables?: TVariables,
   headers?: RequestInit["headers"]
 ): Promise<TData> {
-  const response = await fetch(GRAPHQL_ENDPOINT, {
+  const response = await fetch(getGraphqlEndpoint(), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
