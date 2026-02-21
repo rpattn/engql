@@ -30,12 +30,12 @@ func main() {
 	defer cancel()
 
 	// 2. DATABASE SETUP
-	dbCfg, err := config.LoadDBConfig(".")
+	cfg, err := config.LoadConfig(".")
 	if err != nil {
 		log.Fatalf("Failed to load DB config: %v", err)
 	}
 
-	conn, err := db.NewConnection(ctx, dbCfg)
+	conn, err := db.NewConnection(ctx, cfg.Database)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
@@ -111,7 +111,7 @@ func main() {
 	http.Handle("/exports", corsHandler.Handler(exportHandler))
 	http.Handle("/exports/", corsHandler.Handler(exportHandler))
 
-	renderPlayground := dbCfg.EnablePlayground
+	renderPlayground := cfg.EnablePlayground
 
 	http.Handle("/", corsHandler.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !renderPlayground {
