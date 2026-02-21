@@ -37,6 +37,7 @@ services:
       - 'traefik.enable=true'
       - 'traefik.http.routers.api-router.rule=Host(`engql.rpattn.co.uk`) && PathPrefix(`/api`)'
       - 'traefik.http.routers.api-router.priority=1000'
+      - 'traefik.http.routers.api-router.entrypoints=web,websecure'
       - 'traefik.http.routers.api-router.service=api-service'
       - 'traefik.http.services.api-service.loadbalancer.server.port=8080'
       - 'traefik.http.middlewares.api-strip.stripprefix.prefixes=/api'
